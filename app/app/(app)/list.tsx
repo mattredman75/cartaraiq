@@ -389,6 +389,12 @@ export default function ListScreen() {
           </View>
         )}
 
+        {items.length === 0 && isLoading && (
+          <View style={{ alignItems: "center", marginTop: 60 }}>
+            <ActivityIndicator size="large" color={TEAL} />
+          </View>
+        )}
+
         {items.length === 0 && !isLoading && (
           <View style={{ alignItems: "center", marginTop: 60 }}>
             <Text style={{ fontSize: 52, marginBottom: 14 }}>🛒</Text>
@@ -640,6 +646,13 @@ export default function ListScreen() {
               color: TEXT,
             }}
           />
+          {addMutation.isPending && (
+            <ActivityIndicator
+              size="small"
+              color={TEAL}
+              style={{ marginRight: 4 }}
+            />
+          )}
           <VoiceAddButton
             onPress={handleAdd}
             onInterimTranscript={(text) => setInputText(text)}
