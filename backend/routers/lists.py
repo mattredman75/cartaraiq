@@ -8,7 +8,7 @@ from ..models.list_item import ListItem
 from ..models.shopping_list import ShoppingList
 from ..models.user import User
 from ..auth import get_current_user
-from ..services.prediction import get_frequency_candidates, get_smart_suggestions, invalidate_suggestions_cache
+from ..services.prediction import get_frequency_candidates, get_smart_suggestions
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -217,7 +217,6 @@ def add_item(
         existing.checked = False
         db.commit()
         db.refresh(existing)
-        invalidate_suggestions_cache(current_user.id, list_id)
         return existing
 
     # Assign sort_order as one beyond current max (so new items go to bottom)
@@ -238,7 +237,6 @@ def add_item(
     db.add(item)
     db.commit()
     db.refresh(item)
-    invalidate_suggestions_cache(current_user.id, list_id)
     return item
 
 
@@ -268,8 +266,6 @@ def update_item(
 
     db.commit()
     db.refresh(item)
-    if payload.checked is not None:
-        invalidate_suggestions_cache(current_user.id, item.list_id)
     return item
 
 
@@ -287,10 +283,8 @@ def delete_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found.")
 
-    list_id = item.list_id
     db.delete(item)
     db.commit()
-    invalidate_suggestions_cache(current_user.id, list_id)
 
 
 @router.put("/items/reorder", status_code=204)
