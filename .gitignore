@@ -11,3 +11,4 @@ dist/
 *.egg-info/
 credentials.json
 token.json
+logs/*.log
