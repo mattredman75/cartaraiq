@@ -1,0 +1,13 @@
+.env
+.tmp/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+node_modules/
+.expo/
+dist/
+*.egg-info/
+credentials.json
+token.json
