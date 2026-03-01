@@ -15,4 +15,4 @@ export const COLORS = {
 };
 
 export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.25.126:8000";
+  process.env.EXPO_PUBLIC_API_URL ?? "https://api.cartaraiq.app";
