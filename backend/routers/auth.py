@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from ..database import get_db
 from ..models.user import User
+from ..models.shopping_list import ShoppingList
 from ..auth import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -48,6 +49,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    default_list = ShoppingList(user_id=user.id, name="My List")
+    db.add(default_list)
+    db.commit()
 
     token = create_access_token({"sub": user.id})
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
