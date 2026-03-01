@@ -14,12 +14,21 @@ list items are mutated (add, update, delete). A 1-hour TTL acts as a fallback.
 
 from datetime import datetime, timezone
 from typing import Optional
+import logging
 import time
 import json
 import anthropic
 from sqlalchemy.orm import Session
 from ..models.list_item import ListItem
 from ..config import settings
+
+logger = logging.getLogger(__name__)
+
+# Haiku 4.5 pricing in USD per 1M tokens — update if Anthropic changes rates
+# https://www.anthropic.com/pricing
+_INPUT_PRICE_PER_1M = 0.80
+_OUTPUT_PRICE_PER_1M = 4.00
+_CONTEXT_WINDOW = 200_000
 
 # ── Suggestion cache ──────────────────────────────────────────────────────────
 
@@ -131,6 +140,16 @@ Respond with a JSON array only, no other text. Format:
 [{{"name": "item name", "reason": "short reason"}}, ...]""",
                 }
             ],
+        )
+        u = message.usage
+        in_tok, out_tok = u.input_tokens, u.output_tokens
+        cost = (in_tok / 1_000_000 * _INPUT_PRICE_PER_1M) + (out_tok / 1_000_000 * _OUTPUT_PRICE_PER_1M)
+        logger.info(
+            "Claude [%s] | in=%d out=%d total=%d | ctx=%.2f%% of %dk | est=$%.5f",
+            message.model,
+            in_tok, out_tok, in_tok + out_tok,
+            (in_tok / _CONTEXT_WINDOW) * 100, _CONTEXT_WINDOW // 1000,
+            cost,
         )
         text = message.content[0].text.strip()
         if text.startswith("```"):

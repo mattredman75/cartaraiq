@@ -40,7 +40,7 @@ export default function LoginScreen() {
       await setItem('auth_user', JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? 'Invalid email or password.');
+      setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
     } finally {
       setLoading(false);
     }
