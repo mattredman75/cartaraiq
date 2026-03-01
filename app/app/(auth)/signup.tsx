@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
+import { setItem } from '../../lib/storage';
 import { authRegister } from '../../lib/api';
 import { useAuthStore } from '../../lib/store';
 import { COLORS } from '../../lib/constants';
@@ -37,8 +37,8 @@ export default function SignupScreen() {
     try {
       const res = await authRegister(email, password, name);
       const { access_token, user } = res.data;
-      await SecureStore.setItemAsync('auth_token', access_token);
-      await SecureStore.setItemAsync('auth_user', JSON.stringify(user));
+      await setItem('auth_token', access_token);
+      await setItem('auth_user', JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
       setError(e.response?.data?.detail ?? 'Something went wrong. Please try again.');

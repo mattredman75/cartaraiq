@@ -22,7 +22,7 @@ import DraggableFlatList, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as SecureStore from "expo-secure-store";
+import { getItem, setItem, deleteItem } from "../../lib/storage";
 import { useAuthStore, useListStore } from "../../lib/store";
 import {
   fetchListItems,
@@ -67,7 +67,7 @@ const DISMISS_DAYS = 7;
 
 async function getDismissed(userId: string): Promise<Record<string, number>> {
   try {
-    const raw = await SecureStore.getItemAsync(`dismissed_${userId}`);
+    const raw = await getItem(`dismissed_${userId}`);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -76,7 +76,7 @@ async function getDismissed(userId: string): Promise<Record<string, number>> {
 
 async function saveDismissed(userId: string, map: Record<string, number>) {
   try {
-    await SecureStore.setItemAsync(`dismissed_${userId}`, JSON.stringify(map));
+    await setItem(`dismissed_${userId}`, JSON.stringify(map));
   } catch {}
 }
 
@@ -129,7 +129,7 @@ export default function ListScreen() {
 
   // Load persisted AI toggle
   useEffect(() => {
-    SecureStore.getItemAsync("ai_suggestions_enabled").then((val) => {
+    getItem("ai_suggestions_enabled").then((val) => {
       if (val === "0") setAiEnabled(false);
     });
   }, []);
@@ -1017,7 +1017,7 @@ export default function ListScreen() {
                 value={aiEnabled}
                 onValueChange={(val) => {
                   setAiEnabled(val);
-                  SecureStore.setItemAsync("ai_suggestions_enabled", val ? "1" : "0");
+                  setItem("ai_suggestions_enabled", val ? "1" : "0");
                 }}
                 trackColor={{ false: BORDER, true: TEAL }}
                 thumbColor="#fff"
@@ -1035,8 +1035,8 @@ export default function ListScreen() {
             <TouchableOpacity
               onPress={async () => {
                 setShowSettings(false);
-                await SecureStore.deleteItemAsync("auth_token");
-                await SecureStore.deleteItemAsync("auth_user");
+                await deleteItem("auth_token");
+                await deleteItem("auth_user");
                 clearAuth();
                 router.replace("/(auth)/welcome" as any);
               }}

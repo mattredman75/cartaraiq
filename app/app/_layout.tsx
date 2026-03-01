@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '../lib/storage';
 import {
   useFonts,
   Montserrat_400Regular,
@@ -26,8 +26,8 @@ function AuthGate() {
 
   useEffect(() => {
     (async () => {
-      const storedToken = await SecureStore.getItemAsync('auth_token');
-      const storedUser = await SecureStore.getItemAsync('auth_user');
+      const storedToken = await getItem('auth_token');
+      const storedUser = await getItem('auth_user');
       if (storedToken && storedUser) {
         setAuth(storedToken, JSON.parse(storedUser));
       }

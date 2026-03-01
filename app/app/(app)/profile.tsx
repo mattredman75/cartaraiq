@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { deleteItem } from '../../lib/storage';
 import { useAuthStore } from '../../lib/store';
 import { COLORS } from '../../lib/constants';
 import { useState } from 'react';
@@ -27,8 +27,8 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await SecureStore.deleteItemAsync('auth_token');
-          await SecureStore.deleteItemAsync('auth_user');
+          await deleteItem('auth_token');
+          await deleteItem('auth_user');
           clearAuth();
         },
       },
