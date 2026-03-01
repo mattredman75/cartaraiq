@@ -1,10 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database import engine, Base
-from .models import User, ShoppingList, ListItem
 from .routers import auth, lists, products
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CartaraIQ API", version="1.0.0")
 
