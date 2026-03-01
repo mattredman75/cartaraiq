@@ -56,7 +56,8 @@ async def run_asgi(scope, body):
 
 def application(environ, start_response):
     scope = make_scope(environ)
-    body = environ['wsgi.input'].read()
+    content_length = int(environ.get('CONTENT_LENGTH') or 0)
+    body = environ['wsgi.input'].read(content_length) if content_length > 0 else b''
     status_code, headers, body_bytes = asyncio.run(run_asgi(scope, body))
     status_str = f"{status_code} {STATUS_PHRASES.get(status_code, 'Unknown')}"
     response_headers = [(k.decode('latin-1'), v.decode('latin-1')) for k, v in headers]
