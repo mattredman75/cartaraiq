@@ -8,7 +8,7 @@ from ..models.list_item import ListItem
 from ..models.shopping_list import ShoppingList
 from ..models.user import User
 from ..auth import get_current_user
-from ..services.prediction import get_frequency_candidates, get_ai_suggestions, invalidate_suggestions_cache
+from ..services.prediction import get_frequency_candidates, get_smart_suggestions, invalidate_suggestions_cache
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -320,5 +320,5 @@ def get_suggestions(
         default = get_or_create_default_list(db, current_user.id)
         list_id = default.id
     candidates = get_frequency_candidates(db, current_user.id, list_id=list_id)
-    suggestions = get_ai_suggestions(candidates, current_user.id, list_id)
+    suggestions = get_smart_suggestions(candidates, current_user.id, list_id, db)
     return suggestions
