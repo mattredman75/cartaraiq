@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -14,7 +14,7 @@ class ListItem(Base):
     name = Column(String(255), nullable=False)
     quantity = Column(Integer, default=1)
     unit = Column(String(50), nullable=True)
-    checked = Column(Boolean, default=False)
+    checked = Column(Integer, default=0)  # 0=active, 1=done, 2=soft-deleted
     sort_order = Column(Integer, nullable=True)
     times_added = Column(Integer, default=1)
     last_added_at = Column(DateTime(timezone=True), server_default=func.now())

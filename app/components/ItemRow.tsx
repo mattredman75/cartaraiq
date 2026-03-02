@@ -205,18 +205,18 @@ export function ItemRow({
               <View style={{
                 width: 26, height: 26, borderRadius: 13,
                 borderWidth: 2,
-                borderColor: item.checked ? TEAL : BORDER,
-                backgroundColor: item.checked ? TEAL : 'transparent',
+                borderColor: item.checked === 1 ? TEAL : BORDER,
+                backgroundColor: item.checked === 1 ? TEAL : 'transparent',
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                {item.checked && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>✓</Text>}
+                {item.checked === 1 && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>✓</Text>}
               </View>
 
               <View style={{ flex: 1 }}>
                 <Text style={{
                   fontSize: 15, fontWeight: '600',
-                  color: item.checked ? MUTED : TEXT,
-                  textDecorationLine: item.checked ? 'line-through' : 'none',
+                  color: item.checked === 1 ? MUTED : TEXT,
+                  textDecorationLine: item.checked === 1 ? 'line-through' : 'none',
                 }}>
                   {item.name}
                 </Text>

@@ -37,7 +37,7 @@ class ListItemOut(BaseModel):
     name: str
     quantity: int
     unit: Optional[str]
-    checked: bool
+    checked: int  # 0=active, 1=done, 2=soft-deleted
     sort_order: Optional[int]
     times_added: int
 
@@ -55,7 +55,7 @@ class AddItemRequest(BaseModel):
 class UpdateItemRequest(BaseModel):
     name: Optional[str] = None
     quantity: Optional[int] = None
-    checked: Optional[bool] = None
+    checked: Optional[int] = None  # 0=active, 1=done, 2=soft-deleted
     sort_order: Optional[int] = None
 
 
@@ -163,7 +163,11 @@ def get_list(
     from sqlalchemy import case
     items = (
         db.query(ListItem)
-        .filter(ListItem.user_id == current_user.id, ListItem.list_id == list_id)
+        .filter(
+            ListItem.user_id == current_user.id,
+            ListItem.list_id == list_id,
+            ListItem.checked != 2,
+        )
         .order_by(
             ListItem.checked,
             case((ListItem.sort_order == None, 1), else_=0),
@@ -214,7 +218,7 @@ def add_item(
         existing.last_added_at = now
         existing.avg_days_between_adds = new_avg
         existing.quantity = payload.quantity
-        existing.checked = False
+        existing.checked = 0
         db.commit()
         db.refresh(existing)
         return existing

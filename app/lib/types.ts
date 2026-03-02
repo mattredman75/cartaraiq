@@ -2,7 +2,7 @@ export interface ListItem {
   id: string;
   name: string;
   quantity: number;
-  checked: boolean;
+  checked: number; // 0=active, 1=done, 2=soft-deleted
   sort_order: number | null;
   times_added: number;
 }

@@ -28,7 +28,6 @@ import {
   fetchListItems,
   addListItem,
   updateListItem,
-  deleteListItem,
   fetchSuggestions,
   fetchShoppingLists,
   createShoppingList,
@@ -193,7 +192,7 @@ export default function ListScreen() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, checked }: { id: string; checked: boolean }) =>
+    mutationFn: ({ id, checked }: { id: string; checked: number }) =>
       updateListItem(id, { checked }),
     onMutate: ({ id, checked }) => {
       qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) =>
@@ -204,7 +203,7 @@ export default function ListScreen() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteListItem(id),
+    mutationFn: (id: string) => updateListItem(id, { checked: 2 }),
     onMutate: (id) => {
       qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) =>
         old.filter((it) => it.id !== id),
@@ -326,10 +325,10 @@ export default function ListScreen() {
   };
 
   const unchecked = React.useMemo(
-    () => items.filter((i) => !i.checked),
+    () => items.filter((i) => i.checked === 0),
     [items],
   );
-  const checked = React.useMemo(() => items.filter((i) => i.checked), [items]);
+  const checked = React.useMemo(() => items.filter((i) => i.checked === 1), [items]);
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   const getGreeting = () => {
@@ -347,7 +346,7 @@ export default function ListScreen() {
     <ItemRow
       item={item}
       onToggle={() =>
-        toggleMutation.mutate({ id: item.id, checked: !item.checked })
+        toggleMutation.mutate({ id: item.id, checked: item.checked === 0 ? 1 : 0 })
       }
       onDelete={() => handleDelete(item.id)}
       onLongPress={() => handleLongPress(item)}
@@ -379,7 +378,7 @@ export default function ListScreen() {
                   key={item.id}
                   item={item}
                   onToggle={() =>
-                    toggleMutation.mutate({ id: item.id, checked: false })
+                    toggleMutation.mutate({ id: item.id, checked: 0 })
                   }
                   onDelete={() => handleDelete(item.id)}
                   onLongPress={() => handleLongPress(item)}

@@ -45,6 +45,18 @@ def run() -> None:
                 ADD COLUMN IF NOT EXISTS sort_order INTEGER
         """))
 
+        # 4. Convert checked from Boolean to Integer (no-op if already integer)
+        col_type = conn.execute(text("""
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = 'list_items' AND column_name = 'checked'
+        """)).scalar()
+        if col_type and col_type.lower() == 'boolean':
+            conn.execute(text("""
+                ALTER TABLE list_items
+                    ALTER COLUMN checked TYPE INTEGER
+                    USING CASE WHEN checked THEN 1 ELSE 0 END
+            """))
+
         conn.commit()
 
     print("Migration complete.")
