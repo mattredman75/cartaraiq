@@ -16,7 +16,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.cartaraiq.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Allow CartaraIQ to use the microphone for adding items by voice.",
+        "NSSpeechRecognitionUsageDescription": "Allow CartaraIQ to recognize speech to add items to your list."
       }
     },
     "android": {
