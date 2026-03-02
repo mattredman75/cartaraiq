@@ -45,10 +45,11 @@ import { DragPlaceholder } from "../../components/DragPlaceholder";
 import { NoListsEmptyState } from "../../components/NoListsEmptyState";
 import { SwipeableListItem } from "../../components/SwipeableListItem";
 import { VoiceAddButton } from "../../components/VoiceAddButton";
+import { LinearGradient } from "expo-linear-gradient";
 
 const TEAL = "#1B6B7A";
 const TEAL_DARK = "#0D4F5C";
-const BG = "#F5F9FA";
+const BG = "#DDE4E7";
 const CARD = "#FFFFFF";
 const TEXT = "#1A1A2E";
 const MUTED = "#64748B";
@@ -100,6 +101,7 @@ export default function ListScreen() {
   const [newListName, setNewListName] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
+  const [pairingEnabled, setPairingEnabled] = useState(true);
   // Long-press-to-edit item state
   const [editItem, setEditItem] = useState<ListItem | null>(null);
   const [editName, setEditName] = useState("");
@@ -145,6 +147,9 @@ export default function ListScreen() {
   useEffect(() => {
     getItem("ai_suggestions_enabled").then((val) => {
       if (val === "0") setAiEnabled(false);
+    });
+    getItem("pairing_suggestions_enabled").then((val) => {
+      if (val === "0") setPairingEnabled(false);
     });
   }, []);
 
@@ -196,7 +201,7 @@ export default function ListScreen() {
   const { data: rawRecipeSuggestions = [] } = useQuery<Suggestion[]>({
     queryKey: ["recipeSuggestions", listId],
     queryFn: () => fetchRecipeSuggestions(listId).then((r) => r.data),
-    enabled: !!listId && aiEnabled,
+    enabled: !!listId && aiEnabled && pairingEnabled,
     staleTime: 1000 * 60 * 30,
   });
 
@@ -228,7 +233,7 @@ export default function ListScreen() {
     : [];
 
   // Filter recipe suggestions: exclude dismissed and items already on list
-  const recipeSuggestions = aiEnabled
+  const recipeSuggestions = aiEnabled && pairingEnabled
     ? rawRecipeSuggestions.filter(
         (s) =>
           !(dismissedUntil[s.name] && dismissedUntil[s.name] > Date.now()) &&
@@ -237,6 +242,12 @@ export default function ListScreen() {
           ),
       )
     : [];
+
+  // Combined suggestion strip (AI first, then pairing)
+  const allSuggestions = [
+    ...suggestions.map((s) => ({ ...s, _type: "ai" as const })),
+    ...recipeSuggestions.map((s) => ({ ...s, _type: "recipe" as const })),
+  ];
 
   const addMutation = useMutation({
     mutationFn: ({ name, qty }: { name: string; qty: number }) =>
@@ -466,7 +477,7 @@ export default function ListScreen() {
             >
               DONE ({checked.length})
             </Text>
-            <View style={{ gap: 8 }}>
+            <View>
               {checked.map((item) => (
                 <ItemRow
                   key={item.id}
@@ -914,8 +925,8 @@ export default function ListScreen() {
               onMomentumScrollEnd={() => setIsScrolling(false)}
               ListHeaderComponent={() => (
                 <>
-                  {/* AI Suggestions */}
-                  {suggestions.length > 0 && (
+                  {/* Suggestions */}
+                  {allSuggestions.length > 0 && (
                     <View style={{ marginTop: 20 }}>
                       <Text
                         style={{
@@ -927,7 +938,7 @@ export default function ListScreen() {
                           letterSpacing: 0.8,
                         }}
                       >
-                        ✨ AI SUGGESTIONS
+                        SUGGESTIONS
                       </Text>
                       <ScrollView
                         horizontal
@@ -937,7 +948,7 @@ export default function ListScreen() {
                           gap: 10,
                         }}
                       >
-                        {suggestions.map((s, i) => (
+                        {allSuggestions.map((s, i) => (
                           <View
                             key={i}
                             style={{
@@ -991,108 +1002,11 @@ export default function ListScreen() {
                               </Text>
                             </View>
                             <TouchableOpacity
-                              onPress={() => handleAddSuggestion(s.name)}
-                              style={{
-                                backgroundColor: TEAL,
-                                borderRadius: 8,
-                                paddingVertical: 6,
-                                alignItems: "center",
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  color: "#fff",
-                                  fontSize: 12,
-                                  fontWeight: "600",
-                                }}
-                              >
-                                + Add
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-
-                  {/* Recipe Suggestions */}
-                  {recipeSuggestions.length > 0 && (
-                    <View style={{ marginTop: 20 }}>
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: "700",
-                          color: MUTED,
-                          marginBottom: 12,
-                          paddingHorizontal: 20,
-                          letterSpacing: 0.8,
-                        }}
-                      >
-                        🍽 PAIRS WELL WITH YOUR LIST
-                      </Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{
-                          paddingHorizontal: 20,
-                          gap: 10,
-                        }}
-                      >
-                        {recipeSuggestions.map((s, i) => (
-                          <View
-                            key={i}
-                            style={{
-                              backgroundColor: CARD,
-                              borderRadius: 16,
-                              padding: 14,
-                              width: 148,
-                              height: 140,
-                              borderWidth: 1,
-                              borderColor: BORDER,
-                              justifyContent: "space-between",
-                              ...shadow,
-                            }}
-                          >
-                            <TouchableOpacity
-                              onPress={() => handleDismissSuggestion(s.name)}
-                              hitSlop={{ top: 8, right: 8, bottom: 4, left: 4 }}
-                              style={{ position: "absolute", top: 8, right: 8 }}
-                            >
-                              <Text
-                                style={{
-                                  fontSize: 12,
-                                  color: MUTED,
-                                  fontWeight: "700",
-                                }}
-                              >
-                                ✕
-                              </Text>
-                            </TouchableOpacity>
-                            <View>
-                              <Text
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: "700",
-                                  color: TEXT,
-                                  marginBottom: 4,
-                                  paddingRight: 16,
-                                }}
-                              >
-                                {s.name}
-                              </Text>
-                              <Text
-                                style={{
-                                  fontSize: 11,
-                                  color: MUTED,
-                                  lineHeight: 15,
-                                }}
-                                numberOfLines={2}
-                              >
-                                {s.reason}
-                              </Text>
-                            </View>
-                            <TouchableOpacity
-                              onPress={() => handleAddRecipeSuggestion(s.name)}
+                              onPress={() =>
+                                s._type === "ai"
+                                  ? handleAddSuggestion(s.name)
+                                  : handleAddRecipeSuggestion(s.name)
+                              }
                               style={{
                                 backgroundColor: TEAL,
                                 borderRadius: 8,
@@ -1153,23 +1067,10 @@ export default function ListScreen() {
                 opacity: gradientOpacity,
               }}
             >
-              {Array.from({ length: 16 }, (_, i) => {
-                const t = i / 15;
-                const opacity = Math.pow(t, 1.6) * 0.97;
-                return (
-                  <View
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      bottom: (1 - t) * 180,
-                      height: 180 / 15 + 1,
-                      backgroundColor: `rgba(245,249,250,${opacity.toFixed(3)})`,
-                    }}
-                  />
-                );
-              })}
+              <LinearGradient
+                colors={["transparent", BG]}
+                style={{ flex: 1 }}
+              />
             </Animated.View>
           </View>
         )}
@@ -1387,6 +1288,39 @@ export default function ListScreen() {
                 onValueChange={(val) => {
                   setAiEnabled(val);
                   setItem("ai_suggestions_enabled", val ? "1" : "0");
+                }}
+                trackColor={{ false: BORDER, true: TEAL }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {/* Pairing suggestions toggle */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+                opacity: aiEnabled ? 1 : 0.4,
+              }}
+            >
+              <View>
+                <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                  Pairing Suggestions
+                </Text>
+                <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
+                  Ingredients that pair with your list
+                </Text>
+              </View>
+              <Switch
+                value={pairingEnabled && aiEnabled}
+                disabled={!aiEnabled}
+                onValueChange={(val) => {
+                  setPairingEnabled(val);
+                  setItem("pairing_suggestions_enabled", val ? "1" : "0");
                 }}
                 trackColor={{ false: BORDER, true: TEAL }}
                 thumbColor="#fff"
