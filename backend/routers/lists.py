@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -8,8 +9,10 @@ from ..models.list_item import ListItem
 from ..models.shopping_list import ShoppingList
 from ..models.user import User
 from ..auth import get_current_user
+from ..config import settings
 from ..services.prediction import get_frequency_candidates, get_smart_suggestions
 from ..services.recipe_suggestions import get_recipe_suggestions, warm_ingredient_pairings
+from ..services.nl_parser import parse_shopping_input
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -53,6 +56,11 @@ class AddItemRequest(BaseModel):
     list_id: Optional[str] = None
 
 
+class BulkAddRequest(BaseModel):
+    text: str
+    list_id: Optional[str] = None
+
+
 class UpdateItemRequest(BaseModel):
     name: Optional[str] = None
     quantity: Optional[int] = None
@@ -82,6 +90,74 @@ def get_or_create_default_list(db: Session, user_id: str) -> ShoppingList:
         db.commit()
         db.refresh(lst)
     return lst
+
+
+# ── Helper: add or update a single item ──────────────────────────────────────
+
+def _add_single_item(
+    db: Session,
+    background_tasks: BackgroundTasks,
+    user_id: str,
+    list_id: str,
+    name: str,
+    quantity: int,
+    unit: Optional[str],
+) -> ListItem:
+    now = datetime.now(timezone.utc)
+
+    existing = (
+        db.query(ListItem)
+        .filter(
+            ListItem.user_id == user_id,
+            ListItem.list_id == list_id,
+            ListItem.name.ilike(name),
+        )
+        .first()
+    )
+
+    min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
+        ListItem.user_id == user_id,
+        ListItem.list_id == list_id,
+        ListItem.checked == 0,
+    ).scalar()
+    top_order = (min_order - 1) if min_order is not None else 0
+
+    if existing:
+        days_since = 0
+        if existing.last_added_at:
+            last = existing.last_added_at
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            days_since = (now - last).total_seconds() / 86400
+
+        prev_avg = existing.avg_days_between_adds or days_since
+        n = existing.times_added
+        new_avg = ((prev_avg * (n - 1)) + days_since) / n if n > 1 else days_since
+
+        existing.times_added += 1
+        existing.last_added_at = now
+        existing.avg_days_between_adds = new_avg
+        existing.quantity = quantity
+        existing.checked = 0
+        existing.sort_order = top_order
+        db.commit()
+        db.refresh(existing)
+        background_tasks.add_task(warm_ingredient_pairings, name)
+        return existing
+
+    item = ListItem(
+        user_id=user_id,
+        list_id=list_id,
+        name=name,
+        quantity=quantity,
+        unit=unit,
+        sort_order=top_order,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    background_tasks.add_task(warm_ingredient_pairings, name)
+    return item
 
 
 # ── Shopping list CRUD ────────────────────────────────────────────────────────
@@ -207,67 +283,42 @@ def add_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    now = datetime.now(timezone.utc)
-
     list_id = payload.list_id
     if not list_id:
         default = get_or_create_default_list(db, current_user.id)
         list_id = default.id
 
-    existing = (
-        db.query(ListItem)
-        .filter(
-            ListItem.user_id == current_user.id,
-            ListItem.list_id == list_id,
-            ListItem.name.ilike(payload.name),
+    return _add_single_item(
+        db, background_tasks, current_user.id, list_id,
+        payload.name, payload.quantity, payload.unit,
+    )
+
+
+# NOTE: /items/bulk must be defined before /items/{item_id} to prevent FastAPI
+# from matching the literal string "bulk" as an item_id path parameter.
+@router.post("/items/bulk", response_model=list[ListItemOut], status_code=201)
+def bulk_add_items(
+    payload: BulkAddRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    list_id = payload.list_id
+    if not list_id:
+        default = get_or_create_default_list(db, current_user.id)
+        list_id = default.id
+
+    parsed = parse_shopping_input(payload.text, settings.groq_api_key)
+
+    results = []
+    for parsed_item in parsed:
+        item = _add_single_item(
+            db, background_tasks, current_user.id, list_id,
+            parsed_item["name"], parsed_item["quantity"], parsed_item.get("unit"),
         )
-        .first()
-    )
+        results.append(item)
 
-    from sqlalchemy import func as sqlfunc
-    min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
-        ListItem.user_id == current_user.id,
-        ListItem.list_id == list_id,
-        ListItem.checked == 0,
-    ).scalar()
-    top_order = (min_order - 1) if min_order is not None else 0
-
-    if existing:
-        days_since = 0
-        if existing.last_added_at:
-            last = existing.last_added_at
-            if last.tzinfo is None:
-                last = last.replace(tzinfo=timezone.utc)
-            days_since = (now - last).total_seconds() / 86400
-
-        prev_avg = existing.avg_days_between_adds or days_since
-        n = existing.times_added
-        new_avg = ((prev_avg * (n - 1)) + days_since) / n if n > 1 else days_since
-
-        existing.times_added += 1
-        existing.last_added_at = now
-        existing.avg_days_between_adds = new_avg
-        existing.quantity = payload.quantity
-        existing.checked = 0
-        existing.sort_order = top_order
-        db.commit()
-        db.refresh(existing)
-        background_tasks.add_task(warm_ingredient_pairings, payload.name)
-        return existing
-
-    item = ListItem(
-        user_id=current_user.id,
-        list_id=list_id,
-        name=payload.name,
-        quantity=payload.quantity,
-        unit=payload.unit,
-        sort_order=top_order,
-    )
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    background_tasks.add_task(warm_ingredient_pairings, payload.name)
-    return item
+    return results
 
 
 @router.patch("/items/{item_id}", response_model=ListItemOut)

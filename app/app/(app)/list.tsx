@@ -28,7 +28,7 @@ import {
   fetchListItems,
   fetchDeletedItems,
   updateMe,
-  addListItem,
+  parseAndAddItems,
   updateListItem,
   fetchSuggestions,
   fetchRecipeSuggestions,
@@ -250,8 +250,8 @@ export default function ListScreen() {
   ];
 
   const addMutation = useMutation({
-    mutationFn: ({ name, qty }: { name: string; qty: number }) =>
-      addListItem(name, qty, listId),
+    mutationFn: ({ text }: { text: string }) =>
+      parseAndAddItems(text, listId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["listItems", listId] });
       qc.invalidateQueries({ queryKey: ["deletedItems", listId] });
@@ -322,9 +322,9 @@ export default function ListScreen() {
   });
 
   const handleAdd = useCallback(() => {
-    const name = inputText.trim();
-    if (!name) return;
-    addMutation.mutate({ name, qty: 1 });
+    const text = inputText.trim();
+    if (!text) return;
+    addMutation.mutate({ text });
     setInputText("");
   }, [inputText]);
 
@@ -356,7 +356,7 @@ export default function ListScreen() {
   }, [dropdownVisible]);
 
   const handleAddSuggestion = (name: string) => {
-    addMutation.mutate({ name, qty: 1 });
+    addMutation.mutate({ text: name });
     qc.setQueryData<Suggestion[]>(["suggestions", listId], (old = []) =>
       old.filter((s) => s.name !== name),
     );
@@ -364,7 +364,7 @@ export default function ListScreen() {
   };
 
   const handleAddRecipeSuggestion = (name: string) => {
-    addMutation.mutate({ name, qty: 1 });
+    addMutation.mutate({ text: name });
     qc.setQueryData<Suggestion[]>(["recipeSuggestions", listId], (old = []) =>
       old.filter((s) => s.name !== name),
     );
@@ -763,8 +763,8 @@ export default function ListScreen() {
             onPress={handleAdd}
             onInterimTranscript={(text) => setInputText(text)}
             onFinalTranscript={(text) => {
-              const name = text.trim();
-              if (name) addMutation.mutate({ name, qty: 1 });
+              const trimmed = text.trim();
+              if (trimmed) addMutation.mutate({ text: trimmed });
               setInputText("");
             }}
           />
@@ -835,7 +835,7 @@ export default function ListScreen() {
               <TouchableOpacity
                 key={item.id}
                 onPress={() => {
-                  addMutation.mutate({ name: item.name, qty: 1 });
+                  addMutation.mutate({ text: item.name });
                   setInputText("");
                 }}
                 style={{
