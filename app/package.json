@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "deploy": "eas workflow:run create-production-builds.yml"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
