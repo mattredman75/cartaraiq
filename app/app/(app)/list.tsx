@@ -26,6 +26,7 @@ import { getItem, setItem, deleteItem } from "../../lib/storage";
 import { useAuthStore, useListStore } from "../../lib/store";
 import {
   fetchListItems,
+  fetchDeletedItems,
   addListItem,
   updateListItem,
   fetchSuggestions,
@@ -178,6 +179,13 @@ export default function ListScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: deletedItems = [] } = useQuery<ListItem[]>({
+    queryKey: ["deletedItems", listId],
+    queryFn: () => fetchDeletedItems(listId).then((r) => r.data),
+    enabled: !!listId,
+    staleTime: 1000 * 60,
+  });
+
   // Filter out dismissed suggestions
   const suggestions = aiEnabled
     ? rawSuggestions.filter(
@@ -188,7 +196,10 @@ export default function ListScreen() {
   const addMutation = useMutation({
     mutationFn: ({ name, qty }: { name: string; qty: number }) =>
       addListItem(name, qty, listId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["listItems", listId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      qc.invalidateQueries({ queryKey: ["deletedItems", listId] });
+    },
   });
 
   const toggleMutation = useMutation({
@@ -209,7 +220,10 @@ export default function ListScreen() {
         old.filter((it) => it.id !== id),
       );
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["listItems", listId] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      qc.invalidateQueries({ queryKey: ["deletedItems", listId] });
+    },
   });
 
   const renameMutation = useMutation({
@@ -255,6 +269,12 @@ export default function ListScreen() {
     addMutation.mutate({ name, qty: 1 });
     setInputText("");
   }, [inputText]);
+
+  const deletedMatch = React.useMemo(() => {
+    const q = inputText.trim().toLowerCase();
+    if (q.length < 2) return null;
+    return deletedItems.find((it) => it.name.toLowerCase().startsWith(q)) ?? null;
+  }, [inputText, deletedItems]);
 
   const handleAddSuggestion = (name: string) => {
     addMutation.mutate({ name, qty: 1 });
@@ -619,6 +639,34 @@ export default function ListScreen() {
             </View>
           )}
         </View>
+
+        {/* Deleted-item autosuggest */}
+        {deletedMatch && (
+          <TouchableOpacity
+            onPress={() => {
+              addMutation.mutate({ name: deletedMatch.name, qty: 1 });
+              setInputText("");
+            }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#EFF8FA",
+              borderRadius: 10,
+              paddingVertical: 9,
+              paddingHorizontal: 14,
+              marginBottom: 8,
+              gap: 10,
+              borderWidth: 1,
+              borderColor: "#C5D5D9",
+            }}
+          >
+            <Text style={{ fontSize: 15 }}>↩</Text>
+            <Text style={{ flex: 1, fontSize: 14, color: TEXT, fontWeight: "500" }}>
+              {deletedMatch.name}
+            </Text>
+            <Text style={{ fontSize: 12, color: MUTED }}>Re-add</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Search/add input */}
         <View

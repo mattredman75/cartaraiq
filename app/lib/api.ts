@@ -51,6 +51,9 @@ export const reorderListItems = (items: { id: string; sort_order: number }[]) =>
 
 export const deleteListItem = (id: string) => api.delete(`/lists/items/${id}`);
 
+export const fetchDeletedItems = (listId?: string) =>
+  api.get('/lists/items/deleted', { params: listId ? { list_id: listId } : {} });
+
 export const fetchSuggestions = (listId?: string) =>
   api.get('/lists/suggestions', { params: listId ? { list_id: listId } : {} });
 

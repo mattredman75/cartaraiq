@@ -179,6 +179,26 @@ def get_list(
     return items
 
 
+@router.get("/items/deleted", response_model=list[ListItemOut])
+def get_deleted_items(
+    list_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not list_id:
+        default = get_or_create_default_list(db, current_user.id)
+        list_id = default.id
+    return (
+        db.query(ListItem)
+        .filter(
+            ListItem.user_id == current_user.id,
+            ListItem.list_id == list_id,
+            ListItem.checked == 2,
+        )
+        .all()
+    )
+
+
 @router.post("/items", response_model=ListItemOut, status_code=201)
 def add_item(
     payload: AddItemRequest,
