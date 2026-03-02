@@ -19,7 +19,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Allow CartaraIQ to use the microphone for adding items by voice.",
         "NSSpeechRecognitionUsageDescription": "Allow CartaraIQ to recognize speech to add items to your list.",
-        "NSPhotoLibraryUsageDescription": "CartaraIQ does not use your photo library."
+        "NSPhotoLibraryUsageDescription": "CartaraIQ does not use your photo library.",
+        "NSFaceIDUsageDescription": "Allow CartaraIQ to use Face ID to keep your account secure.",
+        "NSLocalNetworkUsageDescription": "CartaraIQ uses the local network to connect to development servers."
       }
     },
     "android": {
