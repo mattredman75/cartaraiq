@@ -721,7 +721,7 @@ export default function ListScreen() {
                 }}
               />
               <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
-                {suggestions.length} AI suggestions
+                {allSuggestions.length} AI suggestions
               </Text>
             </View>
           )}
@@ -952,13 +952,13 @@ export default function ListScreen() {
                           <View
                             key={i}
                             style={{
-                              backgroundColor: CARD,
+                              backgroundColor: s._type === "recipe" ? "#E6F4F6" : CARD,
                               borderRadius: 16,
                               padding: 14,
                               width: 148,
                               height: 140,
                               borderWidth: 1,
-                              borderColor: BORDER,
+                              borderColor: s._type === "recipe" ? "#B8D9DF" : BORDER,
                               justifyContent: "space-between",
                               ...shadow,
                             }}
@@ -980,6 +980,7 @@ export default function ListScreen() {
                             </TouchableOpacity>
                             <View>
                               <Text
+                                numberOfLines={2}
                                 style={{
                                   fontSize: 13,
                                   fontWeight: "700",
@@ -1173,7 +1174,7 @@ export default function ListScreen() {
               position: "absolute",
               top: insets.top + 56,
               right: 16,
-              width: 260,
+              width: 300,
               backgroundColor: "#fff",
               borderRadius: 16,
               shadowColor: "#000",

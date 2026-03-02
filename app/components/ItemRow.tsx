@@ -213,13 +213,28 @@ export function ItemRow({
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 15, fontWeight: '600',
-                  color: item.checked === 1 ? MUTED : TEXT,
-                  textDecorationLine: item.checked === 1 ? 'line-through' : 'none',
-                }}>
-                  {item.name}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {item.quantity > 1 && (
+                    <View style={{
+                      backgroundColor: '#E8F4F6',
+                      borderRadius: 6,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: TEAL }}>
+                        {item.quantity}{item.unit ? ` ${item.unit}` : '×'}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={{
+                    fontSize: 15, fontWeight: '600',
+                    color: item.checked === 1 ? MUTED : TEXT,
+                    textDecorationLine: item.checked === 1 ? 'line-through' : 'none',
+                    flexShrink: 1,
+                  }}>
+                    {item.name}
+                  </Text>
+                </View>
                 {item.times_added > 1 && (
                   <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
                     Added {item.times_added}× before

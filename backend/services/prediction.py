@@ -18,6 +18,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import logging
+import random
 import time
 from sqlalchemy.orm import Session
 from ..models.list_item import ListItem
@@ -195,7 +196,28 @@ def _generate_reason(item: ListItem, overdue_ratio: float, cooc_score_norm: floa
         return "Others tend to grab this alongside what you've got"
     if times >= 8:
         return "Something of a personal staple"
-    return "Just part of the routine"
+    return random.choice([
+        "All in a day's work.",
+        "Standard operating procedure.",
+        "Just another Tuesday.",
+        "Business as usual.",
+        "Clockwork as always.",
+        "The usual grind.",
+        "Nothing out of the ordinary.",
+        "Strictly by the book.",
+        "Following the script.",
+        "Just the daily drill.",
+        "Low drama, high usefulness.",
+        "A quiet staple.",
+        "Turns up most weeks.",
+        "Quietly dependable.",
+        "Part of the background rhythm.",
+        "Usually ends up in the cart anyway.",
+        "A solid regular.",
+        "Worth adding while you're here.",
+        "The kind of thing you always end up needing.",
+        "No surprises — just useful.",
+    ])
 
 
 # ── Smart suggestions ─────────────────────────────────────────────────────────
