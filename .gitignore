@@ -1,4 +1,5 @@
 .env
+.htaccess
 .tmp/
 __pycache__/
 *.pyc
