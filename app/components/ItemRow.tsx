@@ -231,11 +231,6 @@ export function ItemRow({
                 }}>
                   {item.quantity > 1 ? `${item.quantity}${item.unit ? ` ${pluralUnit(item.unit, item.quantity)}` : ''} ${item.name}` : item.name}
                 </Text>
-                {item.times_added > 1 && (
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    Added {item.times_added}× before
-                  </Text>
-                )}
               </View>
             </TouchableOpacity>
 
