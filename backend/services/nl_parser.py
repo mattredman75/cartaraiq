@@ -9,9 +9,11 @@ Falls back to a single raw-text item on any error so the add flow never breaks.
 
 import json
 import logging
+import traceback
 from groq import Groq
 
 logger = logging.getLogger(__name__)
+print("[nl_parser] module loaded — Groq import OK")
 
 _SYSTEM_PROMPT = """\
 You are a shopping list parser. Parse the user's input into a JSON array of grocery items.
@@ -36,7 +38,10 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
     """
     fallback = [{"name": text.strip(), "quantity": 1, "unit": None}]
 
+    print(f"[nl_parser] parse_shopping_input called | text={text!r} | key_set={bool(api_key)}")
+
     if not api_key:
+        print("[nl_parser] GROQ_API_KEY is empty — falling back to raw text")
         return fallback
 
     try:
@@ -52,9 +57,11 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
         )
 
         raw = response.choices[0].message.content.strip()
+        print(f"[nl_parser] Groq raw response: {raw!r}")
         parsed = json.loads(raw)
 
         if not isinstance(parsed, list) or not parsed:
+            print("[nl_parser] Groq returned empty/non-list — falling back")
             return fallback
 
         result = []
@@ -68,8 +75,9 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
                 "unit": item.get("unit") or None,
             })
 
+        print(f"[nl_parser] parsed {len(result)} items: {[r['name'] for r in result]}")
         return result if result else fallback
 
     except Exception:
-        logger.warning("Groq NL parse failed for input %r, using fallback", text, exc_info=True)
+        print(f"[nl_parser] Exception during Groq call:\n{traceback.format_exc()}")
         return fallback
