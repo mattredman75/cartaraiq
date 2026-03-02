@@ -70,7 +70,7 @@ def get_frequency_candidates(db: Session, user_id: str, limit: int = 15, list_id
     query = db.query(ListItem).filter(
         ListItem.user_id == user_id,
         ListItem.times_added > 0,
-        ListItem.checked == True,
+        ListItem.checked != 0,
     )
     if list_id:
         query = query.filter(ListItem.list_id == list_id)
@@ -155,7 +155,7 @@ def _get_user_item_set(db: Session, user_id: str) -> set[str]:
         db.query(ListItem.name)
         .filter(
             ListItem.user_id == user_id,
-            ListItem.checked == True,
+            ListItem.checked != 0,
             ListItem.times_added >= 1,
         )
         .all()

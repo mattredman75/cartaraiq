@@ -287,7 +287,9 @@ export default function ListScreen() {
       .slice(0, 5);
   }, [inputText, deletedItems]);
 
-  useEffect(() => { setDropdownDismissed(false); }, [inputText]);
+  useEffect(() => {
+    setDropdownDismissed(false);
+  }, [inputText]);
   const dropdownVisible = deletedMatches.length > 0 && !dropdownDismissed;
 
   const wasVisibleRef = useRef(false);
@@ -636,8 +638,8 @@ export default function ListScreen() {
                 }}
               />
               <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
-                {unchecked.length} item{unchecked.length !== 1 ? "s" : ""} to
-                get
+                {unchecked.length} item{unchecked.length !== 1 ? "s" : ""} in
+                your list
               </Text>
             </View>
           ) : (
@@ -725,7 +727,14 @@ export default function ListScreen() {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setDropdownDismissed(true)}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1,
+          }}
         />
       )}
       {headerHeight > 0 && (
