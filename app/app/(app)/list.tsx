@@ -710,50 +710,72 @@ export default function ListScreen() {
 
       {/* Deleted-item autosuggest — slides out from under the search box */}
       {headerHeight > 0 && (
-        <Animated.View
-          pointerEvents={deletedMatches.length > 0 ? "auto" : "none"}
-          style={{
-            position: "absolute",
-            top: headerHeight - PANEL_OVERLAP,
-            left: 20,
-            right: 20,
-            zIndex: 1,
-            transform: [{ translateY: slideAnim }],
-            backgroundColor: CARD,
-            borderBottomLeftRadius: 14,
-            borderBottomRightRadius: 14,
-            borderWidth: 1,
-            borderTopWidth: 0,
-            borderColor: BORDER,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 3,
-          }}
-        >
-          {deletedMatches.map((item, idx) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => {
-                addMutation.mutate({ name: item.name, qty: 1 });
-                setInputText("");
-              }}
-              style={{
-                paddingVertical: 13,
-                paddingHorizontal: 16,
-                minHeight: SUGGEST_ITEM_H,
-                justifyContent: "center",
-                borderBottomWidth: idx < deletedMatches.length - 1 ? 1 : 0,
-                borderBottomColor: BORDER,
-              }}
-            >
-              <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
-                {item.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </Animated.View>
+        <>
+          {/* Teal backing panel — slightly wider, peeks behind the white card */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: headerHeight - PANEL_OVERLAP,
+              left: 17.5,
+              right: 17.5,
+              zIndex: 0,
+              transform: [{ translateY: slideAnim }],
+              backgroundColor: TEAL_DARK,
+              borderBottomLeftRadius: 16,
+              borderBottomRightRadius: 16,
+              paddingTop: 15,
+              minHeight: SUGGEST_ITEM_H,
+            }}
+          />
+
+          {/* White dropdown card */}
+          <Animated.View
+            pointerEvents={deletedMatches.length > 0 ? "auto" : "none"}
+            style={{
+              position: "absolute",
+              top: headerHeight - PANEL_OVERLAP,
+              left: 20,
+              right: 20,
+              zIndex: 1,
+              transform: [{ translateY: slideAnim }],
+              backgroundColor: CARD,
+              borderBottomLeftRadius: 14,
+              borderBottomRightRadius: 14,
+              borderWidth: 1,
+              borderTopWidth: 0,
+              borderColor: BORDER,
+              paddingTop: 15,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            {deletedMatches.map((item, idx) => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => {
+                  addMutation.mutate({ name: item.name, qty: 1 });
+                  setInputText("");
+                }}
+                style={{
+                  paddingVertical: 13,
+                  paddingHorizontal: 16,
+                  minHeight: SUGGEST_ITEM_H,
+                  justifyContent: "center",
+                  borderBottomWidth: idx < deletedMatches.length - 1 ? 1 : 0,
+                  borderBottomColor: BORDER,
+                }}
+              >
+                <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        </>
       )}
 
       <ScrollInfoContext.Provider
