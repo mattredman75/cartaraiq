@@ -122,7 +122,10 @@ export default function ListScreen() {
   const gradientOpacity = useRef(new Animated.Value(0)).current;
   const [dragDirection, setDragDirection] = useState<"up" | "down">("down");
   const [headerHeight, setHeaderHeight] = useState(0);
-  const slideAnim = useRef(new Animated.Value(-(MAX_PANEL_H + PANEL_OVERLAP))).current;
+  const [dropdownDismissed, setDropdownDismissed] = useState(false);
+  const slideAnim = useRef(
+    new Animated.Value(-(MAX_PANEL_H + PANEL_OVERLAP)),
+  ).current;
 
   useEffect(() => {
     const hasOverflow = listContent > listViewport + listScroll + 20;
@@ -284,9 +287,12 @@ export default function ListScreen() {
       .slice(0, 5);
   }, [inputText, deletedItems]);
 
+  useEffect(() => { setDropdownDismissed(false); }, [inputText]);
+  const dropdownVisible = deletedMatches.length > 0 && !dropdownDismissed;
+
   const wasVisibleRef = useRef(false);
   useEffect(() => {
-    const isVisible = deletedMatches.length > 0;
+    const isVisible = dropdownVisible;
     if (isVisible === wasVisibleRef.current) return;
     wasVisibleRef.current = isVisible;
     Animated.spring(slideAnim, {
@@ -296,7 +302,7 @@ export default function ListScreen() {
       stiffness: 220,
       mass: 0.7,
     }).start();
-  }, [deletedMatches.length]);
+  }, [dropdownVisible]);
 
   const handleAddSuggestion = (name: string) => {
     addMutation.mutate({ name, qty: 1 });
@@ -370,7 +376,10 @@ export default function ListScreen() {
     () => items.filter((i) => i.checked === 0),
     [items],
   );
-  const checked = React.useMemo(() => items.filter((i) => i.checked === 1), [items]);
+  const checked = React.useMemo(
+    () => items.filter((i) => i.checked === 1),
+    [items],
+  );
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   const getGreeting = () => {
@@ -388,7 +397,10 @@ export default function ListScreen() {
     <ItemRow
       item={item}
       onToggle={() =>
-        toggleMutation.mutate({ id: item.id, checked: item.checked === 0 ? 1 : 0 })
+        toggleMutation.mutate({
+          id: item.id,
+          checked: item.checked === 0 ? 1 : 0,
+        })
       }
       onDelete={() => handleDelete(item.id)}
       onLongPress={() => handleLongPress(item)}
@@ -709,36 +721,44 @@ export default function ListScreen() {
       </View>
 
       {/* Deleted-item autosuggest — slides out from under the search box */}
+      {dropdownVisible && (
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setDropdownDismissed(true)}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}
+        />
+      )}
       {headerHeight > 0 && (
-        <>
-          {/* Teal backing panel — slightly wider, peeks behind the white card */}
-          <Animated.View
+        <Animated.View
+          pointerEvents={dropdownVisible ? "auto" : "none"}
+          style={{
+            position: "absolute",
+            top: headerHeight - PANEL_OVERLAP,
+            left: 0,
+            right: 0,
+            zIndex: 1,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
+          {/* Teal backing — fills full outer width and extends 20px below the white card */}
+          <View
             pointerEvents="none"
             style={{
               position: "absolute",
-              top: headerHeight - PANEL_OVERLAP,
-              left: 17.5,
-              right: 17.5,
-              zIndex: 0,
-              transform: [{ translateY: slideAnim }],
+              top: 0,
+              left: 20,
+              right: 20,
+              bottom: -20,
               backgroundColor: TEAL_DARK,
-              borderBottomLeftRadius: 16,
-              borderBottomRightRadius: 16,
-              paddingTop: 15,
-              minHeight: SUGGEST_ITEM_H,
+              borderBottomLeftRadius: 24,
+              borderBottomRightRadius: 24,
             }}
           />
 
-          {/* White dropdown card */}
-          <Animated.View
-            pointerEvents={deletedMatches.length > 0 ? "auto" : "none"}
+          {/* White dropdown card — 20px inset from each edge */}
+          <View
             style={{
-              position: "absolute",
-              top: headerHeight - PANEL_OVERLAP,
-              left: 20,
-              right: 20,
-              zIndex: 1,
-              transform: [{ translateY: slideAnim }],
+              marginHorizontal: 40,
               backgroundColor: CARD,
               borderBottomLeftRadius: 14,
               borderBottomRightRadius: 14,
@@ -774,8 +794,8 @@ export default function ListScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-          </Animated.View>
-        </>
+          </View>
+        </Animated.View>
       )}
 
       <ScrollInfoContext.Provider
@@ -1113,14 +1133,27 @@ export default function ListScreen() {
             }}
           >
             {/* User info */}
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: BORDER }}>
-              <View style={{
-                width: 40, height: 40, borderRadius: 20,
-                backgroundColor: TEAL_DARK,
-                alignItems: "center", justifyContent: "center",
-                marginBottom: 8,
-              }}>
-                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+            <View
+              style={{
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+              }}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: TEAL_DARK,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <Text
+                  style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}
+                >
                   {user?.name?.charAt(0).toUpperCase() ?? "?"}
                 </Text>
               </View>
@@ -1133,12 +1166,20 @@ export default function ListScreen() {
             </View>
 
             {/* AI suggestions toggle */}
-            <View style={{
-              flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-              paddingHorizontal: 16, paddingVertical: 14,
-              borderBottomWidth: 1, borderBottomColor: BORDER,
-            }}>
-              <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>AI Suggestions</Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                AI Suggestions
+              </Text>
               <Switch
                 value={aiEnabled}
                 onValueChange={(val) => {
@@ -1151,7 +1192,14 @@ export default function ListScreen() {
             </View>
 
             {/* Version */}
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: BORDER }}>
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+              }}
+            >
               <Text style={{ fontSize: 12, color: MUTED }}>
                 Version {Constants.expoConfig?.version ?? "1.0.0"}
               </Text>
@@ -1168,7 +1216,11 @@ export default function ListScreen() {
               }}
               style={{ paddingHorizontal: 16, paddingVertical: 14 }}
             >
-              <Text style={{ fontSize: 14, color: "#EF4444", fontWeight: "600" }}>Sign out</Text>
+              <Text
+                style={{ fontSize: 14, color: "#EF4444", fontWeight: "600" }}
+              >
+                Sign out
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
