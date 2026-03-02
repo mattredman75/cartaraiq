@@ -63,6 +63,10 @@ const shadow = {
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const DISMISS_DAYS = 7;
 
+const SUGGEST_ITEM_H = 46;
+const PANEL_OVERLAP = 14;
+const MAX_PANEL_H = 5 * SUGGEST_ITEM_H + 8;
+
 // ── AsyncStorage helpers for dismissed suggestions ──────────────────────────
 
 async function getDismissed(userId: string): Promise<Record<string, number>> {
@@ -117,6 +121,8 @@ export default function ListScreen() {
   const scrollStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gradientOpacity = useRef(new Animated.Value(0)).current;
   const [dragDirection, setDragDirection] = useState<"up" | "down">("down");
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const slideAnim = useRef(new Animated.Value(-(MAX_PANEL_H + PANEL_OVERLAP))).current;
 
   useEffect(() => {
     const hasOverflow = listContent > listViewport + listScroll + 20;
@@ -270,11 +276,27 @@ export default function ListScreen() {
     setInputText("");
   }, [inputText]);
 
-  const deletedMatch = React.useMemo(() => {
+  const deletedMatches = React.useMemo(() => {
     const q = inputText.trim().toLowerCase();
-    if (q.length < 2) return null;
-    return deletedItems.find((it) => it.name.toLowerCase().startsWith(q)) ?? null;
+    if (q.length < 2) return [];
+    return deletedItems
+      .filter((it) => it.name.toLowerCase().startsWith(q))
+      .slice(0, 5);
   }, [inputText, deletedItems]);
+
+  const wasVisibleRef = useRef(false);
+  useEffect(() => {
+    const isVisible = deletedMatches.length > 0;
+    if (isVisible === wasVisibleRef.current) return;
+    wasVisibleRef.current = isVisible;
+    Animated.spring(slideAnim, {
+      toValue: isVisible ? 0 : -(MAX_PANEL_H + PANEL_OVERLAP),
+      useNativeDriver: true,
+      damping: 22,
+      stiffness: 220,
+      mass: 0.7,
+    }).start();
+  }, [deletedMatches.length]);
 
   const handleAddSuggestion = (name: string) => {
     addMutation.mutate({ name, qty: 1 });
@@ -448,7 +470,9 @@ export default function ListScreen() {
     <View style={{ flex: 1, backgroundColor: BG }}>
       {/* Header with curved bottom + decorative circles */}
       <View
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
         style={{
+          zIndex: 2,
           backgroundColor: TEAL_DARK,
           paddingTop: insets.top,
           paddingHorizontal: 20,
@@ -640,34 +664,6 @@ export default function ListScreen() {
           )}
         </View>
 
-        {/* Deleted-item autosuggest */}
-        {deletedMatch && (
-          <TouchableOpacity
-            onPress={() => {
-              addMutation.mutate({ name: deletedMatch.name, qty: 1 });
-              setInputText("");
-            }}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "#EFF8FA",
-              borderRadius: 10,
-              paddingVertical: 9,
-              paddingHorizontal: 14,
-              marginBottom: 8,
-              gap: 10,
-              borderWidth: 1,
-              borderColor: "#C5D5D9",
-            }}
-          >
-            <Text style={{ fontSize: 15 }}>↩</Text>
-            <Text style={{ flex: 1, fontSize: 14, color: TEXT, fontWeight: "500" }}>
-              {deletedMatch.name}
-            </Text>
-            <Text style={{ fontSize: 12, color: MUTED }}>Re-add</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Search/add input */}
         <View
           style={{
@@ -711,6 +707,54 @@ export default function ListScreen() {
           />
         </View>
       </View>
+
+      {/* Deleted-item autosuggest — slides out from under the search box */}
+      {headerHeight > 0 && (
+        <Animated.View
+          pointerEvents={deletedMatches.length > 0 ? "auto" : "none"}
+          style={{
+            position: "absolute",
+            top: headerHeight - PANEL_OVERLAP,
+            left: 20,
+            right: 20,
+            zIndex: 1,
+            transform: [{ translateY: slideAnim }],
+            backgroundColor: CARD,
+            borderBottomLeftRadius: 14,
+            borderBottomRightRadius: 14,
+            borderWidth: 1,
+            borderTopWidth: 0,
+            borderColor: BORDER,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
+        >
+          {deletedMatches.map((item, idx) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => {
+                addMutation.mutate({ name: item.name, qty: 1 });
+                setInputText("");
+              }}
+              style={{
+                paddingVertical: 13,
+                paddingHorizontal: 16,
+                minHeight: SUGGEST_ITEM_H,
+                justifyContent: "center",
+                borderBottomWidth: idx < deletedMatches.length - 1 ? 1 : 0,
+                borderBottomColor: BORDER,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </Animated.View>
+      )}
 
       <ScrollInfoContext.Provider
         value={React.useMemo(
