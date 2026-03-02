@@ -294,6 +294,29 @@ def add_item(
     )
 
 
+# ── Debug endpoint (temporary) ───────────────────────────────────────────────
+
+@router.get("/debug/groq")
+def debug_groq(current_user: User = Depends(get_current_user)):
+    """Temporary endpoint: returns Groq config status as JSON. No logs needed."""
+    import importlib, sys
+    key = settings.groq_api_key or ""
+    groq_installed = "groq" in sys.modules or importlib.util.find_spec("groq") is not None
+    result = {
+        "groq_key_set": bool(key),
+        "groq_key_preview": (key[:8] + "..." + key[-4:]) if len(key) > 12 else ("<empty>" if not key else key),
+        "groq_package_installed": groq_installed,
+    }
+    if groq_installed and key:
+        try:
+            parsed = parse_shopping_input("2 avocados and a lime", key)
+            result["test_parse"] = parsed
+            result["test_status"] = "ok"
+        except Exception as e:
+            result["test_status"] = f"error: {e}"
+    return result
+
+
 # NOTE: /items/bulk must be defined before /items/{item_id} to prevent FastAPI
 # from matching the literal string "bulk" as an item_id path parameter.
 @router.post("/items/bulk", response_model=list[ListItemOut], status_code=201)
