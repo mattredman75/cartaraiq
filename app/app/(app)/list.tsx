@@ -207,6 +207,15 @@ export default function ListScreen() {
     staleTime: 1000 * 60,
   });
 
+  const unchecked = React.useMemo(
+    () => items.filter((i) => i.checked === 0),
+    [items],
+  );
+  const checked = React.useMemo(
+    () => items.filter((i) => i.checked === 1),
+    [items],
+  );
+
   // Filter out dismissed suggestions
   const suggestions = aiEnabled
     ? rawSuggestions.filter(
@@ -411,14 +420,6 @@ export default function ListScreen() {
     ]);
   };
 
-  const unchecked = React.useMemo(
-    () => items.filter((i) => i.checked === 0),
-    [items],
-  );
-  const checked = React.useMemo(
-    () => items.filter((i) => i.checked === 1),
-    [items],
-  );
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
   const getGreeting = () => {
