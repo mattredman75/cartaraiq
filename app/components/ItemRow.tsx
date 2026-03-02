@@ -7,6 +7,16 @@ import Reanimated, {
 import type { ListItem } from '../lib/types';
 
 const TEAL = '#1B6B7A';
+
+const PLURAL: Record<string, string> = {
+  loaf: 'loaves', roll: 'rolls', slice: 'slices', sheet: 'sheets',
+  bar: 'bars', jar: 'jars', tub: 'tubs', punnet: 'punnets',
+  sachet: 'sachets', piece: 'pieces', pack: 'packs', packet: 'packets',
+  bottle: 'bottles', can: 'cans', bag: 'bags', box: 'boxes',
+  bunch: 'bunches', cup: 'cups',
+};
+const pluralUnit = (unit: string, qty: number) =>
+  qty > 1 ? (PLURAL[unit] ?? unit + 's') : unit;
 const CARD = '#FFFFFF';
 const TEXT = '#1A1A2E';
 const MUTED = '#64748B';
@@ -219,7 +229,7 @@ export function ItemRow({
                   textDecorationLine: item.checked === 1 ? 'line-through' : 'none',
                   flexShrink: 1,
                 }}>
-                  {item.quantity > 1 ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''} ${item.name}` : item.name}
+                  {item.quantity > 1 ? `${item.quantity}${item.unit ? ` ${pluralUnit(item.unit, item.quantity)}` : ''} ${item.name}` : item.name}
                 </Text>
                 {item.times_added > 1 && (
                   <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>

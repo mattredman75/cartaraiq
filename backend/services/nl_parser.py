@@ -20,10 +20,12 @@ You are a shopping list parser. Parse the user's input into a JSON array of groc
 Rules:
 - "name": lowercase grocery item name, no articles (a/an/the), no leading/trailing whitespace
 - "quantity": integer, default 1 if not specified
-- "unit": one of [g, kg, ml, l, lb, oz, cup, bunch, pack, bottle, can, bag, box, dozen] or null
+- "unit": one of [g, kg, ml, l, lb, oz, cup, bunch, pack, packet, bottle, can, bag, box, dozen, loaf, loaves, roll, rolls, slice, slices, sheet, sheets, bar, bars, jar, jars, tub, tubs, punnet, punnets, sachet, sachets, piece, pieces] or null
+- Normalise plural units to singular (e.g. "loaves" → "loaf", "rolls" → "roll", "bars" → "bar")
 - Expand "a dozen" to quantity 12 with unit null (e.g. "a dozen eggs" → {"name":"eggs","quantity":12,"unit":null})
 - "2 litres of milk" → {"name":"milk","quantity":2,"unit":"l"}
 - "some bread" → {"name":"bread","quantity":1,"unit":null}
+- "2 loaves of bread" → {"name":"bread","quantity":2,"unit":"loaf"}
 - Split compound inputs into separate items ("eggs and milk" → two items)
 - Respond ONLY with a valid JSON array. No explanation, no markdown."""
 
