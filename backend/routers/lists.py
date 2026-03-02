@@ -307,7 +307,7 @@ def delete_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found.")
 
-    db.delete(item)
+    item.checked = 2
     db.commit()
 
 

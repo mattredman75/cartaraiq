@@ -613,7 +613,7 @@ export default function ListScreen() {
             marginBottom: 6,
           }}
         >
-          {firstName}! 👋
+          {firstName}
         </Text>
 
         {/* Stats row */}
@@ -907,8 +907,10 @@ export default function ListScreen() {
                               borderRadius: 16,
                               padding: 14,
                               width: 148,
+                              height: 140,
                               borderWidth: 1,
                               borderColor: BORDER,
+                              justifyContent: "space-between",
                               ...shadow,
                             }}
                           >
@@ -927,28 +929,29 @@ export default function ListScreen() {
                                 ✕
                               </Text>
                             </TouchableOpacity>
-                            <Text
-                              style={{
-                                fontSize: 13,
-                                fontWeight: "700",
-                                color: TEXT,
-                                marginBottom: 4,
-                                paddingRight: 16,
-                              }}
-                            >
-                              {s.name}
-                            </Text>
-                            <Text
-                              style={{
-                                fontSize: 11,
-                                color: MUTED,
-                                marginBottom: 10,
-                                lineHeight: 15,
-                              }}
-                              numberOfLines={2}
-                            >
-                              {s.reason}
-                            </Text>
+                            <View>
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: "700",
+                                  color: TEXT,
+                                  marginBottom: 4,
+                                  paddingRight: 16,
+                                }}
+                              >
+                                {s.name}
+                              </Text>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: MUTED,
+                                  lineHeight: 15,
+                                }}
+                                numberOfLines={2}
+                              >
+                                {s.reason}
+                              </Text>
+                            </View>
                             <TouchableOpacity
                               onPress={() => handleAddSuggestion(s.name)}
                               style={{

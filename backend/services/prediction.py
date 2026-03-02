@@ -180,22 +180,22 @@ def _generate_reason(item: ListItem, overdue_ratio: float, cooc_score_norm: floa
     times = item.times_added
 
     if overdue_ratio > 1.5 and times >= 10:
-        return f"Overdue \u2014 you buy this every {cycle} days"
+        return f"You tend to need this every {cycle} days — right about now"
     if overdue_ratio > 1.5:
-        return f"Last bought {days_since} days ago"
+        return f"{days_since} days since the last one. Worth grabbing"
     if overdue_ratio > 1.0 and cycle <= 7:
-        return "About time to restock"
+        return "The math says it's time"
     if overdue_ratio > 1.0:
-        return f"Due every {cycle} days"
+        return f"A {cycle}-day habit — and you're due"
     if overdue_ratio > 0.7 and times >= 5:
-        return f"You buy this regularly every {cycle} days"
+        return f"Reliably yours, every {cycle} days or so"
     if overdue_ratio > 0.7:
-        return "Getting close to restock time"
+        return "Not urgent, but you'll thank yourself later"
     if cooc_score_norm > 0.5:
-        return "Often bought together with your other items"
+        return "Others tend to grab this alongside what you've got"
     if times >= 8:
-        return f"A regular \u2014 bought {times} times"
-    return f"Added {times} time{'s' if times != 1 else ''} before"
+        return "Something of a personal staple"
+    return "Just part of the routine"
 
 
 # ── Smart suggestions ─────────────────────────────────────────────────────────
