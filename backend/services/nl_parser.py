@@ -10,10 +10,9 @@ Falls back to a single raw-text item on any error so the add flow never breaks.
 import json
 import logging
 import traceback
-from groq import Groq
 
 logger = logging.getLogger(__name__)
-print("[nl_parser] module loaded — Groq import OK")
+print("[nl_parser] module loaded")
 
 _SYSTEM_PROMPT = """\
 You are a shopping list parser. Parse the user's input into a JSON array of grocery items.
@@ -45,6 +44,7 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
         return fallback
 
     try:
+        from groq import Groq
         client = Groq(api_key=api_key)
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
