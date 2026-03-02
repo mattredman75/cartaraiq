@@ -2,6 +2,8 @@ import hashlib
 import logging
 import secrets
 import smtplib
+import ssl
+import threading
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -111,11 +113,20 @@ def _send_reset_email(to_email: str, code: str) -> None:
     )
     msg.attach(MIMEText(body, "plain"))
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-            server.starttls()
-            if settings.smtp_user:
-                server.login(settings.smtp_user, settings.smtp_pass)
-            server.sendmail(settings.smtp_from, to_email, msg.as_string())
+        if settings.smtp_port == 465:
+            # Port 465 = SMTPS (SSL from the start)
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=ctx, timeout=15) as server:
+                if settings.smtp_user:
+                    server.login(settings.smtp_user, settings.smtp_pass)
+                server.sendmail(settings.smtp_from, to_email, msg.as_string())
+        else:
+            # Port 587 = STARTTLS
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
+                server.starttls()
+                if settings.smtp_user:
+                    server.login(settings.smtp_user, settings.smtp_pass)
+                server.sendmail(settings.smtp_from, to_email, msg.as_string())
     except Exception:
         logger.exception("Failed to send reset email to %s", to_email)
 
@@ -129,7 +140,7 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         user.reset_token = hashlib.sha256(code.encode()).hexdigest()
         user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
         db.commit()
-        _send_reset_email(user.email, code)
+        threading.Thread(target=_send_reset_email, args=(user.email, code), daemon=True).start()
     return {"message": "If that email is registered, a reset code has been sent."}
 
 
