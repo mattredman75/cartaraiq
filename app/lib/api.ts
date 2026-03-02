@@ -66,6 +66,9 @@ export const fetchDeletedItems = (listId?: string) =>
 export const fetchSuggestions = (listId?: string) =>
   api.get('/lists/suggestions', { params: listId ? { list_id: listId } : {} });
 
+export const fetchRecipeSuggestions = (listId?: string) =>
+  api.get('/lists/recipe-suggestions', { params: listId ? { list_id: listId } : {} });
+
 // --- Products ---
 export const searchProducts = (q: string) =>
   api.get('/products/search', { params: { q } });

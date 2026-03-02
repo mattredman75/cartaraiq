@@ -31,6 +31,7 @@ import {
   addListItem,
   updateListItem,
   fetchSuggestions,
+  fetchRecipeSuggestions,
   fetchShoppingLists,
   createShoppingList,
   deleteShoppingList,
@@ -192,6 +193,13 @@ export default function ListScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: rawRecipeSuggestions = [] } = useQuery<Suggestion[]>({
+    queryKey: ["recipeSuggestions", listId],
+    queryFn: () => fetchRecipeSuggestions(listId).then((r) => r.data),
+    enabled: !!listId && aiEnabled,
+    staleTime: 1000 * 60 * 30,
+  });
+
   const { data: deletedItems = [] } = useQuery<ListItem[]>({
     queryKey: ["deletedItems", listId],
     queryFn: () => fetchDeletedItems(listId).then((r) => r.data),
@@ -202,7 +210,22 @@ export default function ListScreen() {
   // Filter out dismissed suggestions
   const suggestions = aiEnabled
     ? rawSuggestions.filter(
-        (s) => !(dismissedUntil[s.name] && dismissedUntil[s.name] > Date.now()),
+        (s) =>
+          !(dismissedUntil[s.name] && dismissedUntil[s.name] > Date.now()) &&
+          !unchecked.some(
+            (it) => it.name.toLowerCase() === s.name.toLowerCase(),
+          ),
+      )
+    : [];
+
+  // Filter recipe suggestions: exclude dismissed and items already on list
+  const recipeSuggestions = aiEnabled
+    ? rawRecipeSuggestions.filter(
+        (s) =>
+          !(dismissedUntil[s.name] && dismissedUntil[s.name] > Date.now()) &&
+          !unchecked.some(
+            (it) => it.name.toLowerCase() === s.name.toLowerCase(),
+          ),
       )
     : [];
 
@@ -212,6 +235,8 @@ export default function ListScreen() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["listItems", listId] });
       qc.invalidateQueries({ queryKey: ["deletedItems", listId] });
+      qc.invalidateQueries({ queryKey: ["suggestions", listId] });
+      qc.invalidateQueries({ queryKey: ["recipeSuggestions", listId] });
     },
   });
 
@@ -316,6 +341,14 @@ export default function ListScreen() {
       old.filter((s) => s.name !== name),
     );
     qc.invalidateQueries({ queryKey: ["suggestions", listId] });
+  };
+
+  const handleAddRecipeSuggestion = (name: string) => {
+    addMutation.mutate({ name, qty: 1 });
+    qc.setQueryData<Suggestion[]>(["recipeSuggestions", listId], (old = []) =>
+      old.filter((s) => s.name !== name),
+    );
+    qc.invalidateQueries({ queryKey: ["recipeSuggestions", listId] });
   };
 
   const handleDismissSuggestion = async (name: string) => {
@@ -958,6 +991,107 @@ export default function ListScreen() {
                             </View>
                             <TouchableOpacity
                               onPress={() => handleAddSuggestion(s.name)}
+                              style={{
+                                backgroundColor: TEAL,
+                                borderRadius: 8,
+                                paddingVertical: 6,
+                                alignItems: "center",
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 12,
+                                  fontWeight: "600",
+                                }}
+                              >
+                                + Add
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Recipe Suggestions */}
+                  {recipeSuggestions.length > 0 && (
+                    <View style={{ marginTop: 20 }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "700",
+                          color: MUTED,
+                          marginBottom: 12,
+                          paddingHorizontal: 20,
+                          letterSpacing: 0.8,
+                        }}
+                      >
+                        🍽 PAIRS WELL WITH YOUR LIST
+                      </Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{
+                          paddingHorizontal: 20,
+                          gap: 10,
+                        }}
+                      >
+                        {recipeSuggestions.map((s, i) => (
+                          <View
+                            key={i}
+                            style={{
+                              backgroundColor: CARD,
+                              borderRadius: 16,
+                              padding: 14,
+                              width: 148,
+                              height: 140,
+                              borderWidth: 1,
+                              borderColor: BORDER,
+                              justifyContent: "space-between",
+                              ...shadow,
+                            }}
+                          >
+                            <TouchableOpacity
+                              onPress={() => handleDismissSuggestion(s.name)}
+                              hitSlop={{ top: 8, right: 8, bottom: 4, left: 4 }}
+                              style={{ position: "absolute", top: 8, right: 8 }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 12,
+                                  color: MUTED,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                ✕
+                              </Text>
+                            </TouchableOpacity>
+                            <View>
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: "700",
+                                  color: TEXT,
+                                  marginBottom: 4,
+                                  paddingRight: 16,
+                                }}
+                              >
+                                {s.name}
+                              </Text>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: MUTED,
+                                  lineHeight: 15,
+                                }}
+                                numberOfLines={2}
+                              >
+                                {s.reason}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => handleAddRecipeSuggestion(s.name)}
                               style={{
                                 backgroundColor: TEAL,
                                 borderRadius: 8,
