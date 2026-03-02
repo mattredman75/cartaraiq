@@ -484,7 +484,7 @@ export default function ListScreen() {
       <View
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
         style={{
-          zIndex: 2,
+          zIndex: 3,
           backgroundColor: TEAL_DARK,
           paddingTop: insets.top,
           paddingHorizontal: 20,
@@ -725,7 +725,7 @@ export default function ListScreen() {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setDropdownDismissed(true)}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}
         />
       )}
       {headerHeight > 0 && (
@@ -736,7 +736,7 @@ export default function ListScreen() {
             top: headerHeight - PANEL_OVERLAP,
             left: 0,
             right: 0,
-            zIndex: 1,
+            zIndex: 2,
             transform: [{ translateY: slideAnim }],
           }}
         >
