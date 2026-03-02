@@ -21,7 +21,12 @@ app = FastAPI(title="CartaraIQ API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://cartaraiq.app",
+        "https://www.cartaraiq.app",
+        "http://localhost:8081",
+        "http://localhost:19006",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
