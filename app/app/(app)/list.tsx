@@ -137,11 +137,11 @@ export default function ListScreen() {
   useEffect(() => {
     const hasOverflow = listContent > listViewport + listScroll + 20;
     Animated.timing(gradientOpacity, {
-      toValue: hasOverflow ? 1 : 0,
-      duration: 250,
+      toValue: hasOverflow && isScrolling ? 1 : 0,
+      duration: isScrolling ? 150 : 400,
       useNativeDriver: true,
     }).start();
-  }, [listContent, listViewport, listScroll]);
+  }, [listContent, listViewport, listScroll, isScrolling]);
 
   // Load persisted AI toggle
   useEffect(() => {
@@ -262,11 +262,18 @@ export default function ListScreen() {
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, checked }: { id: string; checked: number }) =>
-      updateListItem(id, { checked }),
+      updateListItem(id, checked === 0 ? { checked, sort_order: 0 } : { checked }),
     onMutate: ({ id, checked }) => {
-      qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) =>
-        old.map((it) => (it.id === id ? { ...it, checked } : it)),
-      );
+      qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
+        const updated = old.map((it) =>
+          it.id === id ? { ...it, checked, sort_order: checked === 0 ? 0 : it.sort_order } : it,
+        );
+        if (checked === 0) {
+          const item = updated.find((i) => i.id === id)!;
+          return [item, ...updated.filter((i) => i.id !== id)];
+        }
+        return updated;
+      });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["listItems", listId] }),
   });
