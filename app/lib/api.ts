@@ -52,6 +52,9 @@ export const fetchListItems = (listId?: string) =>
 export const addListItem = (name: string, quantity: number, listId?: string) =>
   api.post('/lists/items', { name, quantity, list_id: listId });
 
+export const parseAndAddItems = (text: string, listId?: string) =>
+  api.post('/lists/items/bulk', { text, list_id: listId });
+
 export const updateListItem = (id: string, data: Partial<{ name: string; quantity: number; checked: number; sort_order: number }>) =>
   api.patch(`/lists/items/${id}`, data);
 
