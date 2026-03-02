@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -9,6 +9,7 @@ from ..models.shopping_list import ShoppingList
 from ..models.user import User
 from ..auth import get_current_user
 from ..services.prediction import get_frequency_candidates, get_smart_suggestions
+from ..services.recipe_suggestions import get_recipe_suggestions, warm_ingredient_pairings
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -202,6 +203,7 @@ def get_deleted_items(
 @router.post("/items", response_model=ListItemOut, status_code=201)
 def add_item(
     payload: AddItemRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -222,6 +224,14 @@ def add_item(
         .first()
     )
 
+    from sqlalchemy import func as sqlfunc
+    min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
+        ListItem.user_id == current_user.id,
+        ListItem.list_id == list_id,
+        ListItem.checked == 0,
+    ).scalar()
+    top_order = (min_order - 1) if min_order is not None else 0
+
     if existing:
         days_since = 0
         if existing.last_added_at:
@@ -239,16 +249,11 @@ def add_item(
         existing.avg_days_between_adds = new_avg
         existing.quantity = payload.quantity
         existing.checked = 0
+        existing.sort_order = top_order
         db.commit()
         db.refresh(existing)
+        background_tasks.add_task(warm_ingredient_pairings, payload.name)
         return existing
-
-    # Assign sort_order as one beyond current max (so new items go to bottom)
-    from sqlalchemy import func as sqlfunc
-    max_order = db.query(sqlfunc.max(ListItem.sort_order)).filter(
-        ListItem.user_id == current_user.id,
-        ListItem.list_id == list_id,
-    ).scalar() or 0
 
     item = ListItem(
         user_id=current_user.id,
@@ -256,11 +261,12 @@ def add_item(
         name=payload.name,
         quantity=payload.quantity,
         unit=payload.unit,
-        sort_order=max_order + 1,
+        sort_order=top_order,
     )
     db.add(item)
     db.commit()
     db.refresh(item)
+    background_tasks.add_task(warm_ingredient_pairings, payload.name)
     return item
 
 
@@ -340,3 +346,27 @@ def get_suggestions(
     candidates = get_frequency_candidates(db, current_user.id, list_id=list_id)
     suggestions = get_smart_suggestions(candidates, current_user.id, list_id, db)
     return suggestions
+
+
+@router.get("/recipe-suggestions", response_model=list[SuggestionOut])
+def get_recipe_suggestions_endpoint(
+    list_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not list_id:
+        default = get_or_create_default_list(db, current_user.id)
+        list_id = default.id
+
+    # Get active (unchecked) items on the list
+    active_items = (
+        db.query(ListItem)
+        .filter(
+            ListItem.user_id == current_user.id,
+            ListItem.list_id == list_id,
+            ListItem.checked == 0,
+        )
+        .all()
+    )
+    item_names = [item.name for item in active_items]
+    return get_recipe_suggestions(item_names, db)

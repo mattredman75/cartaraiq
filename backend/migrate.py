@@ -47,8 +47,10 @@ def run() -> None:
     with engine.connect() as conn:
         if dialect == "mysql":
             _run_mysql(conn)
+            _run_mysql_ingredient_pairings(conn)
         else:
             _run_postgresql(conn)
+            _run_postgresql_ingredient_pairings(conn)
 
         conn.commit()
 
@@ -162,6 +164,40 @@ def _run_postgresql(conn) -> None:
                 ALTER COLUMN checked TYPE INTEGER
                 USING CASE WHEN checked THEN 1 ELSE 0 END
         """))
+
+
+def _run_mysql_ingredient_pairings(conn) -> None:
+    if not _table_exists(conn, "ingredient_pairings"):
+        conn.execute(text("""
+            CREATE TABLE ingredient_pairings (
+                base_ingredient   VARCHAR(100) NOT NULL,
+                paired_ingredient VARCHAR(100) NOT NULL,
+                co_occurrence_count INTEGER     NOT NULL DEFAULT 1,
+                fetched_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (base_ingredient, paired_ingredient)
+            )
+        """))
+    if not _index_exists(conn, "ingredient_pairings", "ix_ingredient_pairings_base"):
+        conn.execute(text("""
+            CREATE INDEX ix_ingredient_pairings_base
+                ON ingredient_pairings(base_ingredient, fetched_at)
+        """))
+
+
+def _run_postgresql_ingredient_pairings(conn) -> None:
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS ingredient_pairings (
+            base_ingredient   VARCHAR(100) NOT NULL,
+            paired_ingredient VARCHAR(100) NOT NULL,
+            co_occurrence_count INTEGER    NOT NULL DEFAULT 1,
+            fetched_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (base_ingredient, paired_ingredient)
+        )
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_ingredient_pairings_base
+            ON ingredient_pairings(base_ingredient, fetched_at)
+    """))
 
 
 if __name__ == "__main__":
