@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..auth import create_access_token, hash_password, verify_password
+from ..auth import create_access_token, get_current_user, hash_password, verify_password
 from ..config import settings
 from ..database import get_db
 from ..models.shopping_list import ShoppingList
@@ -129,6 +129,25 @@ def _send_reset_email(to_email: str, code: str) -> None:
                 server.sendmail(settings.smtp_from, to_email, msg.as_string())
     except Exception:
         logger.exception("Failed to send reset email to %s", to_email)
+
+
+class UpdateMeRequest(BaseModel):
+    name: str
+
+
+@router.patch("/me", response_model=UserOut)
+def update_me(
+    payload: UpdateMeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty.")
+    current_user.name = name
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.post("/forgot-password")

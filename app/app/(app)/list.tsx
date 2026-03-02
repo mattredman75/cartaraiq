@@ -27,6 +27,7 @@ import { useAuthStore, useListStore } from "../../lib/store";
 import {
   fetchListItems,
   fetchDeletedItems,
+  updateMe,
   addListItem,
   updateListItem,
   fetchSuggestions,
@@ -89,7 +90,7 @@ async function saveDismissed(userId: string, map: Record<string, number>) {
 export default function ListScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, clearAuth } = useAuthStore();
+  const { user, clearAuth, updateUser } = useAuthStore();
   const { currentList, setCurrentList } = useListStore();
   const qc = useQueryClient();
 
@@ -104,6 +105,9 @@ export default function ListScreen() {
   // Long-press-to-edit list state
   const [editList, setEditList] = useState<ShoppingList | null>(null);
   const [editListName, setEditListName] = useState("");
+  // Inline name editing in settings
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameText, setDisplayNameText] = useState("");
   // Dismissed suggestions (loaded from AsyncStorage)
   const [dismissedUntil, setDismissedUntil] = useState<Record<string, number>>(
     {},
@@ -157,7 +161,7 @@ export default function ListScreen() {
     }
   }, [user?.id]);
 
-  const { data: shoppingLists = [] as ShoppingList[] } = useQuery<
+  const { data: shoppingLists = [] as ShoppingList[], refetch: refetchLists } = useQuery<
     ShoppingList[]
   >({
     queryKey: ["shoppingLists"],
@@ -542,7 +546,7 @@ export default function ListScreen() {
         >
           {shoppingLists.length > 0 ? (
             <TouchableOpacity
-              onPress={() => setShowListModal(true)}
+              onPress={() => { refetchLists(); setShowListModal(true); }}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -1169,9 +1173,60 @@ export default function ListScreen() {
                   {user?.name?.charAt(0).toUpperCase() ?? "?"}
                 </Text>
               </View>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: TEXT }}>
-                {user?.name ?? "User"}
-              </Text>
+              {editingDisplayName ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <TextInput
+                    value={displayNameText}
+                    onChangeText={setDisplayNameText}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={async () => {
+                      const name = displayNameText.trim();
+                      if (name && name !== user?.name) {
+                        await updateMe(name);
+                        updateUser({ name });
+                        await setItem("auth_user", JSON.stringify({ ...user, name }));
+                      }
+                      setEditingDisplayName(false);
+                    }}
+                    style={{
+                      flex: 1,
+                      fontSize: 15,
+                      fontWeight: "700",
+                      color: TEXT,
+                      borderBottomWidth: 1.5,
+                      borderBottomColor: TEAL,
+                      paddingVertical: 2,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const name = displayNameText.trim();
+                      if (name && name !== user?.name) {
+                        await updateMe(name);
+                        updateUser({ name });
+                        await setItem("auth_user", JSON.stringify({ ...user, name }));
+                      }
+                      setEditingDisplayName(false);
+                    }}
+                  >
+                    <Text style={{ color: TEAL, fontWeight: "700", fontSize: 13 }}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => {
+                    setDisplayNameText(user?.name ?? "");
+                    setEditingDisplayName(true);
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: TEXT }}>
+                    {user?.name ?? "User"}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: MUTED }}>✎</Text>
+                </TouchableOpacity>
+              )}
               <Text style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>
                 {user?.email ?? ""}
               </Text>

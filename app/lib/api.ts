@@ -27,6 +27,9 @@ export const authLogin = (email: string, password: string) =>
 export const authForgotPassword = (email: string) =>
   api.post('/auth/forgot-password', { email });
 
+export const updateMe = (name: string) =>
+  api.patch('/auth/me', { name });
+
 export const authResetPassword = (email: string, code: string, new_password: string) =>
   api.post('/auth/reset-password', { email, code, new_password });
 
