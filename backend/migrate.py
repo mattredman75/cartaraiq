@@ -95,6 +95,17 @@ def _run_mysql(conn) -> None:
     #    stores 0/1/2 correctly. SQLAlchemy Integer reads TINYINT as an int.
     #    No column type change needed.
 
+    # 5. Password reset columns on users
+    if not _col_exists(conn, "users", "reset_token"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) NULL
+        """))
+
+    if not _col_exists(conn, "users", "reset_token_expiry"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN reset_token_expiry DATETIME NULL
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -130,7 +141,17 @@ def _run_postgresql(conn) -> None:
             ADD COLUMN IF NOT EXISTS sort_order INTEGER
     """))
 
-    # 4. Convert checked from Boolean to Integer if needed
+    # 4. Password reset columns on users
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255) NULL
+    """))
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMPTZ NULL
+    """))
+
+    # 5. Convert checked from Boolean to Integer if needed
     col_type = conn.execute(text("""
         SELECT data_type FROM information_schema.columns
         WHERE table_name = 'list_items' AND column_name = 'checked'

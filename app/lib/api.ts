@@ -24,6 +24,12 @@ export const authRegister = (email: string, password: string, name: string) =>
 export const authLogin = (email: string, password: string) =>
   api.post('/auth/login', { email, password });
 
+export const authForgotPassword = (email: string) =>
+  api.post('/auth/forgot-password', { email });
+
+export const authResetPassword = (email: string, code: string, new_password: string) =>
+  api.post('/auth/reset-password', { email, code, new_password });
+
 // --- Shopping Lists ---
 export const fetchShoppingLists = () => api.get('/lists/groups');
 
