@@ -44,7 +44,7 @@ export function useListQueries({
       queryKey: ["suggestions", listId],
       queryFn: () => fetchSuggestions(listId).then((r) => r.data),
       enabled: !!listId && aiEnabled,
-      staleTime: 1000 * 60 * 5,
+      staleTime: 0,
     });
 
   const {
