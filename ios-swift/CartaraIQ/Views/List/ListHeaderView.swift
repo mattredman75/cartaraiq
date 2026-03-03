@@ -18,7 +18,7 @@ struct ListHeaderView: View {
         let hour = Calendar.current.component(.hour, from: Date())
         if hour < 12 { return "Good morning" }
         if hour < 17 { return "Good afternoon" }
-        return "Good evening"
+        return "good evening"
     }
 
     var body: some View {
