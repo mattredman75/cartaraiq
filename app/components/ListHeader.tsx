@@ -218,7 +218,7 @@ export function ListHeader({
               }}
             />
             <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
-              {unchecked.length} item{unchecked.length !== 1 ? "s" : ""} in your
+              {unchecked.length} item{unchecked.length !== 1 ? "s" : ""} in this
               list
             </Text>
           </View>
@@ -268,7 +268,7 @@ export function ListHeader({
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={onSubmit}
-          placeholder="Add to your list…"
+          placeholder="Add to this list"
           placeholderTextColor={MUTED}
           returnKeyType="done"
           style={{

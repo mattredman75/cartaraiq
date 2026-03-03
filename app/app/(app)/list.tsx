@@ -321,8 +321,23 @@ export default function ListScreen() {
         />
         {unchecked.length > 0 && (
           <View
-            style={{ marginTop: 24, paddingHorizontal: 20, marginBottom: 10 }}
+            style={{
+              marginTop: 24,
+              paddingHorizontal: 20,
+              marginBottom: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+            }}
           >
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: "#F5C842",
+              }}
+            />
             <Text
               style={{
                 fontSize: 12,
@@ -331,7 +346,7 @@ export default function ListScreen() {
                 letterSpacing: 0.8,
               }}
             >
-              TO BUY ({unchecked.length})
+              IN THIS LIST {/*({unchecked.length})*/}
             </Text>
           </View>
         )}

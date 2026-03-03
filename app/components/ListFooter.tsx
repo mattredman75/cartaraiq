@@ -1,9 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, ActivityIndicator, Pressable, Alert } from "react-native";
 import type { ListItem } from "../lib/types";
 import { ItemRow } from "./ItemRow";
 
@@ -32,18 +28,49 @@ export function ListFooter({
     <>
       {checked.length > 0 && (
         <View style={{ marginTop: 24 }}>
-          <Text
+          <View
             style={{
-              fontSize: 12,
-              fontWeight: "700",
-              color: MUTED,
-              marginBottom: 10,
-              letterSpacing: 0.8,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
               paddingHorizontal: 20,
+              marginBottom: 10,
             }}
           >
-            DONE ({checked.length})
-          </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                color: MUTED,
+                letterSpacing: 0.8,
+              }}
+            >
+              DONE {/*({checked.length})*/}
+            </Text>
+            <Pressable
+              onPress={() =>
+                Alert.alert(
+                  "Clear done items",
+                  "Are you sure you want to clear all done items?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Confirm",
+                      style: "destructive",
+                      onPress: () => {
+                        checked.forEach((item) => onDelete(item.id));
+                      },
+                    },
+                  ],
+                )
+              }
+              android_ripple={{ color: "#eee" }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: TEAL }}>
+                CLEAR ALL
+              </Text>
+            </Pressable>
+          </View>
           <View>
             {checked.map((item) => (
               <ItemRow

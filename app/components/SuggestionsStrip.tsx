@@ -92,16 +92,32 @@ export function SuggestionsStrip({
           marginBottom: 12,
         }}
       >
-        <Text
+        <View
           style={{
-            fontSize: 13,
-            fontWeight: "700",
-            color: MUTED,
-            letterSpacing: 0.8,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
           }}
         >
-          AI SUGGESTIONS
-        </Text>
+          <View
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: "#00C2CB",
+            }}
+          />
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: MUTED,
+              letterSpacing: 0.8,
+            }}
+          >
+            AI SUGGESTIONS
+          </Text>
+        </View>
         {onRefresh && (
           <TouchableOpacity
             onPress={onRefresh}

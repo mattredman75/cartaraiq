@@ -46,11 +46,7 @@ export function SettingsModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <TouchableOpacity
-        style={{ flex: 1 }}
-        activeOpacity={1}
-        onPress={onClose}
-      >
+      <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose}>
         <View
           style={{
             position: "absolute",
@@ -86,14 +82,14 @@ export function SettingsModal({
                 marginBottom: 8,
               }}
             >
-              <Text
-                style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}
-              >
+              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
                 {user?.name?.charAt(0).toUpperCase() ?? "?"}
               </Text>
             </View>
             {editingDisplayName ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
                 <TextInput
                   value={displayNameText}
                   onChangeText={setDisplayNameText}
@@ -104,7 +100,10 @@ export function SettingsModal({
                     if (name && name !== user?.name) {
                       await updateMe(name);
                       updateUser({ name });
-                      await setItem("auth_user", JSON.stringify({ ...user, name }));
+                      await setItem(
+                        "auth_user",
+                        JSON.stringify({ ...user, name }),
+                      );
                     }
                     setEditingDisplayName(false);
                   }}
@@ -124,12 +123,19 @@ export function SettingsModal({
                     if (name && name !== user?.name) {
                       await updateMe(name);
                       updateUser({ name });
-                      await setItem("auth_user", JSON.stringify({ ...user, name }));
+                      await setItem(
+                        "auth_user",
+                        JSON.stringify({ ...user, name }),
+                      );
                     }
                     setEditingDisplayName(false);
                   }}
                 >
-                  <Text style={{ color: TEAL, fontWeight: "700", fontSize: 13 }}>Save</Text>
+                  <Text
+                    style={{ color: TEAL, fontWeight: "700", fontSize: 13 }}
+                  >
+                    Save
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -219,9 +225,34 @@ export function SettingsModal({
               borderBottomColor: BORDER,
             }}
           >
-            <Text style={{ fontSize: 12, color: MUTED }}>
-              Version {Constants.expoConfig?.version ?? "1.0.0"}
-            </Text>
+            {(() => {
+              const version = Constants.expoConfig?.version ?? "1.0.0";
+              let build: string | null =
+                Constants.expoConfig?.ios?.buildNumber ||
+                (Constants.expoConfig?.android?.versionCode
+                  ? String(Constants.expoConfig?.android?.versionCode)
+                  : null) ||
+                null;
+
+              // try to read generated build-info with git commit
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const info = require("../build-info.json");
+                if (info && info.gitCommit) {
+                  const hash = String(info.gitCommit).slice(0, 10);
+                  build = build ? `${build}.${hash}` : hash;
+                }
+              } catch (e) {
+                // file may not exist in some environments; ignore
+              }
+
+              return (
+                <Text style={{ fontSize: 12, color: MUTED }}>
+                  Version {version}
+                  {build ? ` (${build})` : ""}
+                </Text>
+              );
+            })()}
           </View>
 
           {/* Sign out */}
@@ -235,9 +266,7 @@ export function SettingsModal({
             }}
             style={{ paddingHorizontal: 16, paddingVertical: 14 }}
           >
-            <Text
-              style={{ fontSize: 14, color: "#EF4444", fontWeight: "600" }}
-            >
+            <Text style={{ fontSize: 14, color: "#EF4444", fontWeight: "600" }}>
               Sign out
             </Text>
           </TouchableOpacity>
