@@ -203,7 +203,7 @@ def get_recipe_suggestions(
             reason = f"Pairs well with {triggers[0].title()} in recipes"
         else:
             listed = ", ".join(t.title() for t in triggers[:2])
-            reason = f"Goes with {listed} across multiple recipes"
+            reason = f"Goes with {listed}"
         results.append({"name": ing_name.title(), "reason": reason})
 
     return results

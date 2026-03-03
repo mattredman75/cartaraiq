@@ -63,6 +63,11 @@ export const reorderListItems = (items: { id: string; sort_order: number }[]) =>
 
 export const deleteListItem = (id: string) => api.delete(`/lists/items/${id}`);
 
+export const hardDeleteItem = (id: string) => api.delete(`/lists/items/${id}/permanent`);
+
+export const parseItemText = (text: string, listId?: string) =>
+  api.post('/lists/items/parse-text', { text, list_id: listId });
+
 export const fetchDeletedItems = (listId?: string) =>
   api.get('/lists/items/deleted', { params: listId ? { list_id: listId } : {} });
 
