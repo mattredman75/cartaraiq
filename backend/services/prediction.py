@@ -82,8 +82,8 @@ def get_frequency_candidates(db: Session, user_id: str, limit: int = 15, list_id
     seen: set[str] = set()
     deduped: list[ListItem] = []
     for item in scored:
-        key = item.name.lower()
-        if key not in seen:
+        key = item.name
+        if key.lower() not in seen:
             seen.add(key)
             deduped.append(item)
 
@@ -117,7 +117,7 @@ def _build_cooccurrence(db: Session) -> None:
 
     user_items: dict[str, set[str]] = defaultdict(set)
     for user_id, name in rows:
-        user_items[user_id].add(name.lower().strip())
+        user_items[user_id].add(name.strip())
 
     new_cooc: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     new_pop: dict[str, int] = defaultdict(int)
@@ -161,12 +161,12 @@ def _get_user_item_set(db: Session, user_id: str) -> set[str]:
         )
         .all()
     )
-    return {row[0].lower().strip() for row in rows}
+    return {row[0].strip() for row in rows}
 
 
 def _cooccurrence_score(item_name: str, user_item_set: set[str]) -> float:
-    key = item_name.lower().strip()
-    cooc = _cooccurrence.get(key)
+    key = item_name.strip()
+    cooc = _cooccurrence.get(key.lower())
     if not cooc or not user_item_set:
         return 0.0
     pop = _item_popularity.get(key, 1)
@@ -215,7 +215,7 @@ def _generate_reason(item: ListItem, overdue_ratio: float, cooc_score_norm: floa
         "Usually ends up in the cart anyway.",
         "A solid regular.",
         "Worth adding while you're here.",
-        "The kind of thing you always end up needing.",
+        "The kind of thing you always need.",
         "No surprises — just useful.",
     ])
 
@@ -259,18 +259,13 @@ def get_smart_suggestions(
     ]
     scored.sort(key=lambda x: x[1], reverse=True)
 
+    # Shuffle to randomize which items appear, then take top 8
+    random.shuffle(scored)
+
     result = []
-    for item, _, cooc_n in scored[:5]:
+    for item, _, cooc_n in scored[:8]:
         avg_cycle = item.avg_days_between_adds or 7.0
         overdue_ratio = _days_since(item.last_added_at) / avg_cycle
         result.append({"name": item.name, "reason": _generate_reason(item, overdue_ratio, cooc_n)})
-
-    logger.info(
-        "Suggestions | user=%s | candidates=%d | use_cooc=%s | top=%s",
-        user_id[:8],
-        len(candidates),
-        use_cooc,
-        [r["name"] for r in result],
-    )
 
     return result

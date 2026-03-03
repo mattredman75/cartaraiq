@@ -451,8 +451,24 @@ def get_suggestions(
     if not list_id:
         default = get_or_create_default_list(db, current_user.id)
         list_id = default.id
-    candidates = get_frequency_candidates(db, current_user.id, list_id=list_id)
-    suggestions = get_smart_suggestions(candidates, current_user.id, list_id, db)
+    
+    # Get all candidates
+    candidates = get_frequency_candidates(db, current_user.id)
+    
+    # Get items already on the list (unchecked)
+    on_list = db.query(ListItem).filter(
+        ListItem.user_id == current_user.id,
+        ListItem.list_id == list_id,
+        ListItem.checked == 0,
+    ).all()
+    on_list_names = {item.name.lower() for item in on_list}
+    
+    # Filter candidates to exclude items already on list
+    filtered_candidates = [
+        c for c in candidates if c.name.lower() not in on_list_names
+    ]
+    
+    suggestions = get_smart_suggestions(filtered_candidates, current_user.id, list_id, db)
     return suggestions
 
 

@@ -96,8 +96,8 @@ struct AuthTextField: View {
     let placeholder: String
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
-    var textContentType: UITextContentType? = nil
     var isSecure: Bool = false
+    var textContentType: UITextContentType? = nil
     var autocapitalization: TextInputAutocapitalization = .never
 
     var body: some View {
@@ -107,7 +107,7 @@ struct AuthTextField: View {
             } else {
                 TextField(placeholder, text: $text)
                     .keyboardType(keyboardType)
-                    .autocapitalization(autocapitalization)
+                    .textInputAutocapitalization(autocapitalization)
             }
         }
         .textContentType(textContentType)

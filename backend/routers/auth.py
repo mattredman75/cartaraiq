@@ -19,6 +19,17 @@ from ..models.shopping_list import ShoppingList
 from ..models.user import User
 
 logger = logging.getLogger("cartaraiq")
+# ensure messages go to the hosting log file since we can't see stdout/stderr
+if not logger.handlers:
+    try:
+        handler = logging.FileHandler("/home/tradecom/cartaraiq_api/logs/app.log")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    except Exception:
+        # if the log path isn't writable, fall back to default
+        logging.basicConfig()
+        logger.warning("Failed to attach file handler to cartaraiq logger")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -102,6 +113,7 @@ def _send_reset_email(to_email: str, code: str) -> None:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Your CartaraIQ password reset code"
     msg["From"] = settings.smtp_from
+    logger.info("[Password Reset] msg.From header set to %r", msg["From"])
     msg["To"] = to_email
     body = (
         f"Hi,\n\n"
@@ -112,6 +124,11 @@ def _send_reset_email(to_email: str, code: str) -> None:
         f"– CartaraIQ"
     )
     msg.attach(MIMEText(body, "plain"))
+    # debug: log configured smtp_from and the raw message for troubleshooting
+    try:
+        logger.info("[Password Reset] smtp_from=%r to_email=%r", settings.smtp_from, to_email)
+    except Exception:
+        logger.exception("failed to log reset-email debug info")
     try:
         if settings.smtp_port == 465:
             # Port 465 = SMTPS (SSL from the start)

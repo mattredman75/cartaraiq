@@ -18,6 +18,7 @@ Caching:
 """
 
 import logging
+import random
 import urllib.request
 import urllib.parse
 import json
@@ -37,6 +38,29 @@ MAX_ITEMS_TO_QUERY = 5
 MAX_RECIPES_PER_ITEM = 5
 
 BASE_URL = "https://www.themealdb.com/api/json/v1/1"
+
+PAIRING_PHRASES = [
+    "Pairs well with",
+    "Goes well with",
+    "Used with",
+    "Friends with",
+    "Regularly used with",
+    "Good mates with",
+    "Compliments",
+    "Complimented by",
+    "Seen with",
+    "Often paired with",
+    "Combines with",
+    "Blends with",
+    "Tastes great with",
+    "Great alongside",
+    "Works well with",
+]
+
+
+def _get_random_pairing_phrase() -> str:
+    """Return a random pairing phrase from the list."""
+    return random.choice(PAIRING_PHRASES)
 
 
 # ── TheMealDB HTTP helpers ────────────────────────────────────────────────────
@@ -199,11 +223,15 @@ def get_recipe_suggestions(
     results: list[dict] = []
     for ing_name, data in ranked[:MAX_RESULTS]:
         triggers = data["triggers"]
-        if len(triggers) == 1:
-            reason = f"Pairs well with {triggers[0].title()} in recipes"
-        else:
-            listed = ", ".join(t.title() for t in triggers[:2])
-            reason = f"Goes with {listed}"
+        prefix = _get_random_pairing_phrase()
+        trigger_titles = [t.title() for t in triggers[:3]]
+        if len(trigger_titles) == 1:
+            listed = trigger_titles[0]
+        elif len(trigger_titles) == 2:
+            listed = f"{trigger_titles[0]} and {trigger_titles[1]}"
+        else:  # 3 items
+            listed = ", ".join(trigger_titles[:-1]) + f" and {trigger_titles[-1]}"
+        reason = f"{prefix} {listed}"
         results.append({"name": ing_name.title(), "reason": reason})
 
     return results
