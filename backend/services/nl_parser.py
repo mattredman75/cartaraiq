@@ -8,17 +8,12 @@ Falls back to a single raw-text item on any error so the add flow never breaks.
 """
 
 import json
-import logging
-import traceback
-
-logger = logging.getLogger(__name__)
-print("[nl_parser] module loaded")
 
 _SYSTEM_PROMPT = """\
 You are a shopping list parser. Parse the user's input into a JSON array of grocery items.
 
 Rules:
-- "name": lowercase grocery item name, no articles (a/an/the), no leading/trailing whitespace
+- "name": lowercase grocery item name; remove only grammatical articles (a/an/the) but keep ALL other words including descriptors, styles, and adjectives; e.g. "Thai style chicken broth" → "thai style chicken broth", "free range eggs" → "free range eggs", "extra virgin olive oil" → "extra virgin olive oil"
 - "quantity": integer, default 1 if not specified
 - "unit": one of [g, kg, ml, l, lb, oz, cup, bunch, pack, packet, bottle, can, bag, box, dozen, loaf, loaves, roll, rolls, slice, slices, sheet, sheets, bar, bars, jar, jars, tub, tubs, punnet, punnets, sachet, sachets, piece, pieces] or null
 - Normalise plural units to singular (e.g. "loaves" → "loaf", "rolls" → "roll", "bars" → "bar")
@@ -26,7 +21,9 @@ Rules:
 - "2 litres of milk" → {"name":"milk","quantity":2,"unit":"l"}
 - "some bread" → {"name":"bread","quantity":1,"unit":null}
 - "2 loaves of bread" → {"name":"bread","quantity":2,"unit":"loaf"}
-- Split compound inputs into separate items ("eggs and milk" → two items)
+- Split compound inputs into separate items ONLY when they are clearly distinct grocery items joined by "and" or commas (e.g. "eggs and milk" → two items, "bread, butter and cheese" → three items)
+- Do NOT split dish or recipe names — keep them as a single item (e.g. "garlic chicken pasta" → one item, "beef stir fry" → one item, "chicken tikka masala" → one item)
+- Correct obvious spelling mistakes in item names (e.g. "chikne" → "chicken", "bere" → "beer", "tmoatoes" → "tomatoes", "farlic" → "garlic")
 - Respond ONLY with a valid JSON array. No explanation, no markdown."""
 
 
@@ -39,10 +36,7 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
     """
     fallback = [{"name": text.strip(), "quantity": 1, "unit": None}]
 
-    print(f"[nl_parser] parse_shopping_input called | text={text!r} | key_set={bool(api_key)}")
-
     if not api_key:
-        print("[nl_parser] GROQ_API_KEY is empty — falling back to raw text")
         return fallback
 
     try:
@@ -59,11 +53,9 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
         )
 
         raw = response.choices[0].message.content.strip()
-        print(f"[nl_parser] Groq raw response: {raw!r}")
         parsed = json.loads(raw)
 
         if not isinstance(parsed, list) or not parsed:
-            print("[nl_parser] Groq returned empty/non-list — falling back")
             return fallback
 
         result = []
@@ -77,9 +69,7 @@ def parse_shopping_input(text: str, api_key: str) -> list[dict]:
                 "unit": item.get("unit") or None,
             })
 
-        print(f"[nl_parser] parsed {len(result)} items: {[r['name'] for r in result]}")
         return result if result else fallback
 
     except Exception:
-        print(f"[nl_parser] Exception during Groq call:\n{traceback.format_exc()}")
         return fallback

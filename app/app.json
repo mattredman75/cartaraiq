@@ -13,7 +13,7 @@
       "backgroundColor": "#0D4F5C"
     },
     "ios": {
-      "buildNumber": "10",
+      "buildNumber": "11",
       "supportsTablet": true,
       "bundleIdentifier": "com.cartaraiq.app",
       "infoPlist": {

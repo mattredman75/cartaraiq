@@ -73,6 +73,12 @@ class ReorderItem(BaseModel):
     sort_order: int
 
 
+class ParsedItemOut(BaseModel):
+    name: str
+    quantity: int
+    unit: Optional[str] = None
+
+
 class SuggestionOut(BaseModel):
     name: str
     reason: str
@@ -342,6 +348,34 @@ def bulk_add_items(
         results.append(item)
 
     return results
+
+
+# NOTE: /items/parse-text must be defined before /items/{item_id} to avoid
+# FastAPI treating "parse-text" as an item_id path parameter.
+@router.post("/items/parse-text", response_model=list[ParsedItemOut])
+def parse_item_text(
+    payload: BulkAddRequest,
+    current_user: User = Depends(get_current_user),
+):
+    return parse_shopping_input(payload.text, settings.groq_api_key)
+
+
+# NOTE: /items/{item_id}/permanent must be defined before /items/{item_id} (DELETE)
+# so FastAPI resolves the more-specific path first.
+@router.delete("/items/{item_id}/permanent", status_code=204)
+def hard_delete_item(
+    item_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    item = db.query(ListItem).filter(
+        ListItem.id == item_id,
+        ListItem.user_id == current_user.id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found.")
+    db.delete(item)
+    db.commit()
 
 
 @router.patch("/items/{item_id}", response_model=ListItemOut)
