@@ -69,11 +69,19 @@ export function useBiometricAuth() {
     setError(null);
 
     try {
+      // On iOS, the system Face ID / Touch ID permission prompt is triggered
+      // automatically on the first call to authenticateAsync, provided
+      // NSFaceIDUsageDescription is present in Info.plist.
+      // If the prompt never appears, the permission was previously denied —
+      // the user must enable it in Settings > Privacy & Security > Face ID.
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Authenticate to access CartaraIQ",
         disableDeviceFallback: false,
         fallbackLabel: "Use PIN instead",
       });
+
+      setLoading(false);
+
       if (!result.success) {
         if (
           result.error === "user_cancel" ||
@@ -82,6 +90,10 @@ export function useBiometricAuth() {
           setError("Biometric authentication was cancelled.");
         } else if (result.error === "user_fallback") {
           setError("Biometric authentication failed, please use PIN.");
+        } else if (result.error === "not_available" || result.error === "not_enrolled") {
+          setError("Biometric authentication is not available. Check Settings > Face ID & Passcode.");
+        } else if (result.error === "app_cancel") {
+          setError("Biometric permission denied. Go to Settings > Privacy & Security > Face ID (or Touch ID) and enable CartaraIQ.");
         } else {
           setError(`Biometric authentication failed: ${result.error}`);
         }
