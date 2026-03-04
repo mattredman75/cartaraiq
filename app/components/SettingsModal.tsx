@@ -17,6 +17,7 @@ import { updateMe } from "../lib/api";
 import { setItem, deleteItem } from "../lib/storage";
 import { useBiometricAuth } from "../hooks/useBiometricAuth";
 import { PINEntry } from "./PINEntry";
+import { COLORS } from "@/lib/constants";
 
 const TEAL = "#1B6B7A";
 const TEAL_DARK = "#0D4F5C";
@@ -330,29 +331,28 @@ export function SettingsModal({
 
               {/* Reset PIN option when biometric is enabled */}
               {biometricEnabled && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowResetPINModal(true);
-                    setResetPINStep("first");
-                    setFirstResetPIN("");
-                    setResetPINError("");
-                  }}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    backgroundColor: TEAL,
-                  }}
-                >
-                  <Text
+                <View style={{ paddingHorizontal: 16, paddingBottom: 12, alignItems: "center" }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowResetPINModal(true);
+                      setResetPINStep("first");
+                      setFirstResetPIN("");
+                      setResetPINError("");
+                    }}
                     style={{
-                      fontSize: 13,
-                      color: "#fff",
-                      fontWeight: "500",
+                      width: "80%",
+                      marginTop: 10,
+                      paddingVertical: 8,
+                      backgroundColor: TEAL,
+                      borderRadius: 10,
+                      alignItems: "center",
                     }}
                   >
-                    Reset PIN
-                  </Text>
-                </TouchableOpacity>
+                    <Text style={{ fontSize: 13, color: "#fff", fontWeight: "600" }}>
+                      Reset PIN
+                    </Text>
+                  </TouchableOpacity>
+                  </View>
               )}
             </View>
           )}
@@ -389,7 +389,7 @@ export function SettingsModal({
 
               return (
                 <Text style={{ fontSize: 12, color: MUTED }}>
-                  Version {version}
+                  Versionn {version}
                   {build ? ` (${build})` : ""}
                 </Text>
               );
@@ -397,20 +397,31 @@ export function SettingsModal({
           </View>
 
           {/* Sign out */}
-          <TouchableOpacity
-            onPress={async () => {
+          <View style={{ flex: 1, paddingHorizontal: 28, paddingVertical: 20, alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={async () => {
               onClose();
               await deleteItem("auth_token");
               await deleteItem("auth_user");
               clearAuth();
               router.replace("/(auth)/welcome" as any);
             }}
-            style={{ paddingHorizontal: 16, paddingVertical: 14 }}
-          >
-            <Text style={{ fontSize: 14, color: "#EF4444", fontWeight: "600" }}>
-              Sign out
-            </Text>
-          </TouchableOpacity>
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: COLORS.danger,
+                borderRadius: 10,
+                paddingVertical: 10,
+                alignItems: 'center',
+                width: '90%',
+              }}
+            >
+              <Text
+                style={{fontSize: 13, color: "#fff", fontWeight: "600" }}
+              >
+                Sign Out
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
 

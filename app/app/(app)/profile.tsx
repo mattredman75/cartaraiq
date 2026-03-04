@@ -143,7 +143,7 @@ export default function ProfileScreen() {
           <SectionHeader label="ABOUT" />
 
           <SettingsCard>
-            <InfoRow label="Version" value="1.0.0" divider />
+            <InfoRow label="Version" value="1.0.0.0" divider />
             <InfoRow label="Powered by" value="Claude AI" />
           </SettingsCard>
 
@@ -167,7 +167,7 @@ export default function ProfileScreen() {
                   letterSpacing: 0.3,
                 }}
               >
-                Sign Out
+                Sign OutTT
               </Text>
             </TouchableOpacity>
           </View>
