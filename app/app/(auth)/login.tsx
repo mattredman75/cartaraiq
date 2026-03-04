@@ -176,13 +176,20 @@ export default function LoginScreen() {
   const handleSetUpBiometric = async () => {
     // Store credentials for biometric
     await storeBiometricCredentials(email, password);
+
+    // Prompt for biometric permission
+    const success = await authenticateWithBiometric();
+    if (!success) {
+      setError("Biometric setup failed. Proceeding with PIN setup.");
+    }
+
     setShowBiometricSetup(false);
     setShowPINSetup(true); // Ask for PIN as fallback
   };
 
   const handleSetUpPIN = async (enteredPin: string) => {
     try {
-      const pinHash = hashPin(enteredPin);
+      const pinHash = await hashPin(enteredPin);
       // Update storage with PIN hash
       const credentials = await getBiometricCredentials();
       if (credentials) {
@@ -380,7 +387,9 @@ export default function LoginScreen() {
               >
                 <Ionicons
                   name={
-                    biometricType?.includes("faceId") ? "person" : "finger-print"
+                    biometricType?.includes("faceId")
+                      ? "person"
+                      : "finger-print"
                   }
                   size={20}
                   color="#fff"

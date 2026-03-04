@@ -1,14 +1,17 @@
 import { useCallback, useState } from "react";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 import { getItem, setItem, deleteItem } from "../lib/storage";
 
 interface BiometricCredentials {
   email: string;
   password: string;
-  biometricType?: string; // 'faceId' | 'touchId' | 'iris' | 'fingerprint'
+  biometricType?: string | null; // 'faceId' | 'touchId' | 'iris' | 'fingerprint'
   pinHash?: string; // For PIN fallback
 }
+
+const PIN_SALT = "cartaraiq_secure_pin_salt_2024";
 
 export function useBiometricAuth() {
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
@@ -67,13 +70,24 @@ export function useBiometricAuth() {
 
     try {
       const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Authenticate to access CartaraIQ",
         disableDeviceFallback: false,
         fallbackLabel: "Use PIN instead",
-        reason: "Authenticate to access CartaraIQ",
       });
-
-      setLoading(false);
-      return result.success;
+      if (!result.success) {
+        if (
+          result.error === "user_cancel" ||
+          result.error === "system_cancel"
+        ) {
+          setError("Biometric authentication was cancelled.");
+        } else if (result.error === "user_fallback") {
+          setError("Biometric authentication failed, please use PIN.");
+        } else {
+          setError(`Biometric authentication failed: ${result.error}`);
+        }
+        return false;
+      }
+      return true;
     } catch (err) {
       setError(`Biometric authentication failed: ${err}`);
       setLoading(false);
@@ -137,10 +151,13 @@ export function useBiometricAuth() {
     }
   }, []);
 
-  // Simple PIN hash function (you should use a proper hashing library in production)
-  const hashPin = useCallback((pin: string): string => {
-    // For now, using a simple hash. Consider using crypto-js or similar for production
-    return Buffer.from(pin).toString("base64");
+  // Secure PIN hash function using SHA-256
+  const hashPin = useCallback(async (pin: string): Promise<string> => {
+    const hash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      pin + PIN_SALT,
+    );
+    return hash;
   }, []);
 
   // Verify PIN
@@ -150,7 +167,7 @@ export function useBiometricAuth() {
         const credentials = await getBiometricCredentials();
         if (!credentials?.pinHash) return false;
 
-        const hash = hashPin(providedPin);
+        const hash = await hashPin(providedPin);
         return hash === credentials.pinHash;
       } catch (err) {
         setError(`PIN verification failed: ${err}`);
