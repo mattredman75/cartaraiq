@@ -21,14 +21,17 @@ export function useBiometricAuth() {
 
   // Check if biometric authentication is available on device
   const checkBiometricAvailability = useCallback(async () => {
+    console.log('[Bio] checkBiometricAvailability called');
     try {
       const compatible = await LocalAuthentication.hasHardwareAsync();
+      console.log('[Bio] hasHardware:', compatible);
       if (!compatible) {
         setIsBiometricAvailable(false);
         return false;
       }
 
       const enrolled = await LocalAuthentication.isEnrolledAsync();
+      console.log('[Bio] isEnrolled:', enrolled);
       setIsBiometricAvailable(enrolled);
 
       if (enrolled) {
@@ -65,6 +68,7 @@ export function useBiometricAuth() {
 
   // Authenticate using biometric
   const authenticateWithBiometric = useCallback(async (): Promise<boolean> => {
+    console.log('[Bio] authenticateWithBiometric called');
     setLoading(true);
     setError(null);
 
@@ -74,12 +78,14 @@ export function useBiometricAuth() {
       // NSFaceIDUsageDescription is present in Info.plist.
       // If the prompt never appears, the permission was previously denied —
       // the user must enable it in Settings > Privacy & Security > Face ID.
+      console.log('[Bio] Calling authenticateAsync...');
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Authenticate to access CartaraIQ",
         disableDeviceFallback: false,
         fallbackLabel: "Use PIN instead",
       });
 
+      console.log('[Bio] authenticateAsync returned:', { success: result.success, error: result.error });
       setLoading(false);
 
       if (!result.success) {
@@ -90,10 +96,17 @@ export function useBiometricAuth() {
           setError("Biometric authentication was cancelled.");
         } else if (result.error === "user_fallback") {
           setError("Biometric authentication failed, please use PIN.");
-        } else if (result.error === "not_available" || result.error === "not_enrolled") {
-          setError("Biometric authentication is not available. Check Settings > Face ID & Passcode.");
+        } else if (
+          result.error === "not_available" ||
+          result.error === "not_enrolled"
+        ) {
+          setError(
+            "Biometric authentication is not available. Check Settings > Face ID & Passcode.",
+          );
         } else if (result.error === "app_cancel") {
-          setError("Biometric permission denied. Go to Settings > Privacy & Security > Face ID (or Touch ID) and enable CartaraIQ.");
+          setError(
+            "Biometric permission denied. Go to Settings > Privacy & Security > Face ID (or Touch ID) and enable CartaraIQ.",
+          );
         } else {
           setError(`Biometric authentication failed: ${result.error}`);
         }
