@@ -56,7 +56,7 @@ function withCartaraIQWidget(config) {
     if (!fs.existsSync(podfilePath)) return cfg;
 
     const contents = fs.readFileSync(podfilePath, 'utf8');
-    if (contents.includes('CODE_SIGNING_ALLOWED')) return cfg;
+    if (contents.includes('ENABLE_USER_SCRIPT_SANDBOXING')) return cfg;
 
     const injection = [
       '    # [withCartaraIQWidget] Xcode 14+: disable code-signing on resource bundle targets',
