@@ -47,6 +47,35 @@ function withCartaraIQWidget(config) {
     return cfg;
   }]);
 
+  // Patch Podfile: add post_install hook to disable code-signing for resource
+  // bundles — required since Xcode 14 signs resource bundles by default, which
+  // breaks CI/EAS archive when no team is set on those targets.
+  config = withDangerousMod(config, ['ios', async (cfg) => {
+    const podfilePath = path.join(cfg.modRequest.projectRoot, 'ios', 'Podfile');
+    if (!fs.existsSync(podfilePath)) return cfg;
+
+    let contents = fs.readFileSync(podfilePath, 'utf8');
+
+    const hook = `
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      end
+    end
+  end
+end
+`;
+
+    if (!contents.includes('CODE_SIGNING_ALLOWED')) {
+      contents = contents + hook;
+      fs.writeFileSync(podfilePath, contents, 'utf8');
+      console.log('[withCartaraIQWidget] Patched Podfile with CODE_SIGNING_ALLOWED post_install hook');
+    }
+    return cfg;
+  }]);
+
   return config;
 }
 
