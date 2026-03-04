@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,16 +10,16 @@ import {
   ActivityIndicator,
   StatusBar,
   Modal,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { setItem } from '../../lib/storage';
-import { authLogin } from '../../lib/api';
-import { useAuthStore } from '../../lib/store';
-import { COLORS } from '../../lib/constants';
-import { useBiometricAuth } from '../../hooks/useBiometricAuth';
-import { PINEntry } from '../../components/PINEntry';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { setItem } from "../../lib/storage";
+import { authLogin } from "../../lib/api";
+import { useAuthStore } from "../../lib/store";
+import { COLORS } from "../../lib/constants";
+import { useBiometricAuth } from "../../hooks/useBiometricAuth";
+import { PINEntry } from "../../components/PINEntry";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -33,48 +33,76 @@ export default function LoginScreen() {
     isBiometricEnabled,
     verifyPin,
     hashPin,
+    checkBiometricAvailability,
   } = useBiometricAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [showBiometricSetup, setShowBiometricSetup] = useState(false);
   const [showPINEntry, setShowPINEntry] = useState(false);
   const [showPINSetup, setShowPINSetup] = useState(false);
-  const [pin, setPin] = useState('');
+  const [pin, setPin] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
 
   useEffect(() => {
+    console.log("Login component mounted, checking biometric setup...");
     checkBiometricSetup();
   }, []);
 
   const checkBiometricSetup = async () => {
-    const available = isBiometricAvailable;
-    if (available) {
-      const enabled = await isBiometricEnabled();
-      setBiometricReady(enabled);
+    console.log("Starting biometric setup check...");
+    try {
+      // Add timeout to prevent hanging on simulator
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Biometric check timeout")), 5000);
+      });
+
+      const availabilityPromise = checkBiometricAvailability();
+      const available = (await Promise.race([
+        availabilityPromise,
+        timeoutPromise,
+      ])) as boolean;
+      console.log("Biometric availability check result:", available);
+
+      if (available) {
+        const enabled = await isBiometricEnabled();
+        console.log("Biometric enabled check result:", enabled);
+        setBiometricReady(enabled);
+      } else {
+        setBiometricReady(false);
+      }
+    } catch (error) {
+      console.warn("Biometric setup check failed or timed out:", error);
+      // Continue without biometric features if check fails
+      setBiometricReady(false);
     }
   };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setError('Please enter your email and password.');
+      setError("Please enter your email and password.");
       return;
     }
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const res = await authLogin(email, password);
       const { access_token, user } = res.data;
-      await setItem('auth_token', access_token);
-      await setItem('auth_user', JSON.stringify(user));
+      await setItem("auth_token", access_token);
+      await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
 
-      // Offer to set up biometric login
-      if (isBiometricAvailable && !biometricReady) {
-        setShowBiometricSetup(true);
-      }
+      // Offer to set up biometric login only if biometric is available and not already set up
+      // Temporarily disabled for debugging
+      // const biometricAvailable = await checkBiometricAvailability();
+      // if (biometricAvailable && !biometricReady) {
+      //   setShowBiometricSetup(true);
+      // } else {
+      // Navigate to app
+      router.replace("/(app)/list");
+      // }
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
     } finally {
@@ -84,19 +112,19 @@ export default function LoginScreen() {
 
   const handleBiometricLogin = async () => {
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const credentials = await getBiometricCredentials();
       if (!credentials) {
-        setError('No stored credentials found.');
+        setError("No stored credentials found.");
         setLoading(false);
         return;
       }
 
       const success = await authenticateWithBiometric();
       if (!success) {
-        setError('Biometric authentication failed.');
+        setError("Biometric authentication failed.");
         setLoading(false);
         return;
       }
@@ -104,11 +132,12 @@ export default function LoginScreen() {
       // Use stored credentials to login
       const res = await authLogin(credentials.email, credentials.password);
       const { access_token, user } = res.data;
-      await setItem('auth_token', access_token);
-      await setItem('auth_user', JSON.stringify(user));
+      await setItem("auth_token", access_token);
+      await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -116,19 +145,19 @@ export default function LoginScreen() {
 
   const handlePINLogin = async (enteredPin: string) => {
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const credentials = await getBiometricCredentials();
       if (!credentials) {
-        setError('No stored credentials found.');
+        setError("No stored credentials found.");
         setLoading(false);
         return;
       }
 
       const isValid = await verifyPin(enteredPin);
       if (!isValid) {
-        setError('Invalid PIN.');
+        setError("Invalid PIN.");
         setLoading(false);
         return;
       }
@@ -136,8 +165,8 @@ export default function LoginScreen() {
       // Use stored credentials to login
       const res = await authLogin(credentials.email, credentials.password);
       const { access_token, user } = res.data;
-      await setItem('auth_token', access_token);
-      await setItem('auth_user', JSON.stringify(user));
+      await setItem("auth_token", access_token);
+      await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
@@ -159,12 +188,12 @@ export default function LoginScreen() {
       const credentials = await getBiometricCredentials();
       if (credentials) {
         credentials.pinHash = pinHash;
-        await setItem('biometric_credentials', JSON.stringify(credentials));
+        await setItem("biometric_credentials", JSON.stringify(credentials));
       }
       setShowPINSetup(false);
-      setPin('');
+      setPin("");
       // Navigate to app
-      router.replace('/(app)/list');
+      router.replace("/(app)/list");
     } catch (e) {
       setError(`Failed to set PIN: ${e}`);
     }
@@ -175,11 +204,15 @@ export default function LoginScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
         >
           <ScrollView
-            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 32 }}
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingHorizontal: 28,
+              paddingTop: 32,
+            }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Back */}
@@ -187,7 +220,13 @@ export default function LoginScreen() {
               onPress={() => router.back()}
               style={{ marginBottom: 36 }}
             >
-              <Text style={{ fontFamily: 'Montserrat_500Medium', color: COLORS.muted, fontSize: 14 }}>
+              <Text
+                style={{
+                  fontFamily: "Montserrat_500Medium",
+                  color: COLORS.muted,
+                  fontSize: 14,
+                }}
+              >
                 ← Back
               </Text>
             </TouchableOpacity>
@@ -195,18 +234,18 @@ export default function LoginScreen() {
             {/* Header */}
             <Text
               style={{
-                fontFamily: 'Montserrat_700Bold',
+                fontFamily: "Montserrat_700Bold",
                 fontSize: 32,
                 color: COLORS.ink,
                 lineHeight: 40,
                 marginBottom: 8,
               }}
             >
-              Welcome{'\n'}back
+              Welcome{"\n"}back
             </Text>
             <Text
               style={{
-                fontFamily: 'Montserrat_400Regular',
+                fontFamily: "Montserrat_400Regular",
                 fontSize: 15,
                 color: COLORS.muted,
                 marginBottom: 40,
@@ -219,11 +258,11 @@ export default function LoginScreen() {
             <View style={{ marginBottom: 20 }}>
               <Text
                 style={{
-                  fontFamily: 'Montserrat_600SemiBold',
+                  fontFamily: "Montserrat_600SemiBold",
                   fontSize: 12,
                   color: COLORS.ink,
                   letterSpacing: 0.8,
-                  textTransform: 'uppercase',
+                  textTransform: "uppercase",
                   marginBottom: 8,
                 }}
               >
@@ -243,7 +282,7 @@ export default function LoginScreen() {
                   borderRadius: 14,
                   paddingHorizontal: 18,
                   paddingVertical: 15,
-                  fontFamily: 'Montserrat_400Regular',
+                  fontFamily: "Montserrat_400Regular",
                   fontSize: 15,
                   color: COLORS.ink,
                 }}
@@ -253,11 +292,11 @@ export default function LoginScreen() {
             <View style={{ marginBottom: 8 }}>
               <Text
                 style={{
-                  fontFamily: 'Montserrat_600SemiBold',
+                  fontFamily: "Montserrat_600SemiBold",
                   fontSize: 12,
                   color: COLORS.ink,
                   letterSpacing: 0.8,
-                  textTransform: 'uppercase',
+                  textTransform: "uppercase",
                   marginBottom: 8,
                 }}
               >
@@ -276,7 +315,7 @@ export default function LoginScreen() {
                   borderRadius: 14,
                   paddingHorizontal: 18,
                   paddingVertical: 15,
-                  fontFamily: 'Montserrat_400Regular',
+                  fontFamily: "Montserrat_400Regular",
                   fontSize: 15,
                   color: COLORS.ink,
                 }}
@@ -286,7 +325,7 @@ export default function LoginScreen() {
             {error ? (
               <Text
                 style={{
-                  fontFamily: 'Montserrat_400Regular',
+                  fontFamily: "Montserrat_400Regular",
                   fontSize: 13,
                   color: COLORS.danger,
                   marginBottom: 16,
@@ -305,7 +344,7 @@ export default function LoginScreen() {
                 backgroundColor: COLORS.teal,
                 borderRadius: 16,
                 paddingVertical: 18,
-                alignItems: 'center',
+                alignItems: "center",
                 marginTop: 16,
               }}
             >
@@ -314,9 +353,9 @@ export default function LoginScreen() {
               ) : (
                 <Text
                   style={{
-                    fontFamily: 'Montserrat_700Bold',
+                    fontFamily: "Montserrat_700Bold",
                     fontSize: 16,
-                    color: '#fff',
+                    color: "#fff",
                     letterSpacing: 0.3,
                   }}
                 >
@@ -334,38 +373,45 @@ export default function LoginScreen() {
                   backgroundColor: COLORS.primary,
                   borderRadius: 16,
                   paddingVertical: 18,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'row',
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
                   marginTop: 12,
                 }}
               >
                 <Ionicons
-                  name={biometricType?.includes('faceId') ? 'face' : 'finger-print'}
+                  name={
+                    biometricType?.includes("faceId") ? "face" : "finger-print"
+                  }
                   size={20}
                   color="#fff"
                   style={{ marginRight: 8 }}
                 />
                 <Text
                   style={{
-                    fontFamily: 'Montserrat_700Bold',
+                    fontFamily: "Montserrat_700Bold",
                     fontSize: 16,
-                    color: '#fff',
+                    color: "#fff",
                     letterSpacing: 0.3,
                   }}
                 >
-                  {biometricType?.includes('faceId') ? 'Face ID' : biometricType?.includes('touchId') ? 'Touch ID' : 'Biometric'} Login
+                  {biometricType?.includes("faceId")
+                    ? "Face ID"
+                    : biometricType?.includes("touchId")
+                      ? "Touch ID"
+                      : "Biometric"}{" "}
+                  Login
                 </Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
-              onPress={() => router.push('/(auth)/forgot-password' as any)}
-              style={{ alignItems: 'center', marginTop: 20 }}
+              onPress={() => router.push("/(auth)/forgot-password" as any)}
+              style={{ alignItems: "center", marginTop: 20 }}
             >
               <Text
                 style={{
-                  fontFamily: 'Montserrat_500Medium',
+                  fontFamily: "Montserrat_500Medium",
                   fontSize: 14,
                   color: COLORS.teal,
                 }}
@@ -375,20 +421,20 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.replace('/(auth)/signup')}
-              style={{ alignItems: 'center', marginTop: 16 }}
+              onPress={() => router.replace("/(auth)/signup")}
+              style={{ alignItems: "center", marginTop: 16 }}
             >
               <Text
                 style={{
-                  fontFamily: 'Montserrat_400Regular',
+                  fontFamily: "Montserrat_400Regular",
                   fontSize: 14,
                   color: COLORS.muted,
                 }}
               >
-                No account?{' '}
+                No account?{" "}
                 <Text
                   style={{
-                    fontFamily: 'Montserrat_600SemiBold',
+                    fontFamily: "Montserrat_600SemiBold",
                     color: COLORS.teal,
                   }}
                 >
@@ -410,29 +456,35 @@ export default function LoginScreen() {
               }}
               style={{ marginBottom: 36 }}
             >
-              <Text style={{ fontFamily: 'Montserrat_500Medium', color: COLORS.muted, fontSize: 14 }}>
+              <Text
+                style={{
+                  fontFamily: "Montserrat_500Medium",
+                  color: COLORS.muted,
+                  fontSize: 14,
+                }}
+              >
                 ← Back
               </Text>
             </TouchableOpacity>
 
             <Text
               style={{
-                fontFamily: 'Montserrat_700Bold',
+                fontFamily: "Montserrat_700Bold",
                 fontSize: 32,
                 color: COLORS.ink,
                 lineHeight: 40,
                 marginBottom: 8,
               }}
             >
-              {biometricType?.includes('faceId')
-                ? 'Enable Face ID'
-                : biometricType?.includes('touchId')
-                  ? 'Enable Touch ID'
-                  : 'Enable Biometric'}
+              {biometricType?.includes("faceId")
+                ? "Enable Face ID"
+                : biometricType?.includes("touchId")
+                  ? "Enable Touch ID"
+                  : "Enable Biometric"}
             </Text>
             <Text
               style={{
-                fontFamily: 'Montserrat_400Regular',
+                fontFamily: "Montserrat_400Regular",
                 fontSize: 15,
                 color: COLORS.muted,
                 marginBottom: 40,
@@ -447,21 +499,23 @@ export default function LoginScreen() {
                 borderRadius: 16,
                 padding: 20,
                 marginBottom: 40,
-                alignItems: 'center',
+                alignItems: "center",
               }}
             >
               <Ionicons
-                name={biometricType?.includes('faceId') ? 'face' : 'finger-print'}
+                name={
+                  biometricType?.includes("faceId") ? "face" : "finger-print"
+                }
                 size={64}
                 color={COLORS.primary}
                 style={{ marginBottom: 16 }}
               />
               <Text
                 style={{
-                  fontFamily: 'Montserrat_500Medium',
+                  fontFamily: "Montserrat_500Medium",
                   fontSize: 14,
                   color: COLORS.muted,
-                  textAlign: 'center',
+                  textAlign: "center",
                 }}
               >
                 This keeps your account secure while making login faster.
@@ -476,15 +530,15 @@ export default function LoginScreen() {
                 backgroundColor: COLORS.teal,
                 borderRadius: 16,
                 paddingVertical: 18,
-                alignItems: 'center',
+                alignItems: "center",
                 marginBottom: 12,
               }}
             >
               <Text
                 style={{
-                  fontFamily: 'Montserrat_700Bold',
+                  fontFamily: "Montserrat_700Bold",
                   fontSize: 16,
-                  color: '#fff',
+                  color: "#fff",
                   letterSpacing: 0.3,
                 }}
               >
@@ -495,19 +549,19 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={() => {
                 setShowBiometricSetup(false);
-                router.replace('/(app)/list');
+                router.replace("/(app)/list");
               }}
               activeOpacity={0.85}
               style={{
                 backgroundColor: COLORS.secondary,
                 borderRadius: 16,
                 paddingVertical: 18,
-                alignItems: 'center',
+                alignItems: "center",
               }}
             >
               <Text
                 style={{
-                  fontFamily: 'Montserrat_700Bold',
+                  fontFamily: "Montserrat_700Bold",
                   fontSize: 16,
                   color: COLORS.ink,
                   letterSpacing: 0.3,
@@ -527,7 +581,7 @@ export default function LoginScreen() {
             onComplete={handleSetUpPIN}
             onCancel={() => {
               setShowPINSetup(false);
-              router.replace('/(app)/list');
+              router.replace("/(app)/list");
             }}
             title="Set up PIN"
             subtitle="Create a 4-digit PIN as a backup login method"

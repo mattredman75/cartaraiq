@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from ..auth import create_access_token, get_current_user, hash_password, verify_password
 from ..config import settings
@@ -239,7 +240,7 @@ class BiometricSetupRequest(BaseModel):
 
 class BiometricStatusResponse(BaseModel):
     biometric_enabled: bool
-    biometric_type: str | None
+    biometric_type: Optional[str]
 
 
 @router.post("/biometric/setup", status_code=status.HTTP_200_OK)
