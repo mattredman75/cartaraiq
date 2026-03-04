@@ -35,6 +35,7 @@ import { SuggestionsStrip } from "../../components/SuggestionsStrip";
 import { ListFooter } from "../../components/ListFooter";
 import { ModalStack } from "../../components/ModalStack";
 import { ItemActionDrawer } from "../../components/ItemActionDrawer";
+import { syncListToWidget } from "../../hooks/useWidgetSync";
 
 const TEAL = "#1B6B7A";
 const BG = "#DDE4E7";
@@ -80,6 +81,11 @@ export default function ListScreen() {
       if (val === "0") setPairingEnabled(false);
     });
   }, []);
+
+  // Keep the iOS home-screen widget in sync with the current list
+  useEffect(() => {
+    syncListToWidget(currentList ?? null, items);
+  }, [items, currentList]);
 
   const { dismissedUntil, dismissSuggestion } = useDismissedSuggestions(
     user?.id,
