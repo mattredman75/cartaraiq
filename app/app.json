@@ -43,6 +43,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
+      "./plugins/withCartaraIQWidget",
       [
         "expo-speech-recognition",
         {
