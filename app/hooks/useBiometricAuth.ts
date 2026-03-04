@@ -152,6 +152,39 @@ export function useBiometricAuth() {
   }, []);
 
   // Secure PIN hash function using SHA-256
+  // Check if PIN login is independently enabled
+  const isPinEnabled = useCallback(async (): Promise<boolean> => {
+    try {
+      const pinEnabledStr = await getItem("pin_enabled");
+      if (pinEnabledStr !== null) return pinEnabledStr === "true";
+      // Backward-compat: treat existing biometric_enabled=true as PIN also enabled
+      const biometricEnabledStr = await getItem("biometric_enabled");
+      return biometricEnabledStr === "true";
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Enable PIN login
+  const enablePin = useCallback(async (): Promise<boolean> => {
+    try {
+      await setItem("pin_enabled", "true");
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Disable PIN login
+  const disablePin = useCallback(async (): Promise<boolean> => {
+    try {
+      await setItem("pin_enabled", "false");
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const hashPin = useCallback(async (pin: string): Promise<string> => {
     const hash = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
@@ -188,6 +221,9 @@ export function useBiometricAuth() {
     getBiometricCredentials,
     isBiometricEnabled,
     disableBiometricLogin,
+    isPinEnabled,
+    enablePin,
+    disablePin,
     hashPin,
     verifyPin,
   };
