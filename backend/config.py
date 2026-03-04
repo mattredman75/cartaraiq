@@ -8,11 +8,11 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 30  # 30 days
     claude_api_key: str = ""
     groq_api_key: str = ""
-    smtp_host: str = ""
+    smtp_host: str = "mail.cartaraiq.com"
     smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_pass: str = ""
-    smtp_from: str = "noreply@cartaraiq.com"
+    smtp_user: str = "support@cartaraiq.com"
+    smtp_pass: str = "support_123QWE!"
+    smtp_from: str = "support@cartaraiq.com"
 
     class Config:
         env_file = ".env"
