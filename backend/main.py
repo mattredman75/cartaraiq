@@ -7,15 +7,26 @@ from .routers import auth, lists, products
 # Write logs to a file next to passenger_wsgi.py so they're easy to find.
 # Falls back to stderr (works fine under local uvicorn).
 _log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs", "app.log")
-os.makedirs(os.path.dirname(_log_path), exist_ok=True)
+_log_handlers: list[logging.Handler] = [logging.StreamHandler()]
+_file_logging_enabled = False
+try:
+    os.makedirs(os.path.dirname(_log_path), exist_ok=True)
+    _log_handlers.insert(0, logging.FileHandler(_log_path))
+    _file_logging_enabled = True
+except Exception:
+    _file_logging_enabled = False
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(_log_path),
-        logging.StreamHandler(),  # also keep stderr for local uvicorn
-    ],
+    handlers=_log_handlers,
 )
+
+if not _file_logging_enabled:
+    logging.getLogger(__name__).warning(
+        "File logging unavailable at %s; continuing with stderr logging only",
+        _log_path,
+    )
 
 app = FastAPI(title="CartaraIQ API", version="1.0.0")
 
