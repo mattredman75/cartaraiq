@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
+  Alert,
 } from "react-native";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
@@ -13,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../lib/store";
 import { updateMe } from "../lib/api";
 import { setItem, deleteItem } from "../lib/storage";
+import { useBiometricAuth } from "../hooks/useBiometricAuth";
 
 const TEAL = "#1B6B7A";
 const TEAL_DARK = "#0D4F5C";
@@ -40,9 +42,24 @@ export function SettingsModal({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, clearAuth, updateUser } = useAuthStore();
+  const {
+    isBiometricAvailable,
+    biometricType,
+    checkBiometricAvailability,
+    disableBiometricLogin,
+    isBiometricEnabled,
+  } = useBiometricAuth();
 
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameText, setDisplayNameText] = useState("");
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      checkBiometricAvailability();
+      isBiometricEnabled().then(setBiometricEnabled);
+    }
+  }, [visible, checkBiometricAvailability, isBiometricEnabled]);
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -215,6 +232,91 @@ export function SettingsModal({
               thumbColor="#fff"
             />
           </View>
+
+          {/* Biometric login toggle */}
+          {isBiometricAvailable && (
+            <View
+              style={{
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                }}
+              >
+                <View>
+                  <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                    {biometricType?.includes('faceId') ? 'Face ID' : biometricType?.includes('touchId') ? 'Touch ID' : 'Biometric'} Login
+                  </Text>
+                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
+                    Use {biometricType} for quick login
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={async (val) => {
+                    if (!val) {
+                      // Disable biometric
+                      await disableBiometricLogin();
+                      setBiometricEnabled(false);
+                    } else {
+                      // Enable biometric - user needs to set it up during login
+                      Alert.alert(
+                        "Enable Biometric Login",
+                        `To enable ${biometricType?.includes('faceId') ? 'Face ID' : biometricType?.includes('touchId') ? 'Touch ID' : 'biometric'} login, please log out and log back in to set it up.`,
+                        [{ text: "OK" }]
+                      );
+                    }
+                  }}
+                  trackColor={{ false: BORDER, true: TEAL }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              {/* Reset PIN option when biometric is enabled */}
+              {biometricEnabled && (
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      "Reset PIN",
+                      "To reset your PIN, you'll need to disable biometric login and set it up again during login.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Reset",
+                          style: "destructive",
+                          onPress: async () => {
+                            await disableBiometricLogin();
+                            setBiometricEnabled(false);
+                            Alert.alert(
+                              "PIN Reset",
+                              "Biometric login has been disabled. Log out and log back in to set up a new PIN.",
+                              [{ text: "OK" }]
+                            );
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    backgroundColor: "#FFF5F5",
+                  }}
+                >
+                  <Text style={{ fontSize: 13, color: "#DC2626", fontWeight: "500" }}>
+                    Reset PIN
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {/* Version */}
           <View

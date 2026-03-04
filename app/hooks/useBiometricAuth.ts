@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
-import * as LocalAuthentication from 'expo-local-authentication';
-import { Platform } from 'react-native';
-import { getItem, setItem, deleteItem } from '../lib/storage';
+import { useCallback, useState } from "react";
+import * as LocalAuthentication from "expo-local-authentication";
+import { Platform } from "react-native";
+import { getItem, setItem, deleteItem } from "../lib/storage";
 
 interface BiometricCredentials {
   email: string;
@@ -29,20 +29,27 @@ export function useBiometricAuth() {
       setIsBiometricAvailable(enrolled);
 
       if (enrolled) {
-        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        const types =
+          await LocalAuthentication.supportedAuthenticationTypesAsync();
         const typeNames: string[] = [];
 
-        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          typeNames.push('faceId');
+        if (
+          types.includes(
+            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+          )
+        ) {
+          typeNames.push("faceId");
         }
-        if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-          typeNames.push(Platform.OS === 'ios' ? 'touchId' : 'fingerprint');
+        if (
+          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+        ) {
+          typeNames.push(Platform.OS === "ios" ? "touchId" : "fingerprint");
         }
         if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
-          typeNames.push('iris');
+          typeNames.push("iris");
         }
 
-        setBiometricType(typeNames.join('/'));
+        setBiometricType(typeNames.join("/"));
       }
 
       return enrolled;
@@ -61,8 +68,8 @@ export function useBiometricAuth() {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         disableDeviceFallback: false,
-        fallbackLabel: 'Use PIN instead',
-        reason: 'Authenticate to access CartaraIQ',
+        fallbackLabel: "Use PIN instead",
+        reason: "Authenticate to access CartaraIQ",
       });
 
       setLoading(false);
@@ -84,34 +91,35 @@ export function useBiometricAuth() {
           biometricType,
           pinHash,
         };
-        await setItem('biometric_credentials', JSON.stringify(credentials));
-        await setItem('biometric_enabled', 'true');
+        await setItem("biometric_credentials", JSON.stringify(credentials));
+        await setItem("biometric_enabled", "true");
         return true;
       } catch (err) {
         setError(`Failed to store credentials: ${err}`);
         return false;
       }
     },
-    [biometricType]
+    [biometricType],
   );
 
   // Retrieve biometric credentials
-  const getBiometricCredentials = useCallback(async (): Promise<BiometricCredentials | null> => {
-    try {
-      const credentialsJson = await getItem('biometric_credentials');
-      if (!credentialsJson) return null;
-      return JSON.parse(credentialsJson);
-    } catch (err) {
-      setError(`Failed to retrieve credentials: ${err}`);
-      return null;
-    }
-  }, []);
+  const getBiometricCredentials =
+    useCallback(async (): Promise<BiometricCredentials | null> => {
+      try {
+        const credentialsJson = await getItem("biometric_credentials");
+        if (!credentialsJson) return null;
+        return JSON.parse(credentialsJson);
+      } catch (err) {
+        setError(`Failed to retrieve credentials: ${err}`);
+        return null;
+      }
+    }, []);
 
   // Check if biometric login is enabled
   const isBiometricEnabled = useCallback(async (): Promise<boolean> => {
     try {
-      const enabled = await getItem('biometric_enabled');
-      return enabled === 'true';
+      const enabled = await getItem("biometric_enabled");
+      return enabled === "true";
     } catch {
       return false;
     }
@@ -120,8 +128,8 @@ export function useBiometricAuth() {
   // Disable biometric login
   const disableBiometricLogin = useCallback(async () => {
     try {
-      await deleteItem('biometric_credentials');
-      await deleteItem('biometric_enabled');
+      await deleteItem("biometric_credentials");
+      await deleteItem("biometric_enabled");
       return true;
     } catch (err) {
       setError(`Failed to disable biometric: ${err}`);
@@ -132,22 +140,25 @@ export function useBiometricAuth() {
   // Simple PIN hash function (you should use a proper hashing library in production)
   const hashPin = useCallback((pin: string): string => {
     // For now, using a simple hash. Consider using crypto-js or similar for production
-    return Buffer.from(pin).toString('base64');
+    return Buffer.from(pin).toString("base64");
   }, []);
 
   // Verify PIN
-  const verifyPin = useCallback(async (providedPin: string): Promise<boolean> => {
-    try {
-      const credentials = await getBiometricCredentials();
-      if (!credentials?.pinHash) return false;
+  const verifyPin = useCallback(
+    async (providedPin: string): Promise<boolean> => {
+      try {
+        const credentials = await getBiometricCredentials();
+        if (!credentials?.pinHash) return false;
 
-      const hash = hashPin(providedPin);
-      return hash === credentials.pinHash;
-    } catch (err) {
-      setError(`PIN verification failed: ${err}`);
-      return false;
-    }
-  }, [getBiometricCredentials, hashPin]);
+        const hash = hashPin(providedPin);
+        return hash === credentials.pinHash;
+      } catch (err) {
+        setError(`PIN verification failed: ${err}`);
+        return false;
+      }
+    },
+    [getBiometricCredentials, hashPin],
+  );
 
   return {
     isBiometricAvailable,

@@ -1,13 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Dimensions,
   StyleSheet,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../lib/constants';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "../lib/constants";
 
 interface PINEntryProps {
   onComplete: (pin: string) => void;
@@ -20,11 +20,11 @@ interface PINEntryProps {
 export function PINEntry({
   onComplete,
   onCancel,
-  title = 'Enter PIN',
-  subtitle = 'Enter your 4-digit PIN',
+  title = "Enter PIN",
+  subtitle = "Enter your 4-digit PIN",
   maxLength = 4,
 }: PINEntryProps) {
-  const [pin, setPin] = useState('');
+  const [pin, setPin] = useState("");
 
   const handleNumberPress = useCallback(
     (num: string) => {
@@ -38,7 +38,7 @@ export function PINEntry({
         }
       }
     },
-    [pin, maxLength, onComplete]
+    [pin, maxLength, onComplete],
   );
 
   const handleBackspace = useCallback(() => {
@@ -46,10 +46,10 @@ export function PINEntry({
   }, [pin]);
 
   const numbers = [
-    ['1', '2', '3'],
-    ['4', '5', '6'],
-    ['7', '8', '9'],
-    ['*', '0', '#'],
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["*", "0", "#"],
   ];
 
   return (
@@ -75,7 +75,8 @@ export function PINEntry({
             style={[
               styles.pinDot,
               {
-                backgroundColor: i < pin.length ? COLORS.primary : COLORS.surface,
+                backgroundColor:
+                  i < pin.length ? COLORS.primary : COLORS.surface,
                 borderColor: i < pin.length ? COLORS.primary : COLORS.muted,
               },
             ]}
@@ -91,16 +92,16 @@ export function PINEntry({
               <TouchableOpacity
                 key={num}
                 onPress={() => handleNumberPress(num)}
-                disabled={num === '*' || num === '#'}
+                disabled={num === "*" || num === "#"}
                 style={[
                   styles.key,
-                  (num === '*' || num === '#') && styles.keyDisabled,
+                  (num === "*" || num === "#") && styles.keyDisabled,
                 ]}
               >
                 <Text
                   style={[
                     styles.keyText,
-                    (num === '*' || num === '#') && styles.keyDisabledText,
+                    (num === "*" || num === "#") && styles.keyDisabledText,
                   ]}
                 >
                   {num}
@@ -134,8 +135,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,
@@ -147,19 +148,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontFamily: 'Montserrat_700Bold',
+    fontFamily: "Montserrat_700Bold",
     fontSize: 24,
     color: COLORS.ink,
     marginBottom: 4,
   },
   subtitle: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 14,
     color: COLORS.muted,
   },
   pinDisplay: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 60,
     gap: 12,
   },
@@ -171,27 +172,27 @@ const styles = StyleSheet.create({
   },
   keypad: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
   key: {
-    width: Dimensions.get('window').width / 4 - 15,
+    width: Dimensions.get("window").width / 4 - 15,
     aspectRatio: 1,
     borderRadius: 12,
     backgroundColor: COLORS.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   keyDisabled: {
     backgroundColor: COLORS.surface,
   },
   keyText: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 20,
     color: COLORS.ink,
   },
@@ -199,12 +200,12 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
   backspaceButton: {
-    alignSelf: 'center',
+    alignSelf: "center",
     width: 50,
     height: 50,
     borderRadius: 25,
     backgroundColor: COLORS.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
