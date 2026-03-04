@@ -153,17 +153,17 @@ export default function ProfileScreen() {
               onPress={handleSignOut}
               activeOpacity={0.85}
               style={{
-                backgroundColor: '#FEE2E2',
+                backgroundColor: COLORS.danger,
                 borderRadius: 16,
                 paddingVertical: 18,
-                alignItems: 'center',
+                alignItems: "center",
               }}
             >
               <Text
                 style={{
                   fontFamily: 'Montserrat_700Bold',
-                  fontSize: 15,
-                  color: COLORS.danger,
+                  fontSize: 16,
+                  color: '#ffffff',
                   letterSpacing: 0.3,
                 }}
               >

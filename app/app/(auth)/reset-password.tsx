@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authResetPassword } from '../../lib/api';
 import { COLORS } from '../../lib/constants';
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
