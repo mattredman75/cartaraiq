@@ -228,3 +228,77 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     user.reset_token_expiry = None
     db.commit()
     return {"message": "Password updated successfully."}
+
+
+# ── Biometric Authentication ──────────────────────────────────────────────────
+
+class BiometricSetupRequest(BaseModel):
+    pin_hash: str
+    biometric_type: str
+
+
+class BiometricStatusResponse(BaseModel):
+    biometric_enabled: bool
+    biometric_type: str | None
+
+
+@router.post("/biometric/setup", status_code=status.HTTP_200_OK)
+def setup_biometric(
+    payload: BiometricSetupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Enable biometric login for the current user."""
+    try:
+        if not payload.pin_hash or not payload.biometric_type:
+            raise HTTPException(status_code=400, detail="PIN hash and biometric type are required.")
+
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        user.biometric_enabled = True
+        user.biometric_pin_hash = payload.pin_hash
+        user.biometric_type = payload.biometric_type
+        db.commit()
+        return {"message": "Biometric authentication enabled successfully."}
+    except Exception as e:
+        logger.exception("Error setting up biometric for user %s: %s", current_user.id, str(e))
+        raise HTTPException(status_code=500, detail="Failed to set up biometric authentication.")
+
+
+@router.post("/biometric/disable", status_code=status.HTTP_200_OK)
+def disable_biometric(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Disable biometric login for the current user."""
+    try:
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        user.biometric_enabled = False
+        user.biometric_pin_hash = None
+        user.biometric_type = None
+        db.commit()
+        return {"message": "Biometric authentication disabled successfully."}
+    except Exception as e:
+        logger.exception("Error disabling biometric for user %s: %s", current_user.id, str(e))
+        raise HTTPException(status_code=500, detail="Failed to disable biometric authentication.")
+
+
+@router.get("/biometric/status", response_model=BiometricStatusResponse)
+def get_biometric_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get biometric authentication status for the current user."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    return BiometricStatusResponse(
+        biometric_enabled=user.biometric_enabled,
+        biometric_type=user.biometric_type,
+    )
