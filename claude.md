@@ -1,5 +1,19 @@
 # Agent Instructions
 
+## ⚠️ MANDATORY — Do This Before Every Task
+
+**Before making any file edits or code changes**, follow `workflows/gitops_workflow.md`.
+
+The required steps are:
+1. Ask the user: *"Should I create a new feature branch off `main` for this task? (yes / no)"*
+2. If yes → pull the latest `main` and create a scoped feature branch.
+3. Do the work, validate it, and confirm with the user.
+4. Follow the full GitOps flow: `git add` → `git commit` → `git push` → raise PR → approve → merge into `main`.
+
+**Never skip Step 1.** Every task starts with a branch-creation confirmation.
+
+---
+
 You're working inside the **WAT framework** (Workflows, Agents, Tools). This architecture separates concerns so that probabilistic AI handles reasoning while deterministic code handles execution. That separation is what makes this system reliable.
 
 ## The WAT Architecture
