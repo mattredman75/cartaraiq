@@ -4,6 +4,8 @@
 
 **Before making any file edits or code changes**, follow `workflows/gitops_workflow.md`.
 
+**When starting work on a new feature**, follow `workflows/new_feature_workflow.md` — it covers the full SOP from understanding the feature through implementation, validation, and merge.
+
 The required steps are:
 1. Ask the user: *"Should I create a new feature branch off `main` for this task? (yes / no)"*
 2. If yes → pull the latest `main` and create a scoped feature branch.
