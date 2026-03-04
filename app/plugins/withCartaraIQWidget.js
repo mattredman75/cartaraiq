@@ -367,8 +367,62 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
     }
   }
 
-  // Add target dependency on main target
-  project.addTargetDependency(mainTargetKey, [widgetTargetUuid]);
+  // Add PBXTargetDependency explicitly — the library's addTargetDependency() silently
+  // fails to write PBXContainerItemProxy + PBXTargetDependency sections. Without these
+  // entries EAS cannot walk the dependency tree to discover the widget target and will
+  // never provision or inject DEVELOPMENT_TEAM for it.
+  addExplicitTargetDependency(project, mainTargetKey, widgetTargetUuid);
+}
+
+function addExplicitTargetDependency(project, mainTargetKey, widgetTargetUuid) {
+  // We need two new UUIDs: one for PBXContainerItemProxy, one for PBXTargetDependency.
+  // Use deterministic derivation from the widget UUID so this is idempotent across reruns.
+  const crypto = require('crypto');
+  const proxyUuid   = crypto.createHash('md5').update('proxy-'   + widgetTargetUuid).digest('hex').slice(0, 24).toUpperCase();
+  const depUuid     = crypto.createHash('md5').update('dep-'     + widgetTargetUuid).digest('hex').slice(0, 24).toUpperCase();
+
+  const objects = project.hash.project.objects;
+
+  // Find project root UUID (the PBXProject object)
+  const projectUuid = Object.keys(objects['PBXProject'] || {}).find(k => !k.endsWith('_comment'));
+
+  // Create PBXContainerItemProxy section if absent
+  if (!objects['PBXContainerItemProxy']) objects['PBXContainerItemProxy'] = {};
+  if (!objects['PBXContainerItemProxy'][proxyUuid]) {
+    objects['PBXContainerItemProxy'][proxyUuid] = {
+      isa: 'PBXContainerItemProxy',
+      containerPortal: projectUuid,
+      proxyType: 1,
+      remoteGlobalIDString: widgetTargetUuid,
+      remoteInfo: `"${WIDGET_TARGET}"`,
+    };
+    objects['PBXContainerItemProxy'][proxyUuid + '_comment'] = 'PBXContainerItemProxy';
+  }
+
+  // Create PBXTargetDependency section if absent
+  if (!objects['PBXTargetDependency']) objects['PBXTargetDependency'] = {};
+  if (!objects['PBXTargetDependency'][depUuid]) {
+    objects['PBXTargetDependency'][depUuid] = {
+      isa: 'PBXTargetDependency',
+      target: widgetTargetUuid,
+      targetProxy: proxyUuid,
+    };
+    objects['PBXTargetDependency'][depUuid + '_comment'] = 'PBXTargetDependency';
+  }
+
+  // Wire the dependency into the main target's dependencies array
+  const mainTarget = objects['PBXNativeTarget'][mainTargetKey];
+  if (mainTarget) {
+    if (!mainTarget.dependencies) mainTarget.dependencies = [];
+    const alreadyWired = mainTarget.dependencies.some(
+      d => (d.value || d) === depUuid
+    );
+    if (!alreadyWired) {
+      mainTarget.dependencies.push({ value: depUuid, comment: 'PBXTargetDependency' });
+    }
+  }
+
+  console.log(`[withCartaraIQWidget] Wrote PBXTargetDependency (${depUuid}) for ${WIDGET_TARGET}`);
 }
 
 function widgetTargetKey(project, targetName) {
