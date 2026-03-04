@@ -103,14 +103,17 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    console.log("[Login] handleLogin called with email:", email);
     if (!email || !password) {
       setError("Please enter your email and password.");
       return;
     }
     setLoading(true);
     setError("");
+    console.log("[Login] Loading set to true, calling authLogin");
     try {
       const res = await authLogin(email, password);
+      console.log("[Login] authLogin succeeded");
       const { access_token, user } = res.data;
       await setItem("auth_token", access_token);
       await setItem("auth_user", JSON.stringify(user));
@@ -132,8 +135,15 @@ export default function LoginScreen() {
         router.replace("/(app)/list");
       }
     } catch (e: any) {
+      console.log("[Login] Error in handleLogin:", {
+        message: e?.message,
+        code: e?.code,
+        detail: e?.response?.data?.detail,
+        fullError: JSON.stringify(e),
+      });
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
     } finally {
+      console.log("[Login] Setting loading to false");
       setLoading(false);
     }
   };
