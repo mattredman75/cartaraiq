@@ -251,28 +251,6 @@ function addWidgetTarget(project) {
 
   console.log(`[withCartaraIQWidget] Adding "${WIDGET_TARGET}" target…`);
 
-  // ── Inherit DEVELOPMENT_TEAM from the main app target ───────────────────
-  // EAS injects the team ID into the main target's build configs at build time.
-  // We must copy it to the widget target or xcodebuild errors with
-  // "Signing for CartaraIQWidget requires a development team."
-  const mainTargetKey = Object.keys(nativeTargets).find((k) => {
-    const t = nativeTargets[k];
-    return t && typeof t === 'object' && !k.endsWith('_comment') && t.name !== WIDGET_TARGET;
-  });
-  let developmentTeam = '""';
-  if (mainTargetKey) {
-    const mainConfigListUuid = nativeTargets[mainTargetKey]?.buildConfigurationList;
-    if (mainConfigListUuid) {
-      const mainConfigList = project.pbxXCConfigurationList()[mainConfigListUuid];
-      const buildConfigs = project.pbxXCBuildConfigurationSection();
-      for (const ref of (mainConfigList?.buildConfigurations || [])) {
-        const cfgUuid = ref.value || ref;
-        const team = buildConfigs[cfgUuid]?.buildSettings?.DEVELOPMENT_TEAM;
-        if (team) { developmentTeam = team; break; }
-      }
-    }
-  }
-
   // ── Create the native target ─────────────────────────────────────────────
   const targetResult = project.addTarget(
     WIDGET_TARGET,
@@ -292,8 +270,10 @@ function addWidgetTarget(project) {
     INFOPLIST_FILE:               `"${WIDGET_TARGET}/Info.plist"`,
     CODE_SIGN_ENTITLEMENTS:       `"${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements"`,
     CODE_SIGN_STYLE:              'Automatic',
-    DEVELOPMENT_TEAM:             developmentTeam,
-    PROVISIONING_PROFILE_SPECIFIER: '""',
+    // Do NOT set DEVELOPMENT_TEAM or PROVISIONING_PROFILE_SPECIFIER here.
+    // An explicit empty string blocks EAS credential injection on the main target
+    // from being inherited. With CODE_SIGN_STYLE=Automatic and no explicit team,
+    // Xcode resolves the team from the EAS-injected keychain automatically.
     MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
     CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
     SKIP_INSTALL:                 'YES',
