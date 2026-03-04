@@ -13,7 +13,7 @@
       "backgroundColor": "#0D4F5C"
     },
     "ios": {
-      "buildNumber": "16",
+      "buildNumber": "17",
       "supportsTablet": true,
       "bundleIdentifier": "com.cartaraiq.app",
       "infoPlist": {
@@ -43,7 +43,6 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      // "./plugins/withCartaraIQWidget",
       [
         "expo-speech-recognition",
         {
