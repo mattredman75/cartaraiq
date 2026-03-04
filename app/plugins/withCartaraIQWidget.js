@@ -38,6 +38,7 @@ function withCartaraIQWidget(config) {
   config = withXcodeProject(config, (cfg) => {
     addWidgetTarget(cfg.modResults);
     addSharedDataModuleToMainTarget(cfg.modResults);
+    disableUserScriptSandboxing(cfg.modResults);
     return cfg;
   });
 
@@ -182,6 +183,20 @@ function addSharedDataModuleToMainTarget(project) {
         sourceTree: '"<group>"',
       });
       if (fileRef) project.addToPbxSourcesBuildPhase(fileRef, mainTargetKey);
+    }
+  }
+}
+
+// ─── Disable user script sandboxing (Xcode 15+) ──────────────────────────────
+// Script phases that don't declare outputs (e.g. Expo Dev Launcher, Hermes)
+// cause archive failures under Xcode 15's sandbox. Setting
+// ENABLE_USER_SCRIPT_SANDBOXING=NO on all targets resolves this.
+function disableUserScriptSandboxing(project) {
+  const buildConfigs = project.pbxXCBuildConfigurationSection();
+  for (const key of Object.keys(buildConfigs)) {
+    const cfg = buildConfigs[key];
+    if (cfg && typeof cfg === 'object' && cfg.buildSettings) {
+      cfg.buildSettings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO';
     }
   }
 }
