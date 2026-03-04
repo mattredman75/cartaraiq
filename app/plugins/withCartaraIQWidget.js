@@ -47,9 +47,43 @@ function withCartaraIQWidget(config) {
     return cfg;
   }]);
 
-  // NOTE: Podfile post_install patching (CODE_SIGNING_ALLOWED) is handled by
-  // scripts/fix-podfile.js, called via prebuildCommand in eas.json.
-  // This avoids unreliable dangerous-mod execution order in EAS Build.
+  // Patch Podfile: inject CODE_SIGNING_ALLOWED=NO into the existing post_install
+  // block so CocoaPods resource bundle targets are not signed (Xcode 14+ requirement).
+  // withDangerousMod runs after expo prebuild writes the Podfile, before pod install.
+  config = withDangerousMod(config, ['ios', async (cfg) => {
+    const podfilePath = path.join(cfg.modRequest.projectRoot, 'ios', 'Podfile');
+    if (!fs.existsSync(podfilePath)) return cfg;
+
+    const contents = fs.readFileSync(podfilePath, 'utf8');
+    if (contents.includes('CODE_SIGNING_ALLOWED')) return cfg;
+
+    const injection = [
+      '    # Disable code-signing for CocoaPods resource bundle targets (Xcode 14+)',
+      '    installer.pods_project.targets.each do |target|',
+      "      if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'",
+      '        target.build_configurations.each do |build_config|',
+      "          build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'",
+      '        end',
+      '      end',
+      '    end',
+    ].join('\n');
+
+    const lines = contents.split('\n');
+    const patched = [];
+    let injected = false;
+    for (const line of lines) {
+      patched.push(line);
+      if (!injected && /^\s*post_install\s+do\s+\|/.test(line)) {
+        patched.push(injection);
+        injected = true;
+      }
+    }
+    if (injected) {
+      fs.writeFileSync(podfilePath, patched.join('\n'), 'utf8');
+      console.log('[withCartaraIQWidget] Patched Podfile with CODE_SIGNING_ALLOWED hook');
+    }
+    return cfg;
+  }]);
 
   return config;
 }
