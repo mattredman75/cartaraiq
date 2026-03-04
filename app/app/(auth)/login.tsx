@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Modal,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -31,6 +32,7 @@ export default function LoginScreen() {
     storeBiometricCredentials,
     getBiometricCredentials,
     isBiometricEnabled,
+    isPinEnabled,
     verifyPin,
     hashPin,
     checkBiometricAvailability,
@@ -47,6 +49,7 @@ export default function LoginScreen() {
   const [pin, setPin] = useState("");
   const [firstPin, setFirstPin] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
+  const [pinReady, setPinReady] = useState(false);
 
   useEffect(() => {
     console.log("Login component mounted, checking biometric setup...");
@@ -68,17 +71,17 @@ export default function LoginScreen() {
       ])) as boolean;
       console.log("Biometric availability check result:", available);
 
-      if (available) {
-        const enabled = await isBiometricEnabled();
-        console.log("Biometric enabled check result:", enabled);
-        setBiometricReady(enabled);
-      } else {
-        setBiometricReady(false);
-      }
+      const [bioEnabled, pinEnabledVal] = await Promise.all([
+        isBiometricEnabled(),
+        isPinEnabled(),
+      ]);
+
+      setBiometricReady(available && bioEnabled);
+      setPinReady(pinEnabledVal);
     } catch (error) {
       console.warn("Biometric setup check failed or timed out:", error);
-      // Continue without biometric features if check fails
       setBiometricReady(false);
+      setPinReady(false);
     }
   };
 
@@ -125,8 +128,13 @@ export default function LoginScreen() {
 
       const success = await authenticateWithBiometric();
       if (!success) {
-        setError("Biometric authentication failed.");
+        // Face ID failed — cascade to PIN if available, otherwise fall back to username/password
         setLoading(false);
+        if (pinReady && credentials.pinHash) {
+          setShowPINEntry(true);
+        } else {
+          setError("Biometric authentication failed. Please sign in with your username and password.");
+        }
         return;
       }
 
@@ -151,14 +159,17 @@ export default function LoginScreen() {
     try {
       const credentials = await getBiometricCredentials();
       if (!credentials) {
-        setError("No stored credentials found.");
+        setShowPINEntry(false);
+        setError("No stored credentials found. Please sign in with your username and password.");
         setLoading(false);
         return;
       }
 
       const isValid = await verifyPin(enteredPin);
       if (!isValid) {
-        setError("Invalid PIN.");
+        // PIN failed — cascade to username/password
+        setShowPINEntry(false);
+        setError("Incorrect PIN. Please sign in with your username and password.");
         setLoading(false);
         return;
       }
@@ -199,7 +210,11 @@ export default function LoginScreen() {
   const handleConfirmPIN = async (enteredPin: string) => {
     // Verify the confirmation PIN matches the first PIN
     if (enteredPin !== firstPin) {
-      setError("PINs do not match. Please try again.");
+      Alert.alert(
+        "PINs don't match",
+        "The PINs you entered don't match. Please try again.",
+        [{ text: "OK" }],
+      );
       setFirstPin("");
       setShowPINConfirm(false);
       setShowPINSetup(true);
@@ -390,6 +405,7 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            {/* Face ID / Touch ID — only when biometric is enabled */}
             {biometricReady && isBiometricAvailable && (
               <TouchableOpacity
                 onPress={handleBiometricLogin}
@@ -429,6 +445,41 @@ export default function LoginScreen() {
                       ? "Touch ID"
                       : "Biometric"}{" "}
                   Login
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* PIN Login — shown when PIN is enabled AND biometric is disabled */}
+            {pinReady && !biometricReady && (
+              <TouchableOpacity
+                onPress={() => setShowPINEntry(true)}
+                disabled={loading}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: COLORS.teal,
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  marginTop: 12,
+                }}
+              >
+                <Ionicons
+                  name="keypad-outline"
+                  size={20}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text
+                  style={{
+                    fontFamily: "Montserrat_700Bold",
+                    fontSize: 16,
+                    color: "#fff",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Login with PIN
                 </Text>
               </TouchableOpacity>
             )}
@@ -605,102 +656,34 @@ export default function LoginScreen() {
       {/* PIN Setup Modal */}
       <Modal visible={showPINSetup} transparent animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingVertical: 32 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowPINSetup(false);
-                router.replace("/(app)/list");
-              }}
-              style={{ marginBottom: 36 }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  color: COLORS.muted,
-                  fontSize: 14,
-                }}
-              >
-                ← Back
-              </Text>
-            </TouchableOpacity>
-
-            {error ? (
-              <Text
-                style={{
-                  fontFamily: "Montserrat_400Regular",
-                  fontSize: 13,
-                  color: COLORS.danger,
-                  marginBottom: 16,
-                }}
-              >
-                {error}
-              </Text>
-            ) : null}
-
-            <PINEntry
-              onComplete={handleSetUpPIN}
-              onCancel={() => {
-                setShowPINSetup(false);
-                router.replace("/(app)/list");
-              }}
-              title="Set up PIN"
-              subtitle="Create a 4-digit PIN as a backup login method"
-              maxLength={4}
-            />
-          </View>
+          <PINEntry
+            onComplete={handleSetUpPIN}
+            onCancel={() => {
+              setShowPINSetup(false);
+              router.replace("/(app)/list");
+            }}
+            title="Set up PIN"
+            subtitle="Create a 4-digit PIN as a backup login method"
+            maxLength={4}
+          />
         </SafeAreaView>
       </Modal>
 
       {/* PIN Confirm Modal */}
       <Modal visible={showPINConfirm} transparent animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingVertical: 32 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowPINConfirm(false);
-                setFirstPin("");
-                setShowPINSetup(true);
-                setError("");
-              }}
-              style={{ marginBottom: 36 }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  color: COLORS.muted,
-                  fontSize: 14,
-                }}
-              >
-                ← Back
-              </Text>
-            </TouchableOpacity>
-
-            {error ? (
-              <Text
-                style={{
-                  fontFamily: "Montserrat_400Regular",
-                  fontSize: 13,
-                  color: COLORS.danger,
-                  marginBottom: 16,
-                }}
-              >
-                {error}
-              </Text>
-            ) : null}
-
-            <PINEntry
-              onComplete={handleConfirmPIN}
-              onCancel={() => {
-                setShowPINConfirm(false);
-                setFirstPin("");
-                setShowPINSetup(true);
-                setError("");
-              }}
-              title="Confirm PIN"
-              subtitle="Enter the same 4-digit PIN again"
-              maxLength={4}
-            />
-          </View>
+          <PINEntry
+            onComplete={handleConfirmPIN}
+            onCancel={() => {
+              setShowPINConfirm(false);
+              setFirstPin("");
+              setShowPINSetup(true);
+              setError("");
+            }}
+            title="Confirm your new PIN"
+            subtitle="Enter the same 4-digit PIN again"
+            maxLength={4}
+          />
         </SafeAreaView>
       </Modal>
 

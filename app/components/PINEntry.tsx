@@ -1,12 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
+  Dimensions,
   StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../lib/constants";
+
+const { width } = Dimensions.get("window");
+const KEY_SIZE = (width - 48 - 40) / 3; // 3 cols, 48px side padding, 40px gaps
 
 interface PINEntryProps {
   onComplete: (pin: string) => void;
@@ -20,68 +24,107 @@ export function PINEntry({
   onComplete,
   onCancel,
   title = "Enter PIN",
-  subtitle = "Enter your 4-digit PIN",
+  subtitle = "This keeps your account secure.",
   maxLength = 4,
 }: PINEntryProps) {
   const [pin, setPin] = useState("");
-  const inputRef = useRef<TextInput>(null);
 
-  useEffect(() => {
-    // Auto-focus the hidden input when the component mounts
-    const timer = setTimeout(() => inputRef.current?.focus(), 100);
-    return () => clearTimeout(timer);
+  const handlePress = useCallback(
+    (num: string) => {
+      if (pin.length < maxLength) {
+        const next = pin + num;
+        setPin(next);
+        if (next.length === maxLength) {
+          setTimeout(() => {
+            setPin("");
+            onComplete(next);
+          }, 120);
+        }
+      }
+    },
+    [pin, maxLength, onComplete],
+  );
+
+  const handleBackspace = useCallback(() => {
+    setPin((p) => p.slice(0, -1));
   }, []);
 
-  const handleChange = (text: string) => {
-    // Allow only digits
-    const digits = text.replace(/[^0-9]/g, "").slice(0, maxLength);
-    setPin(digits);
-    if (digits.length === maxLength) {
-      setTimeout(() => onComplete(digits), 100);
-    }
-  };
+  const rows = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+  ];
 
   return (
-    <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
+    <View style={styles.container}>
+      {/* Back button */}
+      {onCancel && (
+        <TouchableOpacity onPress={onCancel} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={20} color={COLORS.ink} />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+      )}
 
-        {/* Hidden native input */}
-        <TextInput
-          ref={inputRef}
-          value={pin}
-          onChangeText={handleChange}
-          keyboardType="number-pad"
-          maxLength={maxLength}
-          secureTextEntry
-          caretHidden
-          style={styles.hiddenInput}
-          autoFocus
-        />
-
-        {/* PIN dot display */}
-        <View style={styles.pinDisplay}>
-          {Array.from({ length: maxLength }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.pinDot,
-                {
-                  backgroundColor: i < pin.length ? COLORS.teal : COLORS.surface,
-                  borderColor: i < pin.length ? COLORS.teal : COLORS.border,
-                },
-              ]}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.tapHint}>Tap to open keyboard</Text>
+      {/* Lock icon */}
+      <View style={styles.iconWrapper}>
+        <Ionicons name="lock-closed" size={36} color={COLORS.ink} />
       </View>
-    </TouchableWithoutFeedback>
+
+      {/* Title */}
+      <Text style={styles.title}>{title}</Text>
+
+      {/* Dots */}
+      <View style={styles.dotsRow}>
+        {Array.from({ length: maxLength }).map((_, i) => (
+          <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
+        ))}
+      </View>
+
+      {/* Keypad */}
+      <View style={styles.keypad}>
+        {rows.map((row, ri) => (
+          <View key={ri} style={styles.row}>
+            {row.map((n) => (
+              <TouchableOpacity
+                key={n}
+                onPress={() => handlePress(n)}
+                activeOpacity={0.7}
+                style={styles.key}
+              >
+                <Text style={styles.keyText}>{n}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ))}
+
+        {/* Bottom row: empty | 0 | backspace */}
+        <View style={styles.row}>
+          <View style={[styles.key, styles.keyInvisible]} />
+          <TouchableOpacity
+            onPress={() => handlePress("0")}
+            activeOpacity={0.7}
+            style={styles.key}
+          >
+            <Text style={styles.keyText}>0</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleBackspace}
+            activeOpacity={0.7}
+            disabled={pin.length === 0}
+            style={[styles.key, styles.keyInvisible]}
+          >
+            <Ionicons
+              name="backspace-outline"
+              size={24}
+              color={pin.length === 0 ? COLORS.muted : COLORS.ink}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Subtitle */}
+      <Text style={styles.subtitle}>{subtitle}</Text>
+    </View>
   );
 }
 
@@ -89,42 +132,78 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    paddingBottom: 40,
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
-  header: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: 60,
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    marginTop: 16,
+    marginBottom: 8,
+    gap: 2,
+  },
+  backText: {
+    fontFamily: "Montserrat_500Medium",
+    fontSize: 15,
+    color: COLORS.ink,
+  },
+  iconWrapper: {
+    marginTop: 28,
+    marginBottom: 20,
   },
   title: {
     fontFamily: "Montserrat_700Bold",
-    fontSize: 28,
+    fontSize: 20,
+    color: COLORS.teal,
+    textAlign: "center",
+    marginBottom: 28,
+  },
+  dotsRow: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 40,
+  },
+  dot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: COLORS.ink,
+    backgroundColor: "transparent",
+  },
+  dotFilled: {
+    backgroundColor: COLORS.ink,
+  },
+  keypad: {
+    width: "100%",
+    gap: 12,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  key: {
+    width: KEY_SIZE,
+    height: KEY_SIZE,
+    borderRadius: KEY_SIZE / 2,
+    borderWidth: 1.5,
+    borderColor: COLORS.teal,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  keyInvisible: {
+    borderColor: "transparent",
+  },
+  keyText: {
+    fontFamily: "Montserrat_500Medium",
+    fontSize: 22,
     color: COLORS.ink,
-    marginBottom: 8,
   },
   subtitle: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 15,
-    color: COLORS.muted,
-  },
-  hiddenInput: {
-    position: "absolute",
-    width: 1,
-    height: 1,
-    opacity: 0,
-  },
-  pinDisplay: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 20,
-  },
-  pinDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-  },
-  tapHint: {
     fontFamily: "Montserrat_400Regular",
     fontSize: 13,
     color: COLORS.muted,

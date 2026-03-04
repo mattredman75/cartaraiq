@@ -107,6 +107,7 @@ export function useBiometricAuth() {
         };
         await setItem("biometric_credentials", JSON.stringify(credentials));
         await setItem("biometric_enabled", "true");
+        await setItem("pin_enabled", "true");
         return true;
       } catch (err) {
         setError(`Failed to store credentials: ${err}`);
@@ -139,14 +140,48 @@ export function useBiometricAuth() {
     }
   }, []);
 
-  // Disable biometric login
+  // Disable biometric login (preserves credentials so PIN still works)
   const disableBiometricLogin = useCallback(async () => {
     try {
-      await deleteItem("biometric_credentials");
-      await deleteItem("biometric_enabled");
+      await setItem("biometric_enabled", "false");
+      // Auto-enable PIN when biometric is turned off so the user still has a fast-login method
+      await setItem("pin_enabled", "true");
       return true;
     } catch (err) {
       setError(`Failed to disable biometric: ${err}`);
+      return false;
+    }
+  }, []);
+
+  // Check if PIN login is independently enabled
+  const isPinEnabled = useCallback(async (): Promise<boolean> => {
+    try {
+      const pinEnabledStr = await getItem("pin_enabled");
+      if (pinEnabledStr !== null) return pinEnabledStr === "true";
+      // Backward-compat: treat existing biometric_enabled=true as PIN also enabled
+      const biometricEnabledStr = await getItem("biometric_enabled");
+      return biometricEnabledStr === "true";
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Enable PIN login
+  const enablePin = useCallback(async (): Promise<boolean> => {
+    try {
+      await setItem("pin_enabled", "true");
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Disable PIN login
+  const disablePin = useCallback(async (): Promise<boolean> => {
+    try {
+      await setItem("pin_enabled", "false");
+      return true;
+    } catch {
       return false;
     }
   }, []);
@@ -188,6 +223,9 @@ export function useBiometricAuth() {
     getBiometricCredentials,
     isBiometricEnabled,
     disableBiometricLogin,
+    isPinEnabled,
+    enablePin,
+    disablePin,
     hashPin,
     verifyPin,
   };
