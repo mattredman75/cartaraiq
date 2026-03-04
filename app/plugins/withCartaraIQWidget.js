@@ -113,14 +113,36 @@ function addSharedDataModuleToMainTarget(project) {
   });
   if (!mainTargetKey) return;
 
+  // The xcode library crashes in getPBXVariantGroupByKey when the
+  // PBXVariantGroup section is absent from the pbxproj.  Create it
+  // defensively so the lookup never hits an undefined object.
+  if (!project.hash.project.objects['PBXVariantGroup']) {
+    project.hash.project.objects['PBXVariantGroup'] = {};
+  }
+
+  // Prefer adding files into the CartaraIQ PBXGroup rather than passing
+  // null (which causes the library to search for a group and crash).
+  const pbxGroups = project.hash.project.objects['PBXGroup'] || {};
+  const cartaraiqGroupKey = Object.keys(pbxGroups).find((k) => {
+    const g = pbxGroups[k];
+    return g && typeof g === 'object' && !k.endsWith('_comment') &&
+           (g.name === 'CartaraIQ' || g.path === 'CartaraIQ');
+  }) || null;
+
   const buildFiles = project.pbxBuildFileSection();
-  for (const file of ['CartaraIQ/SharedDataModule.swift', 'CartaraIQ/SharedDataModule.m']) {
-    const basename = path.basename(file);
+  for (const [filename, fileType] of [
+    ['SharedDataModule.swift', 'sourcecode.swift'],
+    ['SharedDataModule.m',     'sourcecode.c.objc'],
+  ]) {
     const alreadyAdded = Object.values(buildFiles).some(
-      (bf) => bf && typeof bf === 'object' && bf.fileRef_comment && bf.fileRef_comment.includes(basename),
+      (bf) => bf && typeof bf === 'object' && bf.fileRef_comment && bf.fileRef_comment.includes(filename),
     );
     if (!alreadyAdded) {
-      const fileRef = project.addFile(file, null, { target: mainTargetKey });
+      const fileRef = project.addFile(filename, cartaraiqGroupKey, {
+        target: mainTargetKey,
+        lastKnownFileType: fileType,
+        sourceTree: '"<group>"',
+      });
       if (fileRef) project.addToPbxSourcesBuildPhase(fileRef, mainTargetKey);
     }
   }
