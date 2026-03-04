@@ -47,35 +47,61 @@ function withCartaraIQWidget(config) {
     return cfg;
   }]);
 
-  // Patch Podfile: inject CODE_SIGNING_ALLOWED=NO for resource bundle targets
-  // into the existing post_install block (Expo already generates one; CocoaPods
-  // rejects multiple post_install hooks).
+  // Patch Podfile: inject CODE_SIGNING_ALLOWED=NO for resource bundle targets.
+  // Must run after Expo writes its Podfile (dangerous mods run after base mods).
+  // Uses line-by-line injection rather than regex to reliably handle any Podfile format.
   config = withDangerousMod(config, ['ios', async (cfg) => {
     const podfilePath = path.join(cfg.modRequest.projectRoot, 'ios', 'Podfile');
+    console.log('[withCartaraIQWidget] Podfile path: ' + podfilePath);
+    console.log('[withCartaraIQWidget] Podfile exists: ' + fs.existsSync(podfilePath));
     if (!fs.existsSync(podfilePath)) return cfg;
 
-    let contents = fs.readFileSync(podfilePath, 'utf8');
-    if (contents.includes('CODE_SIGNING_ALLOWED')) return cfg; // already patched
+    const contents = fs.readFileSync(podfilePath, 'utf8');
 
-    const injection = `
-  # Disable code-signing for resource bundle targets (required since Xcode 14)
-  installer.pods_project.targets.each do |target|
-    if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
-      target.build_configurations.each do |config|
-        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-      end
-    end
-  end
-`;
+    if (contents.includes('CODE_SIGNING_ALLOWED')) {
+      console.log('[withCartaraIQWidget] Podfile already has CODE_SIGNING_ALLOWED — skipping');
+      return cfg;
+    }
 
-    // Insert our code at the start of the existing post_install block body
-    contents = contents.replace(
-      /^(post_install do \|installer\|)/m,
-      `$1${injection}`,
-    );
+    const codeSigningBlock = [
+      '',
+      '  # [withCartaraIQWidget] Disable code-signing for CocoaPods resource bundle targets',
+      '  # Required since Xcode 14 signs resource bundles by default.',
+      '  installer.pods_project.targets.each do |target|',
+      "    if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'",
+      '      target.build_configurations.each do |build_config|',
+      "        build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'",
+      '      end',
+      '    end',
+      '  end',
+    ].join('\n');
 
-    fs.writeFileSync(podfilePath, contents, 'utf8');
-    console.log('[withCartaraIQWidget] Injected CODE_SIGNING_ALLOWED into existing post_install hook');
+    const lines = contents.split('\n');
+    let injected = false;
+    const patched = [];
+
+    for (const line of lines) {
+      patched.push(line);
+      // Inject right after the post_install block opening line
+      if (!injected && /^\s*post_install\s+do\s+\|/.test(line)) {
+        patched.push(codeSigningBlock);
+        injected = true;
+        console.log('[withCartaraIQWidget] Injected CODE_SIGNING_ALLOWED after: ' + line.trim());
+      }
+    }
+
+    if (!injected) {
+      // No post_install block found — append a standalone one
+      console.log('[withCartaraIQWidget] No post_install block found — appending standalone hook');
+      patched.push('');
+      patched.push('post_install do |installer|');
+      patched.push(codeSigningBlock);
+      patched.push('end');
+      patched.push('');
+    }
+
+    fs.writeFileSync(podfilePath, patched.join('\n'), 'utf8');
+    console.log('[withCartaraIQWidget] Podfile patched successfully');
     return cfg;
   }]);
 
