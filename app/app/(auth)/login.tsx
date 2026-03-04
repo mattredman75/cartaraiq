@@ -71,23 +71,27 @@ export default function LoginScreen() {
       ])) as boolean;
       console.log("Biometric availability check result:", available);
 
-      const [bioEnabled, pinEnabledVal] = await Promise.all([
+      const [bioEnabled, pinEnabledVal, credentials] = await Promise.all([
         isBiometricEnabled(),
         isPinEnabled(),
+        getBiometricCredentials(),
       ]);
 
-      const bioReady = available && bioEnabled;
+      // Only mark bioReady if biometric is enabled AND credentials exist
+      const bioReady = available && bioEnabled && !!credentials;
       setBiometricReady(bioReady);
-      setPinReady(pinEnabledVal);
+      setPinReady(pinEnabledVal && !!credentials);
 
-      // Auto-initiate the appropriate fast-login flow
-      if (bioReady) {
-        // Face ID / Touch ID available — trigger immediately
-        handleBiometricLoginAuto();
-      } else if (pinEnabledVal) {
-        // PIN is the active fast-login method — show PIN entry straight away
+      // Don't auto-trigger Face ID - let user see and tap the button for better UX
+      // This ensures the Face ID button is visible and user has explicit control
+      if (bioReady && credentials && !pinEnabledVal) {
+        // Face ID only (no PIN fallback) - can show button without auto-trigger
+        // (user will see button and can tap it)
+      } else if (pinEnabledVal && !bioReady && credentials) {
+        // PIN is the ONLY fast-login method — show PIN entry straight away
         setShowPINEntry(true);
       }
+      // Otherwise show the form with visible Face ID button (if bioReady) and/or PIN button (if pinReady)
     } catch (error) {
       console.warn("Biometric setup check failed or timed out:", error);
       setBiometricReady(false);
@@ -261,12 +265,32 @@ export default function LoginScreen() {
 
     try {
       const pinHash = await hashPin(enteredPin);
-      // Update storage with PIN hash
-      const credentials = await getBiometricCredentials();
-      if (credentials) {
+      // Get or create credentials with PIN hash
+      let credentials = await getBiometricCredentials();
+      
+      if (!credentials) {
+        // If no credentials exist yet (user skipped biometric setup),
+        // create a minimal credentials object with just email/password/PIN
+        if (!email || !password) {
+          setError("Missing credentials. Please log in again.");
+          return;
+        }
+        credentials = {
+          email,
+          password,
+          pinHash,
+          biometricType: null,
+        };
+      } else {
+        // Update existing credentials with PIN hash
         credentials.pinHash = pinHash;
-        await setItem("biometric_credentials", JSON.stringify(credentials));
       }
+      
+      // Store the credentials
+      await setItem("biometric_credentials", JSON.stringify(credentials));
+      // Ensure flags are properly set
+      await setItem("pin_enabled", "true");
+      
       setShowPINConfirm(false);
       setFirstPin("");
       setPin("");
@@ -666,7 +690,8 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={() => {
                 setShowBiometricSetup(false);
-                router.replace("/(app)/list");
+                // If skipping biometric, must still set up PIN
+                setShowPINSetup(true);
               }}
               activeOpacity={0.85}
               style={{
@@ -697,7 +722,13 @@ export default function LoginScreen() {
           <PINEntry
             onComplete={handleSetUpPIN}
             onCancel={() => {
+              // Don't allow skipping PIN setup - go back to biometric/PIN choice or straight to app
+              // If user cancels, they must have already set up biometric or agree to skip to app
               setShowPINSetup(false);
+              // Set biometric_credentials and flags so next login works
+              if (email && password) {
+                storeBiometricCredentials(email, password);
+              }
               router.replace("/(app)/list");
             }}
             title="Set up PIN"
