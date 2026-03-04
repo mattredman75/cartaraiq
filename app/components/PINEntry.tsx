@@ -75,9 +75,8 @@ export function PINEntry({
             style={[
               styles.pinDot,
               {
-                backgroundColor:
-                  i < pin.length ? COLORS.primary : COLORS.surface,
-                borderColor: i < pin.length ? COLORS.primary : COLORS.muted,
+                backgroundColor: i < pin.length ? COLORS.teal : COLORS.surface,
+                borderColor: i < pin.length ? COLORS.teal : COLORS.muted,
               },
             ]}
           />
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width / 4 - 15,
     aspectRatio: 1,
     borderRadius: 12,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.card,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -204,7 +203,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.card,
     justifyContent: "center",
     alignItems: "center",
   },
