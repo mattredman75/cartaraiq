@@ -388,29 +388,33 @@ export function SettingsModal({
 
               {/* Reset PIN option when biometric is enabled */}
               {biometricEnabled && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowResetPINModal(true);
-                    setResetPINStep("first");
-                    setFirstResetPIN("");
-                    setResetPINError("");
-                  }}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    backgroundColor: TEAL,
-                  }}
-                >
-                  <Text
+                <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowResetPINModal(true);
+                      setResetPINStep("first");
+                      setFirstResetPIN("");
+                      setResetPINError("");
+                    }}
                     style={{
-                      fontSize: 13,
-                      color: "#fff",
-                      fontWeight: "500",
+                      alignSelf: "flex-start",
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      backgroundColor: TEAL,
+                      borderRadius: 20,
                     }}
                   >
-                    Reset PIN
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#fff",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Reset PIN
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           )}
