@@ -389,7 +389,7 @@ export function SettingsModal({
 
               return (
                 <Text style={{ fontSize: 12, color: MUTED }}>
-                  Versionn {version}
+                  Version {version}
                   {build ? ` (${build})` : ""}
                 </Text>
               );
