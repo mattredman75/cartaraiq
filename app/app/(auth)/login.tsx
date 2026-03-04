@@ -25,6 +25,18 @@ import { PINEntry } from "../../components/PINEntry";
 export default function LoginScreen() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  
+  // Helper to show alert and wait for user to tap OK
+  const showDebugAlert = (title: string, message: string): Promise<void> => {
+    return new Promise((resolve) => {
+      Alert.alert(title, message, [
+        {
+          text: "OK",
+          onPress: () => resolve(),
+        },
+      ]);
+    });
+  };
   const {
     isBiometricAvailable,
     biometricType,
@@ -207,28 +219,29 @@ export default function LoginScreen() {
 
   const handleSetUpBiometric = async () => {
     try {
-      Alert.alert("DEBUG", "handleSetUpBiometric called - STEP 1");
-      // Store credentials for biometric
-      Alert.alert("DEBUG", "STEP 2 - About to store credentials");
+      await showDebugAlert("DEBUG STEP 1", "handleSetUpBiometric called");
+      
+      await showDebugAlert("DEBUG STEP 2", "About to store credentials");
       await storeBiometricCredentials(email, password);
-      Alert.alert(
-        "DEBUG",
-        "STEP 3 - Credentials stored, calling authenticateWithBiometric",
-      );
-
-      // Prompt for biometric permission
-      Alert.alert("DEBUG", "STEP 4 - About to call authenticateWithBiometric");
+      
+      await showDebugAlert("DEBUG STEP 3", "Credentials stored");
+      
+      await showDebugAlert("DEBUG STEP 4", "About to call authenticateWithBiometric");
       const success = await authenticateWithBiometric();
-      Alert.alert("DEBUG", `STEP 5 - authenticateWithBiometric returned: ${success}`);
+      
+      await showDebugAlert("DEBUG STEP 5", `authenticateWithBiometric returned: ${success}`);
       if (!success) {
         setError("Biometric setup failed. Proceeding with PIN setup.");
       }
 
-      Alert.alert("DEBUG", "STEP 6 - Closing modal and showing PIN setup");
+      await showDebugAlert("DEBUG STEP 6", "Closing modal and showing PIN setup");
       setShowBiometricSetup(false);
-      setShowPINSetup(true); // Ask for PIN as fallback
+      setShowPINSetup(true);
     } catch (err: any) {
-      Alert.alert("ERROR in handleSetUpBiometric", err?.message || JSON.stringify(err));
+      Alert.alert(
+        "ERROR in handleSetUpBiometric",
+        err?.message || JSON.stringify(err),
+      );
     }
   };
 
