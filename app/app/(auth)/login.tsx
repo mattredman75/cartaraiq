@@ -45,10 +45,32 @@ export default function LoginScreen() {
   const [showPINSetup, setShowPINSetup] = useState(false);
   const [pin, setPin] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
   useEffect(() => {
     console.log("Login component mounted, checking biometric setup...");
     checkBiometricSetup();
+
+    // Intercept console.log to capture debug logs
+    const originalLog = console.log;
+    console.log = (...args: any[]) => {
+      const message = args
+        .map((arg) =>
+          typeof arg === "object" ? JSON.stringify(arg) : String(arg),
+        )
+        .join(" ");
+      if (message.includes("[Bio]") || message.includes("[Login]")) {
+        setDebugLogs((prev) => [
+          ...prev.slice(-20),
+          `${new Date().toLocaleTimeString()}: ${message}`,
+        ]);
+      }
+      originalLog(...args);
+    };
+
+    return () => {
+      console.log = originalLog;
+    };
   }, []);
 
   const checkBiometricSetup = async () => {
@@ -96,9 +118,14 @@ export default function LoginScreen() {
 
       // Offer to set up biometric login only if biometric is available and not already set up
       const biometricAvailable = await checkBiometricAvailability();
-      console.log('[Login] After login - biometricAvailable:', biometricAvailable, 'biometricReady:', biometricReady);
+      console.log(
+        "[Login] After login - biometricAvailable:",
+        biometricAvailable,
+        "biometricReady:",
+        biometricReady,
+      );
       if (biometricAvailable && !biometricReady) {
-        console.log('[Login] Showing biometric setup modal');
+        console.log("[Login] Showing biometric setup modal");
         setShowBiometricSetup(true);
       } else {
         // Navigate to app
@@ -176,14 +203,16 @@ export default function LoginScreen() {
   };
 
   const handleSetUpBiometric = async () => {
-    console.log('[Login] handleSetUpBiometric started');
+    console.log("[Login] handleSetUpBiometric started");
     // Store credentials for biometric
     await storeBiometricCredentials(email, password);
-    console.log('[Login] Credentials stored, calling authenticateWithBiometric');
+    console.log(
+      "[Login] Credentials stored, calling authenticateWithBiometric",
+    );
 
     // Prompt for biometric permission
     const success = await authenticateWithBiometric();
-    console.log('[Login] authenticateWithBiometric returned:', success);
+    console.log("[Login] authenticateWithBiometric returned:", success);
     if (!success) {
       setError("Biometric setup failed. Proceeding with PIN setup.");
     }
@@ -618,6 +647,35 @@ export default function LoginScreen() {
           />
         </SafeAreaView>
       </Modal>
+
+      {/* Debug Panel */}
+      {debugLogs.length > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: "#1a1a1a",
+            maxHeight: 120,
+            padding: 8,
+            borderTopWidth: 1,
+            borderTopColor: "#333",
+            zIndex: 1000,
+          }}
+        >
+          <Text
+            style={{
+              color: "#00ff00",
+              fontSize: 9,
+              fontFamily: "Courier New",
+              lineHeight: 12,
+            }}
+          >
+            {debugLogs.slice(-10).join("\n")}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
