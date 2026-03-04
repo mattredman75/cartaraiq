@@ -265,9 +265,6 @@ export function SettingsModal({
               <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
                 Pairing Suggestions
               </Text>
-              <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                Ingredients that pair with your list
-              </Text>
             </View>
             <Switch
               value={pairingEnabled && aiEnabled}
@@ -308,9 +305,6 @@ export function SettingsModal({
                         ? "Touch ID"
                         : "Biometric"}{" "}
                     Login
-                  </Text>
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    Use {biometricType} for quick login
                   </Text>
                 </View>
                 <Switch
