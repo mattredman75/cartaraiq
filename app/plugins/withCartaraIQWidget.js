@@ -179,13 +179,13 @@ function addWidgetTarget(project) {
     TARGETED_DEVICE_FAMILY:       '"1,2"',
     INFOPLIST_FILE:               `"${WIDGET_TARGET}/Info.plist"`,
     CODE_SIGN_ENTITLEMENTS:       `"${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements"`,
-    MARKETING_VERSION:            '$(MARKETING_VERSION)',
-    CURRENT_PROJECT_VERSION:      '$(CURRENT_PROJECT_VERSION)',
+    MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
+    CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
     SKIP_INSTALL:                 'YES',
     ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: 'NO',
     APPLICATION_EXTENSION_API_ONLY: 'YES',
     CLANG_ENABLE_MODULES:         'YES',
-    SWIFT_OPTIMIZATION_LEVEL:     '-Onone',
+    SWIFT_OPTIMIZATION_LEVEL:     '"-Onone"',
   };
 
   // Apply to both Debug and Release configs created by addTarget
