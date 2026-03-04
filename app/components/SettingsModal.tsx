@@ -51,6 +51,9 @@ export function SettingsModal({
     checkBiometricAvailability,
     disableBiometricLogin,
     isBiometricEnabled,
+    isPinEnabled,
+    enablePin,
+    disablePin,
     hashPin,
     getBiometricCredentials,
   } = useBiometricAuth();
@@ -58,6 +61,7 @@ export function SettingsModal({
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameText, setDisplayNameText] = useState("");
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [pinEnabled, setPinEnabledState] = useState(false);
   const [showResetPINModal, setShowResetPINModal] = useState(false);
   const [resetPINStep, setResetPINStep] = useState<"first" | "confirm">(
     "first",
@@ -69,8 +73,9 @@ export function SettingsModal({
     if (visible) {
       checkBiometricAvailability();
       isBiometricEnabled().then(setBiometricEnabled);
+      isPinEnabled().then(setPinEnabledState);
     }
-  }, [visible, checkBiometricAvailability, isBiometricEnabled]);
+  }, [visible, checkBiometricAvailability, isBiometricEnabled, isPinEnabled]);
 
   const handleFirstResetPIN = async (pin: string) => {
     setFirstResetPIN(pin);
@@ -329,8 +334,42 @@ export function SettingsModal({
                 />
               </View>
 
-              {/* Reset PIN option when biometric is enabled */}
-              {biometricEnabled && (
+              {/* PIN Login toggle — grayed out when biometric is on (PIN always active as fallback),
+                  independently controllable when biometric is off */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  opacity: biometricEnabled ? 0.5 : 1,
+                }}
+              >
+                <View>
+                  <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                    PIN Login
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricEnabled ? true : pinEnabled}
+                  disabled={biometricEnabled}
+                  onValueChange={async (val) => {
+                    if (val) {
+                      await enablePin();
+                      setPinEnabledState(true);
+                    } else {
+                      await disablePin();
+                      setPinEnabledState(false);
+                    }
+                  }}
+                  trackColor={{ false: BORDER, true: TEAL }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              {/* Reset PIN — visible whenever PIN exists (biometric or PIN enabled) */}
+              {(biometricEnabled || pinEnabled) && (
                 <View style={{ paddingHorizontal: 16, paddingBottom: 12, alignItems: "center" }}>
                   <TouchableOpacity
                     onPress={() => {
