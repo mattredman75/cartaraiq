@@ -9,6 +9,7 @@ import {
   Alert,
   SafeAreaView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +24,7 @@ const TEAL_DARK = "#0D4F5C";
 const TEXT = "#1A1A2E";
 const MUTED = "#64748B";
 const BORDER = "#E8EFF2";
+const COLORS_SURFACE = "#F5F9FA";
 
 interface SettingsModalProps {
   visible: boolean;
@@ -50,17 +52,30 @@ export function SettingsModal({
     checkBiometricAvailability,
     disableBiometricLogin,
     isBiometricEnabled,
+    isPinEnabled,
+    enablePin,
+    disablePin,
     hashPin,
     getBiometricCredentials,
+    authenticateWithBiometric,
+    storeBiometricCredentials,
   } = useBiometricAuth();
 
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameText, setDisplayNameText] = useState("");
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [pinEnabled, setPinEnabledState] = useState(false);
+
+  // Re-enable biometric flow
+  const [showEnableBiometricModal, setShowEnableBiometricModal] = useState(false);
+  const [enablePassword, setEnablePassword] = useState("");
+  const [enablePasswordError, setEnablePasswordError] = useState("");
+  const [enablePINStep, setEnablePINStep] = useState<"none" | "first" | "confirm">("none");
+  const [enableFirstPIN, setEnableFirstPIN] = useState("");
+
+  // Reset PIN flow
   const [showResetPINModal, setShowResetPINModal] = useState(false);
-  const [resetPINStep, setResetPINStep] = useState<"first" | "confirm">(
-    "first",
-  );
+  const [resetPINStep, setResetPINStep] = useState<"first" | "confirm">("first");
   const [firstResetPIN, setFirstResetPIN] = useState("");
   const [resetPINError, setResetPINError] = useState("");
 
@@ -68,8 +83,63 @@ export function SettingsModal({
     if (visible) {
       checkBiometricAvailability();
       isBiometricEnabled().then(setBiometricEnabled);
+      isPinEnabled().then(setPinEnabledState);
     }
-  }, [visible, checkBiometricAvailability, isBiometricEnabled]);
+  }, [visible, checkBiometricAvailability, isBiometricEnabled, isPinEnabled]);
+
+  const handleEnableBiometricSubmitPassword = async () => {
+    if (!enablePassword.trim()) {
+      setEnablePasswordError("Please enter your password.");
+      return;
+    }
+    setEnablePasswordError("");
+    // Store credentials with the entered password
+    await storeBiometricCredentials(user?.email ?? "", enablePassword);
+    // Trigger Face ID / Touch ID prompt
+    const success = await authenticateWithBiometric();
+    if (!success) {
+      setEnablePasswordError("Biometric authentication failed. Please try again.");
+      return;
+    }
+    // Move to PIN setup
+    setEnablePINStep("first");
+  };
+
+  const handleEnableFirstPIN = (pin: string) => {
+    setEnableFirstPIN(pin);
+    setEnablePINStep("confirm");
+  };
+
+  const handleEnableConfirmPIN = async (pin: string) => {
+    if (pin !== enableFirstPIN) {
+      Alert.alert(
+        "PINs don't match",
+        "The PINs you entered don't match. Please try again.",
+        [{ text: "OK" }],
+      );
+      setEnableFirstPIN("");
+      setEnablePINStep("first");
+      return;
+    }
+    try {
+      const pinHash = await hashPin(pin);
+      const credentials = await getBiometricCredentials();
+      if (credentials) {
+        credentials.pinHash = pinHash;
+        await setItem("biometric_credentials", JSON.stringify(credentials));
+      }
+      setBiometricEnabled(true);
+      setPinEnabledState(true); // PIN is always on when biometric is enabled (acts as fallback)
+      setShowEnableBiometricModal(false);
+      setEnablePassword("");
+      setEnablePasswordError("");
+      setEnablePINStep("none");
+      setEnableFirstPIN("");
+      Alert.alert("Success", "Biometric login has been enabled.");
+    } catch (e) {
+      setEnablePasswordError(`Failed to set PIN: ${e}`);
+    }
+  };
 
   const handleFirstResetPIN = async (pin: string) => {
     setFirstResetPIN(pin);
@@ -78,7 +148,11 @@ export function SettingsModal({
 
   const handleConfirmResetPIN = async (pin: string) => {
     if (pin !== firstResetPIN) {
-      setResetPINError("PINs do not match. Please try again.");
+      Alert.alert(
+        "PINs don't match",
+        "The PINs you entered don't match. Please try again.",
+        [{ text: "OK" }],
+      );
       setFirstResetPIN("");
       setResetPINStep("first");
       return;
@@ -259,9 +333,6 @@ export function SettingsModal({
               <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
                 Pairing Suggestions
               </Text>
-              <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                Ingredients that pair with your list
-              </Text>
             </View>
             <Switch
               value={pairingEnabled && aiEnabled}
@@ -303,24 +374,22 @@ export function SettingsModal({
                         : "Biometric"}{" "}
                     Login
                   </Text>
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    Use {biometricType} for quick login
-                  </Text>
                 </View>
                 <Switch
                   value={biometricEnabled}
                   onValueChange={async (val) => {
                     if (!val) {
-                      // Disable biometric
+                      // Disable biometric — preserves credentials, auto-enables PIN
                       await disableBiometricLogin();
                       setBiometricEnabled(false);
+                      setPinEnabledState(true); // PIN becomes the active fast-login method
                     } else {
-                      // Enable biometric - user needs to set it up during login
-                      Alert.alert(
-                        "Enable Biometric Login",
-                        `To enable ${biometricType?.includes("faceId") ? "Face ID" : biometricType?.includes("touchId") ? "Touch ID" : "biometric"} login, please log out and log back in to set it up.`,
-                        [{ text: "OK" }],
-                      );
+                      // Re-enable biometric inline
+                      setEnablePassword("");
+                      setEnablePasswordError("");
+                      setEnablePINStep("none");
+                      setEnableFirstPIN("");
+                      setShowEnableBiometricModal(true);
                     }
                   }}
                   trackColor={{ false: BORDER, true: TEAL }}
@@ -328,31 +397,64 @@ export function SettingsModal({
                 />
               </View>
 
-              {/* Reset PIN option when biometric is enabled */}
-              {biometricEnabled && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowResetPINModal(true);
-                    setResetPINStep("first");
-                    setFirstResetPIN("");
-                    setResetPINError("");
+              {/* PIN Login toggle — grayed out when biometric is on (PIN is always available as fallback),
+                  independently controllable when biometric is off */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  opacity: biometricEnabled ? 0.5 : 1,
+                }}
+              >
+                <View>
+                  <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
+                    PIN Login
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricEnabled ? true : pinEnabled}
+                  disabled={biometricEnabled}
+                  onValueChange={async (val) => {
+                    if (val) {
+                      await enablePin();
+                      setPinEnabledState(true);
+                    } else {
+                      await disablePin();
+                      setPinEnabledState(false);
+                    }
                   }}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    backgroundColor: TEAL,
-                  }}
-                >
-                  <Text
+                  trackColor={{ false: BORDER, true: TEAL }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              {/* Reset PIN — visible whenever PIN exists (biometric or PIN enabled) */}
+              {(biometricEnabled || pinEnabled) && (
+                <View style={{ paddingHorizontal: 16, paddingBottom: 12, alignItems: "center" }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowResetPINModal(true);
+                      setResetPINStep("first");
+                      setFirstResetPIN("");
+                      setResetPINError("");
+                    }}
                     style={{
-                      fontSize: 13,
-                      color: "#fff",
-                      fontWeight: "500",
+                      width: "80%",
+                      marginTop: 10,
+                      paddingVertical: 8,
+                      backgroundColor: TEAL,
+                      borderRadius: 10,
+                      alignItems: "center",
                     }}
                   >
-                    Reset PIN
-                  </Text>
-                </TouchableOpacity>
+                    <Text style={{ fontSize: 13, color: "#fff", fontWeight: "600" }}>
+                      Reset PIN
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           )}
@@ -420,52 +522,18 @@ export function SettingsModal({
         transparent
         animationType="slide"
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: TEAL }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingVertical: 32 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowResetPINModal(false);
-                setFirstResetPIN("");
-                setResetPINError("");
-              }}
-              style={{ marginBottom: 36 }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  color: "#fff",
-                  fontSize: 14,
-                }}
-              >
-                ← Back
-              </Text>
-            </TouchableOpacity>
-
-            {resetPINError ? (
-              <Text
-                style={{
-                  fontFamily: "Montserrat_400Regular",
-                  fontSize: 13,
-                  color: "#fff",
-                  marginBottom: 16,
-                }}
-              >
-                {resetPINError}
-              </Text>
-            ) : null}
-
-            <PINEntry
-              onComplete={handleFirstResetPIN}
-              onCancel={() => {
-                setShowResetPINModal(false);
-                setFirstResetPIN("");
-                setResetPINError("");
-              }}
-              title="Enter New PIN"
-              subtitle="Create a new 4-digit PIN"
-              maxLength={4}
-            />
-          </View>
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS_SURFACE }}>
+          <PINEntry
+            onComplete={handleFirstResetPIN}
+            onCancel={() => {
+              setShowResetPINModal(false);
+              setFirstResetPIN("");
+              setResetPINError("");
+            }}
+            title="Enter new PIN"
+            subtitle="Create a new 4-digit PIN"
+            maxLength={4}
+          />
         </SafeAreaView>
       </Modal>
 
@@ -475,52 +543,126 @@ export function SettingsModal({
         transparent
         animationType="slide"
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: TEAL }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingVertical: 32 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS_SURFACE }}>
+          <PINEntry
+            onComplete={handleConfirmResetPIN}
+            onCancel={() => {
+              setResetPINStep("first");
+              setFirstResetPIN("");
+              setResetPINError("");
+            }}
+            title="Confirm your new PIN"
+            subtitle="Enter the same 4-digit PIN again"
+            maxLength={4}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Enable Biometric - Password Entry */}
+      <Modal
+        visible={showEnableBiometricModal && enablePINStep === "none"}
+        transparent
+        animationType="slide"
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+          <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 32 }}>
             <TouchableOpacity
-              onPress={() => {
-                setResetPINStep("first");
-                setFirstResetPIN("");
-                setResetPINError("");
-              }}
-              style={{ marginBottom: 36 }}
+              onPress={() => setShowEnableBiometricModal(false)}
+              style={{ flexDirection: "row", alignItems: "center", marginBottom: 36, gap: 2 }}
             >
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  color: "#fff",
-                  fontSize: 14,
-                }}
-              >
-                ← Back
+              <Ionicons name="chevron-back" size={20} color={TEXT} />
+              <Text style={{ fontFamily: "Montserrat_500Medium", color: TEXT, fontSize: 15 }}>
+                Back
               </Text>
             </TouchableOpacity>
 
-            {resetPINError ? (
-              <Text
-                style={{
-                  fontFamily: "Montserrat_400Regular",
-                  fontSize: 13,
-                  color: "#fff",
-                  marginBottom: 16,
-                }}
-              >
-                {resetPINError}
+            <Text style={{ fontFamily: "Montserrat_700Bold", fontSize: 28, color: TEXT, marginBottom: 8 }}>
+              {biometricType?.includes("faceId") ? "Enable Face ID" : biometricType?.includes("touchId") ? "Enable Touch ID" : "Enable Biometric"}
+            </Text>
+            <Text style={{ fontFamily: "Montserrat_400Regular", fontSize: 15, color: MUTED, marginBottom: 32 }}>
+              Enter your password to re-enable biometric login.
+            </Text>
+
+            <Text style={{ fontFamily: "Montserrat_600SemiBold", fontSize: 12, color: TEXT, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
+              Password
+            </Text>
+            <TextInput
+              value={enablePassword}
+              onChangeText={setEnablePassword}
+              placeholder="Your password"
+              placeholderTextColor={MUTED}
+              secureTextEntry
+              autoFocus
+              style={{
+                backgroundColor: "#F8F9FA",
+                borderWidth: 1.5,
+                borderColor: BORDER,
+                borderRadius: 14,
+                paddingHorizontal: 18,
+                paddingVertical: 15,
+                fontFamily: "Montserrat_400Regular",
+                fontSize: 15,
+                color: TEXT,
+                marginBottom: 12,
+              }}
+            />
+
+            {enablePasswordError ? (
+              <Text style={{ fontFamily: "Montserrat_400Regular", fontSize: 13, color: "#DC2626", marginBottom: 16 }}>
+                {enablePasswordError}
               </Text>
             ) : null}
 
-            <PINEntry
-              onComplete={handleConfirmResetPIN}
-              onCancel={() => {
-                setResetPINStep("first");
-                setFirstResetPIN("");
-                setResetPINError("");
+            <TouchableOpacity
+              onPress={handleEnableBiometricSubmitPassword}
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: TEAL,
+                borderRadius: 16,
+                paddingVertical: 18,
+                alignItems: "center",
+                marginTop: 8,
               }}
-              title="Confirm New PIN"
-              subtitle="Enter the same 4-digit PIN again"
-              maxLength={4}
-            />
+            >
+              <Text style={{ fontFamily: "Montserrat_700Bold", fontSize: 16, color: "#fff", letterSpacing: 0.3 }}>
+                Continue
+              </Text>
+            </TouchableOpacity>
           </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Enable Biometric - First PIN */}
+      <Modal
+        visible={showEnableBiometricModal && enablePINStep === "first"}
+        transparent
+        animationType="slide"
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS_SURFACE }}>
+          <PINEntry
+            onComplete={handleEnableFirstPIN}
+            onCancel={() => setEnablePINStep("none")}
+            title="Set up PIN"
+            subtitle="Create a 4-digit PIN as a backup login method"
+            maxLength={4}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Enable Biometric - Confirm PIN */}
+      <Modal
+        visible={showEnableBiometricModal && enablePINStep === "confirm"}
+        transparent
+        animationType="slide"
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS_SURFACE }}>
+          <PINEntry
+            onComplete={handleEnableConfirmPIN}
+            onCancel={() => { setEnablePINStep("first"); setEnableFirstPIN(""); setEnablePasswordError(""); }}
+            title="Confirm your PIN"
+            subtitle="Enter the same 4-digit PIN again"
+            maxLength={4}
+          />
         </SafeAreaView>
       </Modal>
     </Modal>

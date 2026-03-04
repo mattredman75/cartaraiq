@@ -9,6 +9,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../lib/constants";
 
+const { width } = Dimensions.get("window");
+const KEYPAD_PADDING = 70;
+const KEY_SIZE = (width - KEYPAD_PADDING * 2 - 40) / 3; // 3 cols, 70px side padding, 2×12px gaps
+
 interface PINEntryProps {
   onComplete: (pin: string) => void;
   onCancel?: () => void;
@@ -21,20 +25,21 @@ export function PINEntry({
   onComplete,
   onCancel,
   title = "Enter PIN",
-  subtitle = "Enter your 4-digit PIN",
+  subtitle = "This keeps your account secure.",
   maxLength = 4,
 }: PINEntryProps) {
   const [pin, setPin] = useState("");
 
-  const handleNumberPress = useCallback(
+  const handlePress = useCallback(
     (num: string) => {
       if (pin.length < maxLength) {
-        const newPin = pin + num;
-        setPin(newPin);
-
-        // Auto-submit when PIN is complete
-        if (newPin.length === maxLength) {
-          setTimeout(() => onComplete(newPin), 100);
+        const next = pin + num;
+        setPin(next);
+        if (next.length === maxLength) {
+          setTimeout(() => {
+            setPin("");
+            onComplete(next);
+          }, 120);
         }
       }
     },
@@ -42,87 +47,84 @@ export function PINEntry({
   );
 
   const handleBackspace = useCallback(() => {
-    setPin(pin.slice(0, -1));
-  }, [pin]);
+    setPin((p) => p.slice(0, -1));
+  }, []);
 
-  const numbers = [
+  const rows = [
     ["1", "2", "3"],
     ["4", "5", "6"],
     ["7", "8", "9"],
-    ["*", "0", "#"],
   ];
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        {onCancel && (
-          <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
-            <Ionicons name="close" size={24} color={COLORS.ink} />
-          </TouchableOpacity>
-        )}
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
+      {/* Back button */}
+      {onCancel && (
+        <TouchableOpacity onPress={onCancel} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={20} color={COLORS.ink} />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Lock icon */}
+      <View style={styles.iconWrapper}>
+        <Ionicons name="lock-closed" size={36} color={COLORS.ink} />
       </View>
 
-      {/* PIN Display */}
-      <View style={styles.pinDisplay}>
+      {/* Title */}
+      <Text style={styles.title}>{title}</Text>
+
+      {/* Dots */}
+      <View style={styles.dotsRow}>
         {Array.from({ length: maxLength }).map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.pinDot,
-              {
-                backgroundColor: i < pin.length ? COLORS.teal : COLORS.surface,
-                borderColor: i < pin.length ? COLORS.teal : COLORS.muted,
-              },
-            ]}
-          />
+          <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
         ))}
       </View>
 
       {/* Keypad */}
       <View style={styles.keypad}>
-        {numbers.map((row, rowIndex) => (
-          <View key={rowIndex} style={styles.row}>
-            {row.map((num) => (
+        {rows.map((row, ri) => (
+          <View key={ri} style={styles.row}>
+            {row.map((n) => (
               <TouchableOpacity
-                key={num}
-                onPress={() => handleNumberPress(num)}
-                disabled={num === "*" || num === "#"}
-                style={[
-                  styles.key,
-                  (num === "*" || num === "#") && styles.keyDisabled,
-                ]}
+                key={n}
+                onPress={() => handlePress(n)}
+                activeOpacity={0.7}
+                style={styles.key}
               >
-                <Text
-                  style={[
-                    styles.keyText,
-                    (num === "*" || num === "#") && styles.keyDisabledText,
-                  ]}
-                >
-                  {num}
-                </Text>
+                <Text style={styles.keyText}>{n}</Text>
               </TouchableOpacity>
             ))}
           </View>
         ))}
 
-        {/* Backspace button */}
-        <TouchableOpacity
-          onPress={handleBackspace}
-          style={styles.backspaceButton}
-          disabled={pin.length === 0}
-        >
-          <Ionicons
-            name="backspace"
-            size={20}
-            color={pin.length === 0 ? COLORS.muted : COLORS.ink}
-          />
-        </TouchableOpacity>
+        {/* Bottom row: empty | 0 | backspace */}
+        <View style={styles.row}>
+          <View style={[styles.key, styles.keyInvisible]} />
+          <TouchableOpacity
+            onPress={() => handlePress("0")}
+            activeOpacity={0.7}
+            style={styles.key}
+          >
+            <Text style={styles.keyText}>0</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleBackspace}
+            activeOpacity={0.7}
+            disabled={pin.length === 0}
+            style={[styles.key, styles.keyInvisible]}
+          >
+            <Ionicons
+              name="backspace-outline"
+              size={24}
+              color={pin.length === 0 ? COLORS.muted : COLORS.ink}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Subtitle */}
+      <Text style={styles.subtitle}>{subtitle}</Text>
     </View>
   );
 }
@@ -131,80 +133,83 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    paddingBottom: 40,
+    alignItems: "center",
+    paddingHorizontal: KEYPAD_PADDING,
+    paddingBottom: 24,
   },
-  header: {
+  backButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    alignSelf: "flex-start",
+    marginTop: 8,
+    marginBottom: 8,
+    marginLeft: -54,
+    gap: 2,
   },
-  cancelButton: {
-    marginRight: 16,
+  backText: {
+    fontFamily: "Montserrat_500Medium",
+    fontSize: 15,
+    color: COLORS.ink,
   },
-  headerContent: {
-    flex: 1,
+  iconWrapper: {
+    marginTop: 28,
+    marginBottom: 20,
   },
   title: {
     fontFamily: "Montserrat_700Bold",
-    fontSize: 24,
-    color: COLORS.ink,
-    marginBottom: 4,
+    fontSize: 20,
+    color: COLORS.teal,
+    textAlign: "center",
+    marginBottom: 28,
   },
-  subtitle: {
-    fontFamily: "Montserrat_400Regular",
-    fontSize: 14,
-    color: COLORS.muted,
-  },
-  pinDisplay: {
+  dotsRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 60,
-    gap: 12,
+    gap: 16,
+    marginBottom: 40,
   },
-  pinDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  dot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
+    borderColor: COLORS.ink,
+    backgroundColor: "transparent",
+  },
+  dotFilled: {
+    backgroundColor: COLORS.ink,
   },
   keypad: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
+    width: "100%",
+    gap: 20,
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    gap: 12,
   },
   key: {
-    width: Dimensions.get("window").width / 4 - 15,
-    aspectRatio: 1,
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
+    width: KEY_SIZE,
+    height: KEY_SIZE,
+    borderRadius: KEY_SIZE / 2,
+    borderWidth: 1.5,
+    borderColor: COLORS.teal,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "transparent",
   },
-  keyDisabled: {
-    backgroundColor: COLORS.surface,
+  keyInvisible: {
+    borderColor: "transparent",
   },
   keyText: {
-    fontFamily: "Montserrat_600SemiBold",
-    fontSize: 20,
+    fontFamily: "Montserrat_500Medium",
+    fontSize: 22,
     color: COLORS.ink,
   },
-  keyDisabledText: {
+  subtitle: {
+    fontFamily: "Montserrat_400Regular",
+    fontSize: 13,
     color: COLORS.muted,
-  },
-  backspaceButton: {
-    alignSelf: "center",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: COLORS.card,
-    justifyContent: "center",
-    alignItems: "center",
+    textAlign: "center",
+    marginTop: 24,
   },
 });

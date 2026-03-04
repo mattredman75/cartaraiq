@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authForgotPassword } from '../../lib/api';
 import { COLORS } from '../../lib/constants';
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();

@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchProduct, addListItem } from '../../../lib/api';
 import { COLORS } from '../../../lib/constants';
+import { Ionicons } from "@expo/vector-icons";
 
 interface Product {
   id: string;

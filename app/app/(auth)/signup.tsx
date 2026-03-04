@@ -16,6 +16,7 @@ import { setItem } from '../../lib/storage';
 import { authRegister } from '../../lib/api';
 import { useAuthStore } from '../../lib/store';
 import { COLORS } from '../../lib/constants';
+import { Ionicons } from "@expo/vector-icons";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -69,9 +70,8 @@ export default function SignupScreen() {
               onPress={() => router.back()}
               style={{ marginBottom: 36 }}
             >
-              <Text style={{ fontFamily: 'Montserrat_500Medium', color: COLORS.muted, fontSize: 14 }}>
-                ← Back
-              </Text>
+              
+              <Ionicons name="chevron-back" size={20} color={COLORS.ink} />
             </TouchableOpacity>
 
             {/* Header */}
