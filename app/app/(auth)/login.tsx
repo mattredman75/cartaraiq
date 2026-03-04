@@ -206,20 +206,30 @@ export default function LoginScreen() {
   };
 
   const handleSetUpBiometric = async () => {
-    Alert.alert("DEBUG", "handleSetUpBiometric called");
-    // Store credentials for biometric
-    await storeBiometricCredentials(email, password);
-    Alert.alert("DEBUG", "Credentials stored, calling authenticateWithBiometric");
+    try {
+      Alert.alert("DEBUG", "handleSetUpBiometric called - STEP 1");
+      // Store credentials for biometric
+      Alert.alert("DEBUG", "STEP 2 - About to store credentials");
+      await storeBiometricCredentials(email, password);
+      Alert.alert(
+        "DEBUG",
+        "STEP 3 - Credentials stored, calling authenticateWithBiometric",
+      );
 
-    // Prompt for biometric permission
-    const success = await authenticateWithBiometric();
-    Alert.alert("DEBUG", `authenticateWithBiometric returned: ${success}`);
-    if (!success) {
-      setError("Biometric setup failed. Proceeding with PIN setup.");
+      // Prompt for biometric permission
+      Alert.alert("DEBUG", "STEP 4 - About to call authenticateWithBiometric");
+      const success = await authenticateWithBiometric();
+      Alert.alert("DEBUG", `STEP 5 - authenticateWithBiometric returned: ${success}`);
+      if (!success) {
+        setError("Biometric setup failed. Proceeding with PIN setup.");
+      }
+
+      Alert.alert("DEBUG", "STEP 6 - Closing modal and showing PIN setup");
+      setShowBiometricSetup(false);
+      setShowPINSetup(true); // Ask for PIN as fallback
+    } catch (err: any) {
+      Alert.alert("ERROR in handleSetUpBiometric", err?.message || JSON.stringify(err));
     }
-
-    setShowBiometricSetup(false);
-    setShowPINSetup(true); // Ask for PIN as fallback
   };
 
   const handleSetUpPIN = async (enteredPin: string) => {
@@ -566,7 +576,10 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={handleSetUpBiometric}
+              onPress={() => {
+                Alert.alert("DEBUG", "Enable button pressed");
+                handleSetUpBiometric();
+              }}
               disabled={loading}
               activeOpacity={0.85}
               style={{
