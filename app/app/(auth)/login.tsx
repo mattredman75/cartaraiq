@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Modal,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -103,47 +104,39 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    console.log("[Login] handleLogin called with email:", email);
+    Alert.alert("DEBUG", "handleLogin called");
     if (!email || !password) {
       setError("Please enter your email and password.");
       return;
     }
     setLoading(true);
     setError("");
-    console.log("[Login] Loading set to true, calling authLogin");
     try {
       const res = await authLogin(email, password);
-      console.log("[Login] authLogin succeeded");
+      Alert.alert("DEBUG", "authLogin succeeded");
       const { access_token, user } = res.data;
       await setItem("auth_token", access_token);
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
 
       // Offer to set up biometric login only if biometric is available and not already set up
+      Alert.alert("DEBUG", "Calling checkBiometricAvailability...");
       const biometricAvailable = await checkBiometricAvailability();
-      console.log(
-        "[Login] After login - biometricAvailable:",
-        biometricAvailable,
-        "biometricReady:",
-        biometricReady,
+      Alert.alert(
+        "DEBUG",
+        `biometricAvailable=${biometricAvailable}, biometricReady=${biometricReady}`,
       );
       if (biometricAvailable && !biometricReady) {
-        console.log("[Login] Showing biometric setup modal");
+        Alert.alert("DEBUG", "Showing biometric setup modal");
         setShowBiometricSetup(true);
       } else {
-        // Navigate to app
+        Alert.alert("DEBUG", "Navigating to app");
         router.replace("/(app)/list");
       }
     } catch (e: any) {
-      console.log("[Login] Error in handleLogin:", {
-        message: e?.message,
-        code: e?.code,
-        detail: e?.response?.data?.detail,
-        fullError: JSON.stringify(e),
-      });
+      Alert.alert("DEBUG", `Error: ${e?.message || JSON.stringify(e)}`);
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
     } finally {
-      console.log("[Login] Setting loading to false");
       setLoading(false);
     }
   };
@@ -213,16 +206,14 @@ export default function LoginScreen() {
   };
 
   const handleSetUpBiometric = async () => {
-    console.log("[Login] handleSetUpBiometric started");
+    Alert.alert("DEBUG", "handleSetUpBiometric called");
     // Store credentials for biometric
     await storeBiometricCredentials(email, password);
-    console.log(
-      "[Login] Credentials stored, calling authenticateWithBiometric",
-    );
+    Alert.alert("DEBUG", "Credentials stored, calling authenticateWithBiometric");
 
     // Prompt for biometric permission
     const success = await authenticateWithBiometric();
-    console.log("[Login] authenticateWithBiometric returned:", success);
+    Alert.alert("DEBUG", `authenticateWithBiometric returned: ${success}`);
     if (!success) {
       setError("Biometric setup failed. Proceeding with PIN setup.");
     }
