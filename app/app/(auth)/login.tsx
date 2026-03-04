@@ -60,7 +60,10 @@ export default function LoginScreen() {
       });
 
       const availabilityPromise = checkBiometricAvailability();
-      const available = await Promise.race([availabilityPromise, timeoutPromise]) as boolean;
+      const available = (await Promise.race([
+        availabilityPromise,
+        timeoutPromise,
+      ])) as boolean;
       console.log("Biometric availability check result:", available);
 
       if (available) {
@@ -97,8 +100,8 @@ export default function LoginScreen() {
       // if (biometricAvailable && !biometricReady) {
       //   setShowBiometricSetup(true);
       // } else {
-        // Navigate to app
-        router.replace("/(app)/list");
+      // Navigate to app
+      router.replace("/(app)/list");
       // }
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);

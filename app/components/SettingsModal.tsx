@@ -251,8 +251,15 @@ export function SettingsModal({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
-                    {biometricType?.includes('faceId') ? 'Face ID' : biometricType?.includes('touchId') ? 'Touch ID' : 'Biometric'} Login
+                  <Text
+                    style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}
+                  >
+                    {biometricType?.includes("faceId")
+                      ? "Face ID"
+                      : biometricType?.includes("touchId")
+                        ? "Touch ID"
+                        : "Biometric"}{" "}
+                    Login
                   </Text>
                   <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
                     Use {biometricType} for quick login
@@ -269,8 +276,8 @@ export function SettingsModal({
                       // Enable biometric - user needs to set it up during login
                       Alert.alert(
                         "Enable Biometric Login",
-                        `To enable ${biometricType?.includes('faceId') ? 'Face ID' : biometricType?.includes('touchId') ? 'Touch ID' : 'biometric'} login, please log out and log back in to set it up.`,
-                        [{ text: "OK" }]
+                        `To enable ${biometricType?.includes("faceId") ? "Face ID" : biometricType?.includes("touchId") ? "Touch ID" : "biometric"} login, please log out and log back in to set it up.`,
+                        [{ text: "OK" }],
                       );
                     }
                   }}
@@ -297,11 +304,11 @@ export function SettingsModal({
                             Alert.alert(
                               "PIN Reset",
                               "Biometric login has been disabled. Log out and log back in to set up a new PIN.",
-                              [{ text: "OK" }]
+                              [{ text: "OK" }],
                             );
-                          }
-                        }
-                      ]
+                          },
+                        },
+                      ],
                     );
                   }}
                   style={{
@@ -310,7 +317,13 @@ export function SettingsModal({
                     backgroundColor: "#FFF5F5",
                   }}
                 >
-                  <Text style={{ fontSize: 13, color: "#DC2626", fontWeight: "500" }}>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: "#DC2626",
+                      fontWeight: "500",
+                    }}
+                  >
                     Reset PIN
                   </Text>
                 </TouchableOpacity>
