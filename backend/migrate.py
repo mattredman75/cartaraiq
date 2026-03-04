@@ -108,6 +108,22 @@ def _run_mysql(conn) -> None:
             ALTER TABLE users ADD COLUMN reset_token_expiry DATETIME NULL
         """))
 
+    # 6. Biometric authentication columns on users
+    if not _col_exists(conn, "users", "biometric_enabled"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN biometric_enabled TINYINT(1) NOT NULL DEFAULT 0
+        """))
+
+    if not _col_exists(conn, "users", "biometric_pin_hash"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN biometric_pin_hash VARCHAR(255) NULL
+        """))
+
+    if not _col_exists(conn, "users", "biometric_type"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN biometric_type VARCHAR(50) NULL
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -151,6 +167,20 @@ def _run_postgresql(conn) -> None:
     conn.execute(text("""
         ALTER TABLE users
             ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMPTZ NULL
+    """))
+
+    # 5. Biometric authentication columns on users
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS biometric_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    """))
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS biometric_pin_hash VARCHAR(255) NULL
+    """))
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS biometric_type VARCHAR(50) NULL
     """))
 
     # 5. Convert checked from Boolean to Integer if needed
