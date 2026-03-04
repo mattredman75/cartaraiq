@@ -7,27 +7,15 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Log the API URL for debugging
-console.log("🔗 API URL:", API_URL);
-
 api.interceptors.request.use(async (config) => {
   const token = await getItem("auth_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
-
-  // Log API requests for debugging
-  console.log("📡 API Request:", config.method?.toUpperCase(), config.url);
 
   return config;
 });
 
 api.interceptors.response.use(
   (res) => {
-    console.log(
-      "✅ API Response:",
-      res.status,
-      res.config.method?.toUpperCase(),
-      res.config.url,
-    );
     return res;
   },
   (err) => {
