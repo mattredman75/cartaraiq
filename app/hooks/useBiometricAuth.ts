@@ -186,7 +186,6 @@ export function useBiometricAuth() {
     }
   }, []);
 
-  // Secure PIN hash function using SHA-256
   const hashPin = useCallback(async (pin: string): Promise<string> => {
     const hash = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
