@@ -48,19 +48,23 @@ function withCartaraIQWidget(config) {
     return cfg;
   }]);
 
-  // Patch Podfile: inject CODE_SIGNING_ALLOWED=NO into the existing post_install
-  // block so CocoaPods resource bundle targets are not signed (Xcode 14+ requirement).
+  // Patch Podfile: inject ENABLE_USER_SCRIPT_SANDBOXING=NO and CODE_SIGNING_ALLOWED=NO
+  // AFTER react_native_post_install() so we override any value it sets (RN 0.74+ sets
+  // sandboxing=YES inside that helper, which would undo an earlier injection).
   // withDangerousMod runs after expo prebuild writes the Podfile, before pod install.
   config = withDangerousMod(config, ['ios', async (cfg) => {
     const podfilePath = path.join(cfg.modRequest.projectRoot, 'ios', 'Podfile');
     if (!fs.existsSync(podfilePath)) return cfg;
 
     const contents = fs.readFileSync(podfilePath, 'utf8');
-    if (contents.includes('ENABLE_USER_SCRIPT_SANDBOXING')) return cfg;
+    // Use a unique sentinel so this guard is never tripped by RN's own sandboxing line
+    if (contents.includes('# [withCartaraIQWidget] sandboxed')) return cfg;
 
     const injection = [
-      '    # [withCartaraIQWidget] Xcode 14+: disable code-signing on resource bundle targets',
-      '    # [withCartaraIQWidget] Xcode 15+: disable script sandboxing on all targets (fixes Hermes/DevLauncher archive)',
+      '    # [withCartaraIQWidget] sandboxed',
+      '    # Xcode 14+: disable code-signing on resource bundle targets',
+      '    # Xcode 15+: disable script sandboxing on all targets (fixes Hermes/DevLauncher archive)',
+      '    # Must run AFTER react_native_post_install which sets ENABLE_USER_SCRIPT_SANDBOXING=YES',
       '    installer.pods_project.targets.each do |target|',
       '      target.build_configurations.each do |build_config|',
       "        build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'",
@@ -71,20 +75,53 @@ function withCartaraIQWidget(config) {
       '    end',
     ].join('\n');
 
+    // Inject AFTER the react_native_post_install(...) call closes — that helper sets
+    // ENABLE_USER_SCRIPT_SANDBOXING=YES in newer RN versions so we must run after it.
     const lines = contents.split('\n');
     const patched = [];
     let injected = false;
+    let inRNCall = false;
     for (const line of lines) {
       patched.push(line);
-      if (!injected && /^\s*post_install\s+do\s+\|/.test(line)) {
-        patched.push(injection);
-        injected = true;
+      if (!injected) {
+        if (/react_native_post_install\s*\(/.test(line)) {
+          // Single-line call: react_native_post_install(installer)
+          if (/\)\s*$/.test(line.trim())) {
+            patched.push(injection);
+            injected = true;
+          } else {
+            inRNCall = true;
+          }
+        } else if (inRNCall && /^\s*\)\s*$/.test(line)) {
+          // Closing ) of multi-line react_native_post_install(...)
+          patched.push(injection);
+          injected = true;
+          inRNCall = false;
+        }
       }
     }
-    if (injected) {
-      fs.writeFileSync(podfilePath, patched.join('\n'), 'utf8');
-      console.log('[withCartaraIQWidget] Patched Podfile with CODE_SIGNING_ALLOWED hook');
+
+    // Fallback: if react_native_post_install wasn't found, inject at top of post_install
+    if (!injected) {
+      console.warn('[withCartaraIQWidget] react_native_post_install not found — using fallback injection');
+      const lines2 = contents.split('\n');
+      const patched2 = [];
+      for (const line of lines2) {
+        patched2.push(line);
+        if (!injected && /^\s*post_install\s+do\s+\|/.test(line)) {
+          patched2.push(injection);
+          injected = true;
+        }
+      }
+      if (injected) {
+        fs.writeFileSync(podfilePath, patched2.join('\n'), 'utf8');
+        console.log('[withCartaraIQWidget] Patched Podfile (fallback) with sandboxing/signing hooks');
+      }
+      return cfg;
     }
+
+    fs.writeFileSync(podfilePath, patched.join('\n'), 'utf8');
+    console.log('[withCartaraIQWidget] Patched Podfile with sandboxing/signing hooks (after react_native_post_install)');
     return cfg;
   }]);
 
