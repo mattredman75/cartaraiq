@@ -3,12 +3,11 @@ import logging
 import secrets
 import smtplib
 import ssl
-import threading
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -106,13 +105,20 @@ class ResetPasswordRequest(BaseModel):
 
 
 def _send_reset_email(to_email: str, code: str) -> None:
-    if not settings.smtp_host:
+    smtp_host = (settings.smtp_host or "").strip()
+    smtp_from = (settings.smtp_from or "").strip()
+    smtp_port = int(settings.smtp_port or 0)
+
+    if not smtp_host:
         logger.info("[Password Reset] Code for %s: %s", to_email, code)
+        return
+    if not smtp_from:
+        logger.error("[Password Reset] SMTP_FROM is empty; cannot send reset email to %s", to_email)
         return
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Your CartaraIQ password reset code"
-    msg["From"] = settings.smtp_from
+    msg["From"] = smtp_from
     logger.info("[Password Reset] msg.From header set to %r", msg["From"])
     msg["To"] = to_email
     body = (
@@ -126,24 +132,43 @@ def _send_reset_email(to_email: str, code: str) -> None:
     msg.attach(MIMEText(body, "plain"))
     # debug: log configured smtp_from and the raw message for troubleshooting
     try:
-        logger.info("[Password Reset] smtp_from=%r to_email=%r", settings.smtp_from, to_email)
+        logger.info(
+            "[Password Reset] smtp_host=%r smtp_port=%r smtp_user=%r smtp_from=%r to_email=%r",
+            smtp_host,
+            smtp_port,
+            settings.smtp_user,
+            smtp_from,
+            to_email,
+        )
     except Exception:
         logger.exception("failed to log reset-email debug info")
     try:
-        if settings.smtp_port == 465:
+        if smtp_port == 465:
+            logger.info("[Password Reset] PORT is 465")
             # Port 465 = SMTPS (SSL from the start)
             ctx = ssl.create_default_context()
-            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=ctx, timeout=15) as server:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=15) as server:
                 if settings.smtp_user:
                     server.login(settings.smtp_user, settings.smtp_pass)
-                server.sendmail(settings.smtp_from, to_email, msg.as_string())
+                refused = server.sendmail(smtp_from, to_email, msg.as_string())
+                if refused:
+                    logger.error("[Password Reset] Recipient refused by SMTP server: %s", refused)
+                else:
+                    logger.info("[Password Reset] SMTP send success to %s", to_email)
         else:
             # Port 587 = STARTTLS
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
-                server.starttls()
+            logger.info("[Password Reset] PORT is 587")
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                server.ehlo()
+                server.starttls(context=ssl.create_default_context())
+                server.ehlo()
                 if settings.smtp_user:
                     server.login(settings.smtp_user, settings.smtp_pass)
-                server.sendmail(settings.smtp_from, to_email, msg.as_string())
+                refused = server.sendmail(smtp_from, to_email, msg.as_string())
+                if refused:
+                    logger.error("[Password Reset] Recipient refused by SMTP server: %s", refused)
+                else:
+                    logger.info("[Password Reset] SMTP send success to %s", to_email)
     except Exception:
         logger.exception("Failed to send reset email to %s", to_email)
 
@@ -168,7 +193,11 @@ def update_me(
 
 
 @router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     user = db.query(User).filter(User.email == payload.email).first()
     # Always return the same message to avoid email enumeration
     if user:
@@ -176,7 +205,7 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         user.reset_token = hashlib.sha256(code.encode()).hexdigest()
         user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
         db.commit()
-        threading.Thread(target=_send_reset_email, args=(user.email, code), daemon=True).start()
+        background_tasks.add_task(_send_reset_email, user.email, code)
     return {"message": "If that email is registered, a reset code has been sent."}
 
 
