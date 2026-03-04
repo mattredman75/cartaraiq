@@ -10,7 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../lib/constants";
 
 const { width } = Dimensions.get("window");
-const KEY_SIZE = (width - 48 - 40) / 3; // 3 cols, 48px side padding, 40px gaps
+const KEYPAD_PADDING = 70;
+const KEY_SIZE = (width - KEYPAD_PADDING * 2 - 40) / 3; // 3 cols, 70px side padding, 2×12px gaps
 
 interface PINEntryProps {
   onComplete: (pin: string) => void;
@@ -133,15 +134,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.surface,
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: KEYPAD_PADDING,
     paddingBottom: 24,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    marginTop: 16,
+    marginTop: 8,
     marginBottom: 8,
+    marginLeft: -54,
     gap: 2,
   },
   backText: {
@@ -178,7 +180,7 @@ const styles = StyleSheet.create({
   },
   keypad: {
     width: "100%",
-    gap: 12,
+    gap: 20,
   },
   row: {
     flexDirection: "row",

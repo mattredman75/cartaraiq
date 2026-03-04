@@ -333,9 +333,6 @@ export function SettingsModal({
               <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
                 Pairing Suggestions
               </Text>
-              <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                Ingredients that pair with your list
-              </Text>
             </View>
             <Switch
               value={pairingEnabled && aiEnabled}
@@ -377,9 +374,6 @@ export function SettingsModal({
                         : "Biometric"}{" "}
                     Login
                   </Text>
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    Use {biometricType} for quick login
-                  </Text>
                 </View>
                 <Switch
                   value={biometricEnabled}
@@ -419,11 +413,6 @@ export function SettingsModal({
                   <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
                     PIN Login
                   </Text>
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    {biometricEnabled
-                      ? "Active as fallback when Face ID fails"
-                      : "Use 4-digit PIN to log in"}
-                  </Text>
                 </View>
                 <Switch
                   value={biometricEnabled ? true : pinEnabled}
@@ -444,7 +433,7 @@ export function SettingsModal({
 
               {/* Reset PIN — visible whenever PIN exists (biometric or PIN enabled) */}
               {(biometricEnabled || pinEnabled) && (
-                <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+                <View style={{ paddingHorizontal: 16, paddingBottom: 12, alignItems: "center" }}>
                   <TouchableOpacity
                     onPress={() => {
                       setShowResetPINModal(true);
@@ -453,11 +442,12 @@ export function SettingsModal({
                       setResetPINError("");
                     }}
                     style={{
-                      alignSelf: "flex-start",
-                      paddingHorizontal: 16,
+                      width: "80%",
+                      marginTop: 10,
                       paddingVertical: 8,
                       backgroundColor: TEAL,
-                      borderRadius: 20,
+                      borderRadius: 10,
+                      alignItems: "center",
                     }}
                   >
                     <Text style={{ fontSize: 13, color: "#fff", fontWeight: "600" }}>

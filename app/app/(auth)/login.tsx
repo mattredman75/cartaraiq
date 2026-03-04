@@ -76,12 +76,50 @@ export default function LoginScreen() {
         isPinEnabled(),
       ]);
 
-      setBiometricReady(available && bioEnabled);
+      const bioReady = available && bioEnabled;
+      setBiometricReady(bioReady);
       setPinReady(pinEnabledVal);
+
+      // Auto-initiate the appropriate fast-login flow
+      if (bioReady) {
+        // Face ID / Touch ID available — trigger immediately
+        handleBiometricLoginAuto();
+      } else if (pinEnabledVal) {
+        // PIN is the active fast-login method — show PIN entry straight away
+        setShowPINEntry(true);
+      }
     } catch (error) {
       console.warn("Biometric setup check failed or timed out:", error);
       setBiometricReady(false);
       setPinReady(false);
+    }
+  };
+
+  // Auto-triggered biometric login (called on mount, not from a button press)
+  const handleBiometricLoginAuto = async () => {
+    try {
+      const credentials = await getBiometricCredentials();
+      if (!credentials) return; // No credentials stored — fall through to username/password
+
+      const success = await authenticateWithBiometric();
+      if (!success) {
+        // Face ID failed — cascade to PIN if available
+        const pinEnabledVal = await isPinEnabled();
+        if (pinEnabledVal && credentials.pinHash) {
+          setShowPINEntry(true);
+        }
+        // Otherwise just show the username/password form (already visible)
+        return;
+      }
+
+      const res = await authLogin(credentials.email, credentials.password);
+      const { access_token, user } = res.data;
+      await setItem("auth_token", access_token);
+      await setItem("auth_user", JSON.stringify(user));
+      setAuth(access_token, user);
+    } catch (e: any) {
+      // Silently fall through to username/password form
+      console.warn("Auto biometric login failed:", e);
     }
   };
 
