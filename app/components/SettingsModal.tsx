@@ -297,7 +297,6 @@ export function SettingsModal({
                         { text: "Cancel", style: "cancel" },
                         {
                           text: "Reset",
-                          style: "destructive",
                           onPress: async () => {
                             await disableBiometricLogin();
                             setBiometricEnabled(false);
@@ -314,13 +313,13 @@ export function SettingsModal({
                   style={{
                     paddingHorizontal: 16,
                     paddingVertical: 12,
-                    backgroundColor: "#FFF5F5",
+                    backgroundColor: TEAL,
                   }}
                 >
                   <Text
                     style={{
                       fontSize: 13,
-                      color: "#DC2626",
+                      color: "#fff",
                       fontWeight: "500",
                     }}
                   >
