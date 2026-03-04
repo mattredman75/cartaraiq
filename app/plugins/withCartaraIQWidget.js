@@ -68,9 +68,7 @@ function withCartaraIQWidget(config) {
       '    installer.pods_project.targets.each do |target|',
       '      target.build_configurations.each do |build_config|',
       "        build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'",
-      "        if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'",
-      "          build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'",
-      '        end',
+      "        build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'",
       '      end',
       '    end',
     ].join('\n');
