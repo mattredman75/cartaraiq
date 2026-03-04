@@ -95,14 +95,13 @@ export default function LoginScreen() {
       setAuth(access_token, user);
 
       // Offer to set up biometric login only if biometric is available and not already set up
-      // Temporarily disabled for debugging
-      // const biometricAvailable = await checkBiometricAvailability();
-      // if (biometricAvailable && !biometricReady) {
-      //   setShowBiometricSetup(true);
-      // } else {
-      // Navigate to app
-      router.replace("/(app)/list");
-      // }
+      const biometricAvailable = await checkBiometricAvailability();
+      if (biometricAvailable && !biometricReady) {
+        setShowBiometricSetup(true);
+      } else {
+        // Navigate to app
+        router.replace("/(app)/list");
+      }
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
     } finally {
@@ -370,7 +369,7 @@ export default function LoginScreen() {
                 disabled={loading}
                 activeOpacity={0.85}
                 style={{
-                  backgroundColor: COLORS.primary,
+                  backgroundColor: COLORS.teal,
                   borderRadius: 16,
                   paddingVertical: 18,
                   alignItems: "center",
@@ -381,7 +380,7 @@ export default function LoginScreen() {
               >
                 <Ionicons
                   name={
-                    biometricType?.includes("faceId") ? "face" : "finger-print"
+                    biometricType?.includes("faceId") ? "person" : "finger-print"
                   }
                   size={20}
                   color="#fff"
@@ -504,10 +503,10 @@ export default function LoginScreen() {
             >
               <Ionicons
                 name={
-                  biometricType?.includes("faceId") ? "face" : "finger-print"
+                  biometricType?.includes("faceId") ? "person" : "finger-print"
                 }
                 size={64}
-                color={COLORS.primary}
+                color={COLORS.teal}
                 style={{ marginBottom: 16 }}
               />
               <Text
@@ -553,7 +552,7 @@ export default function LoginScreen() {
               }}
               activeOpacity={0.85}
               style={{
-                backgroundColor: COLORS.secondary,
+                backgroundColor: COLORS.card,
                 borderRadius: 16,
                 paddingVertical: 18,
                 alignItems: "center",
