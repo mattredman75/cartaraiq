@@ -73,12 +73,20 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    logger.info("[DEBUG] login endpoint called with email: %s", payload.email)
+    try:
+        user = db.query(User).filter(User.email == payload.email).first()
+        logger.info("[DEBUG] Database query executed, user found: %s", user is not None)
+        if not user or not verify_password(payload.password, user.hashed_password):
+            logger.warning("[DEBUG] Invalid login attempt for email: %s", payload.email)
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
 
-    token = create_access_token({"sub": user.id})
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+        token = create_access_token({"sub": user.id})
+        logger.info("[DEBUG] Login successful, token created for user: %s", user.id)
+        return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    except Exception as e:
+        logger.exception("Error in login for email %s: %s", payload.email, str(e))
+        raise
 
 
 # ── Password Reset ────────────────────────────────────────────────────────────
@@ -180,19 +188,23 @@ def forgot_password(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == payload.email).first()
-    # Always return the same message to avoid email enumeration
-    if user:
-        try:
+    logger.info("[DEBUG] forgot_password endpoint called with email: %s", payload.email)
+    
+    try:
+        user = db.query(User).filter(User.email == payload.email).first()
+        logger.info("[DEBUG] Database query executed, user found: %s", user is not None)
+        # Always return the same message to avoid email enumeration
+        if user:
             code = secrets.token_hex(3).upper()  # 6-char hex, e.g. "A3F7B2"
             user.reset_token = hashlib.sha256(code.encode()).hexdigest()
             user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
             db.commit()
+            logger.info("[DEBUG] Reset token created for user, scheduling email")
             background_tasks.add_task(_send_reset_email, user.email, code)
-        except Exception as e:
-            logger.exception("Error in forgot_password for email %s", payload.email)
-            raise
-    return {"message": "If that email is registered, a reset code has been sent."}
+        return {"message": "If that email is registered, a reset code has been sent."}
+    except Exception as e:
+        logger.exception("Error in forgot_password for email %s: %s", payload.email, str(e))
+        raise
 
 
 @router.post("/reset-password")
