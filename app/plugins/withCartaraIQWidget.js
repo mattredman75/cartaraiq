@@ -270,10 +270,7 @@ function addWidgetTarget(project) {
     INFOPLIST_FILE:               `"${WIDGET_TARGET}/Info.plist"`,
     CODE_SIGN_ENTITLEMENTS:       `"${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements"`,
     CODE_SIGN_STYLE:              'Automatic',
-    // Do NOT set DEVELOPMENT_TEAM or PROVISIONING_PROFILE_SPECIFIER here.
-    // An explicit empty string blocks EAS credential injection on the main target
-    // from being inherited. With CODE_SIGN_STYLE=Automatic and no explicit team,
-    // Xcode resolves the team from the EAS-injected keychain automatically.
+    DEVELOPMENT_TEAM:             'Q3Q2X7UJGT',
     MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
     CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
     SKIP_INSTALL:                 'YES',

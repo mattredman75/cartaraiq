@@ -8,16 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": false,
-        "appExtensions": [
-          {
-            "targetName": "CartaraIQWidget",
-            "bundleIdentifier": "com.cartaraiq.app.widget",
-            "entitlements": {
-              "com.apple.security.application-groups": ["group.com.cartaraiq.app"]
-            }
-          }
-        ]
+        "simulator": false
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "http://192.168.25.126:8000"
@@ -25,34 +16,12 @@
     },
     "preview": {
       "distribution": "internal",
-      "ios": {
-        "appExtensions": [
-          {
-            "targetName": "CartaraIQWidget",
-            "bundleIdentifier": "com.cartaraiq.app.widget",
-            "entitlements": {
-              "com.apple.security.application-groups": ["group.com.cartaraiq.app"]
-            }
-          }
-        ]
-      },
       "env": {
         "EXPO_PUBLIC_API_URL": "http://192.168.25.126:8000"
       }
     },
     "production": {
-      "autoIncrement": true,
-      "ios": {
-        "appExtensions": [
-          {
-            "targetName": "CartaraIQWidget",
-            "bundleIdentifier": "com.cartaraiq.app.widget",
-            "entitlements": {
-              "com.apple.security.application-groups": ["group.com.cartaraiq.app"]
-            }
-          }
-        ]
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
