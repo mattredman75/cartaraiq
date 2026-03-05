@@ -216,7 +216,7 @@ struct CartaraIQWidgetEntryView: View {
   var totalCount: Int { entry.items.count }
 
   var visibleItems: [WidgetItem] {
-    let limit = family == .systemSmall ? 3 : 6
+    let limit = family == .systemSmall ? 3 : 5
     return Array(unchecked.prefix(limit))
   }
   var remainingCount: Int { max(0, unchecked.count - visibleItems.count) }
@@ -247,8 +247,8 @@ struct CartaraIQWidgetEntryView: View {
         .font(.system(size: 15, weight: .bold))
         .foregroundColor(.white)
         .lineLimit(1)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
 
       if visibleItems.isEmpty {
         Spacer()
@@ -268,7 +268,7 @@ struct CartaraIQWidgetEntryView: View {
         }
         Spacer()
       } else {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 4) {
           ForEach(visibleItems) { item in
             ItemRowView(item: item)
           }
