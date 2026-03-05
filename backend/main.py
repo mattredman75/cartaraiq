@@ -2,7 +2,7 @@ import logging
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, lists, products
+from .routers import auth, lists, products, app_status
 
 # Write logs to a file next to passenger_wsgi.py so they're easy to find.
 # Falls back to stderr (works fine under local uvicorn).
@@ -46,6 +46,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(lists.router)
 app.include_router(products.router)
+app.include_router(app_status.router)
 
 
 @app.get("/health")
