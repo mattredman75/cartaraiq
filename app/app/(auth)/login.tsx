@@ -149,12 +149,25 @@ export default function LoginScreen() {
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
 
-      // Offer to set up biometric login only if biometric is available and not already set up
+      // Offer to set up biometric login if biometric is available and not already enabled
       const biometricAvailable = await checkBiometricAvailability();
-      if (biometricAvailable && !biometricReady) {
+      const bioAlreadyEnabled = await isBiometricEnabled();
+      const pinAlreadySet = await isPinEnabled();
+      const existingCreds = await getBiometricCredentials();
+      const hasPinHash = !!existingCreds?.pinHash;
+
+      if (biometricAvailable && !bioAlreadyEnabled) {
+        // Biometric hardware exists but not enabled — offer to set it up
         setShowBiometricSetup(true);
+      } else if (!pinAlreadySet || !hasPinHash) {
+        // Biometric already enabled (or unavailable) but no PIN — offer PIN setup
+        // Store credentials first so PIN setup can attach the hash
+        if (email && password) {
+          await storeBiometricCredentials(email, password);
+        }
+        setShowPINSetup(true);
       } else {
-        // Navigate to app
+        // Both biometric and PIN already configured — go straight to app
         router.replace("/(app)/list");
       }
     } catch (e: any) {
@@ -264,7 +277,14 @@ export default function LoginScreen() {
     }
 
     setShowBiometricSetup(false);
-    setShowPINSetup(true); // Ask for PIN as fallback
+
+    // Only ask for PIN setup if no PIN hash exists yet
+    const existingCreds = await getBiometricCredentials();
+    if (!existingCreds?.pinHash) {
+      setShowPINSetup(true);
+    } else {
+      router.replace("/(app)/list");
+    }
   };
 
   const handleSetUpPIN = async (enteredPin: string) => {
@@ -713,10 +733,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => {
+              onPress={async () => {
                 setShowBiometricSetup(false);
-                // If skipping biometric, must still set up PIN
-                setShowPINSetup(true);
+                // Check if PIN is already set up before prompting
+                const existingCreds = await getBiometricCredentials();
+                if (!existingCreds?.pinHash) {
+                  // No PIN — store credentials and offer PIN setup
+                  if (email && password) {
+                    await storeBiometricCredentials(email, password);
+                  }
+                  setShowPINSetup(true);
+                } else {
+                  router.replace("/(app)/list");
+                }
               }}
               activeOpacity={0.85}
               style={{
