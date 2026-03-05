@@ -282,7 +282,7 @@ struct CartaraIQWidgetEntryView: View {
         Spacer(minLength: 0)
       }
     }
-    .padding(0)
+    .padding(12)
   }
 }
 
@@ -330,6 +330,7 @@ struct CartaraIQWidget: Widget {
       CartaraIQWidgetEntryView(entry: entry)
         .containerBackground(Color(red: 0.106, green: 0.420, blue: 0.475), for: .widget)
     }
+    .contentMarginsDisabled()
     .configurationDisplayName("Shopping List")
     .description("Choose a list and see your items at a glance.")
     .supportedFamilies([.systemSmall, .systemMedium])
