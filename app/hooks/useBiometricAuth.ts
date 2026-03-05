@@ -186,6 +186,20 @@ export function useBiometricAuth() {
     }
   }, []);
 
+  // Disable ALL quick-login methods and clear stored credentials
+  // Used when stored credentials are stale (e.g. password changed elsewhere)
+  const disableAllQuickLogin = useCallback(async (): Promise<boolean> => {
+    try {
+      await setItem("biometric_enabled", "false");
+      await setItem("pin_enabled", "false");
+      await deleteItem("biometric_credentials");
+      return true;
+    } catch (err) {
+      setError(`Failed to disable quick login: ${err}`);
+      return false;
+    }
+  }, []);
+
   const hashPin = useCallback(async (pin: string): Promise<string> => {
     const hash = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
@@ -225,6 +239,7 @@ export function useBiometricAuth() {
     isPinEnabled,
     enablePin,
     disablePin,
+    disableAllQuickLogin,
     hashPin,
     verifyPin,
   };
