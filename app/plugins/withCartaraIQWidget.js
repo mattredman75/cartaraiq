@@ -214,12 +214,13 @@ function addSharedDataModuleToMainTarget(project) {
       (bf) => bf && typeof bf === 'object' && bf.fileRef_comment && bf.fileRef_comment.includes(filename),
     );
     if (!alreadyAdded) {
-      const fileRef = project.addFile(filename, cartaraiqGroupKey, {
+      // addFile with { target } already adds to PBXSourcesBuildPhase —
+      // do NOT also call addToPbxSourcesBuildPhase or it creates duplicate compile tasks.
+      project.addFile(filename, cartaraiqGroupKey, {
         target: mainTargetKey,
         lastKnownFileType: fileType,
         sourceTree: '"<group>"',
       });
-      if (fileRef) project.addToPbxSourcesBuildPhase(fileRef, mainTargetKey);
     }
   }
 }
@@ -310,6 +311,8 @@ function addWidgetTarget(project) {
     INFOPLIST_FILE:               `"${WIDGET_TARGET}/Info.plist"`,
     CODE_SIGN_ENTITLEMENTS:       `"${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements"`,
     DEVELOPMENT_TEAM:             'Q3Q2X7UJGT',
+    // CODE_SIGN_STYLE intentionally omitted — EAS/fastlane manages signing
+    // at build time via the appExtensions config in eas.json.
     MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
     CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
     SKIP_INSTALL:                 'YES',
@@ -340,20 +343,35 @@ function addWidgetTarget(project) {
   }
 
   // ── Add Swift source file ────────────────────────────────────────────────
+  // addFile / addFramework with { target } are broken for targets created by
+  // addTarget() — they find the main target's existing build phases instead of
+  // creating new ones for the widget.  Use addBuildPhase() which correctly
+  // creates a new phase AND wires it into the target's buildPhases array.
   let widgetGroupKey = project.findPBXGroupKey({ name: WIDGET_TARGET });
   if (!widgetGroupKey) widgetGroupKey = project.addPbxGroup([], WIDGET_TARGET, WIDGET_TARGET).uuid;
-  const swiftFile = project.addFile(
+
+  // Add the Swift file to the group for the file tree
+  project.addFile(
     `${WIDGET_TARGET}/CartaraIQWidget.swift`,
     widgetGroupKey,
-    { target: targetUuid },
   );
-  if (swiftFile) {
-    project.addToPbxSourcesBuildPhase(swiftFile, targetUuid);
-  }
+
+  // Create a Sources build phase on the widget target with the Swift file
+  project.addBuildPhase(
+    [`${WIDGET_TARGET}/CartaraIQWidget.swift`],
+    'PBXSourcesBuildPhase',
+    'Sources',
+    targetUuid,
+  );
 
   // ── Add WidgetKit.framework ──────────────────────────────────────────────
-  project.addFramework('WidgetKit.framework', { target: targetUuid });
-  project.addFramework('SwiftUI.framework',   { target: targetUuid });
+  // Create a Frameworks build phase on the widget target
+  project.addBuildPhase(
+    ['WidgetKit.framework', 'SwiftUI.framework'],
+    'PBXFrameworksBuildPhase',
+    'Frameworks',
+    targetUuid,
+  );
 
   // ── Embed the widget extension in the main app ───────────────────────────
   embedExtensionInMainTarget(project, targetUuid);
@@ -395,11 +413,53 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
     }
   }
 
-  // Check whether an "Embed App Extensions" copy-files phase already exists
-  const copyFilesSections = project.pbxCopyfilesBuildPhaseObj(mainTargetKey);
-  let embedPhaseKey = Object.keys(copyFilesSections || {}).find(
-    (k) => copyFilesSections[k]?.dstSubfolderSpec === 13,
-  );
+  // addTarget() auto-creates a generic "Copy Files" phase on the main target
+  // that already contains the widget .appex.  If we also add our own "Embed App
+  // Extensions" phase, Xcode sees two tasks copying the same product and fails
+  // with "Unexpected duplicate tasks".  Remove the auto-created one first, then
+  // create a proper "Embed App Extensions" phase.
+  const copyPhaseSection = project.hash.project.objects['PBXCopyFilesBuildPhase'] || {};
+  const mainBuildPhases = mainTarget.buildPhases || [];
+
+  // Find and remove all generic "Copy Files" phases that contain the widget .appex
+  const widgetProductRef = targets[widgetTargetUuid]?.productReference;
+  for (let i = mainBuildPhases.length - 1; i >= 0; i--) {
+    const phaseId = mainBuildPhases[i].value || mainBuildPhases[i];
+    const phase = copyPhaseSection[phaseId];
+    if (!phase || phase.isa !== 'PBXCopyFilesBuildPhase') continue;
+    // Skip phases we've already named "Embed App Extensions"
+    if (phase.name === '"Embed App Extensions"' || phase.name === 'Embed App Extensions') continue;
+    // Check if this phase contains the widget product
+    const hasWidget = (phase.files || []).some((f) => {
+      const buildFileUuid = f.value || f;
+      const bf = project.hash.project.objects['PBXBuildFile']?.[buildFileUuid];
+      return bf && (bf.fileRef === widgetProductRef ||
+        (bf.fileRef_comment && bf.fileRef_comment.includes(WIDGET_TARGET)));
+    });
+    if (hasWidget) {
+      console.log(`[withCartaraIQWidget] Removing auto-created "Copy Files" phase (${phaseId}) to avoid duplicate tasks`);
+      // Also clean up the orphaned PBXBuildFile entries from this phase
+      for (const f of (phase.files || [])) {
+        const bfUuid = f.value || f;
+        delete project.hash.project.objects['PBXBuildFile']?.[bfUuid];
+        delete project.hash.project.objects['PBXBuildFile']?.[bfUuid + '_comment'];
+      }
+      mainBuildPhases.splice(i, 1);
+      delete copyPhaseSection[phaseId];
+      delete copyPhaseSection[phaseId + '_comment'];
+    }
+  }
+
+  // Now check whether an "Embed App Extensions" copy-files phase already exists
+  let embedPhaseKey = null;
+  for (const bp of mainBuildPhases) {
+    const phaseId = bp.value || bp;
+    const phase = copyPhaseSection[phaseId];
+    if (phase && phase.dstSubfolderSpec === 13) {
+      embedPhaseKey = phaseId;
+      break;
+    }
+  }
 
   if (!embedPhaseKey) {
     // Add "Embed App Extensions" copy files phase to main target
@@ -440,22 +500,29 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
           .slice(0, 24)
           .toUpperCase();
         
-        // Check if already added to avoid duplicates
-        const alreadyAdded = embedPhase.files.some(f => 
-          (f.value || f) === buildFileUuid
-        );
+        // Check if already added to avoid duplicates (check both value and direct UUID)
+        const alreadyAdded = embedPhase.files.some(f => {
+          const fileUuid = f.value || f;
+          return fileUuid === buildFileUuid || fileUuid === productRefUuid;
+        });
         
         if (!alreadyAdded) {
-          // Create the PBXBuildFile object that references the product
-          if (!project.hash.project.objects['PBXBuildFile']) {
-            project.hash.project.objects['PBXBuildFile'] = {};
-          }
+          // Check if the PBXBuildFile already exists (defensive check)
+          const buildFileSectionExists = project.hash.project.objects['PBXBuildFile'] && 
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid];
           
-          project.hash.project.objects['PBXBuildFile'][buildFileUuid] = {
-            isa: 'PBXBuildFile',
-            fileRef: productRefUuid,
-          };
-          project.hash.project.objects['PBXBuildFile'][buildFileUuid + '_comment'] = `${WIDGET_TARGET}.appex in Embed App Extensions`;
+          if (!buildFileSectionExists) {
+            // Create the PBXBuildFile object that references the product
+            if (!project.hash.project.objects['PBXBuildFile']) {
+              project.hash.project.objects['PBXBuildFile'] = {};
+            }
+            
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid] = {
+              isa: 'PBXBuildFile',
+              fileRef: productRefUuid,
+            };
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid + '_comment'] = `${WIDGET_TARGET}.appex in Embed App Extensions`;
+          }
           
           // Add the build file to the embedding phase
           embedPhase.files.push({
@@ -464,6 +531,8 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
           });
           
           console.log(`[withCartaraIQWidget] Added ${WIDGET_TARGET} product (${productRefUuid}) to Embed App Extensions phase`);
+        } else {
+          console.log(`[withCartaraIQWidget] ${WIDGET_TARGET} already in Embed App Extensions phase — skipping.`);
         }
       } else {
         // Fallback: if productReference not found, log warning but continue
