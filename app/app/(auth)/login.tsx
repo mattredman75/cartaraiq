@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -52,6 +52,22 @@ export default function LoginScreen() {
   const [biometricReady, setBiometricReady] = useState(false);
   const [pinReady, setPinReady] = useState(false);
   const [showCredentialsFailedModal, setShowCredentialsFailedModal] = useState(false);
+
+  // Hold auth credentials until the biometric/PIN setup flow completes,
+  // so AuthGate doesn't navigate away before the modals show.
+  const pendingAuthRef = useRef<{ token: string; user: any } | null>(null);
+
+  /** Commit deferred auth to the global store and navigate to the app. */
+  const commitAuth = () => {
+    const pending = pendingAuthRef.current;
+    if (pending) {
+      setAuth(pending.token, pending.user);
+      pendingAuthRef.current = null;
+    } else {
+      // Fallback: if no pending auth (e.g. biometric/PIN login path), just navigate
+      router.replace("/(app)/list");
+    }
+  };
 
   useEffect(() => {
     console.log("Login component mounted, checking biometric setup...");
@@ -147,7 +163,10 @@ export default function LoginScreen() {
       const { access_token, user } = res.data;
       await setItem("auth_token", access_token);
       await setItem("auth_user", JSON.stringify(user));
-      setAuth(access_token, user);
+
+      // Defer setting auth in the store so AuthGate doesn't navigate
+      // away before biometric/PIN setup modals can appear.
+      pendingAuthRef.current = { token: access_token, user };
 
       // Offer to set up biometric login if biometric is available and not already enabled
       const biometricAvailable = await checkBiometricAvailability();
@@ -168,7 +187,7 @@ export default function LoginScreen() {
         setShowPINSetup(true);
       } else {
         // Both biometric and PIN already configured — go straight to app
-        router.replace("/(app)/list");
+        commitAuth();
       }
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
@@ -283,7 +302,7 @@ export default function LoginScreen() {
     if (!existingCreds?.pinHash) {
       setShowPINSetup(true);
     } else {
-      router.replace("/(app)/list");
+      commitAuth();
     }
   };
 
@@ -341,7 +360,7 @@ export default function LoginScreen() {
       setPin("");
       setError("");
       // Navigate to app
-      router.replace("/(app)/list");
+      commitAuth();
     } catch (e) {
       setError(`Failed to set PIN: ${e}`);
     }
@@ -744,7 +763,7 @@ export default function LoginScreen() {
                   }
                   setShowPINSetup(true);
                 } else {
-                  router.replace("/(app)/list");
+                  commitAuth();
                 }
               }}
               activeOpacity={0.85}
@@ -783,7 +802,7 @@ export default function LoginScreen() {
               if (email && password) {
                 storeBiometricCredentials(email, password);
               }
-              router.replace("/(app)/list");
+              commitAuth();
             }}
             title="Set up PIN"
             subtitle="Create a 4-digit PIN as a backup login method"
