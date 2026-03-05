@@ -216,7 +216,7 @@ struct CartaraIQWidgetEntryView: View {
   var totalCount: Int { entry.items.count }
 
   var visibleItems: [WidgetItem] {
-    let limit = family == .systemSmall ? 3 : 5
+    let limit = family == .systemSmall ? 4 : 5
     return Array(unchecked.prefix(limit))
   }
   var remainingCount: Int { max(0, unchecked.count - visibleItems.count) }
