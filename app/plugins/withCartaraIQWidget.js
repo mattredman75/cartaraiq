@@ -19,7 +19,7 @@ const fs   = require('fs');
 const WIDGET_TARGET     = 'CartaraIQWidget';
 const WIDGET_BUNDLE_ID  = 'com.cartaraiq.app.widget';
 const APP_GROUP_ID      = 'group.com.cartaraiq.app';
-const DEPLOYMENT_TARGET = '16.0';
+const DEPLOYMENT_TARGET = '17.0';
 const SWIFT_VERSION     = '5.0';
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
@@ -35,8 +35,10 @@ function withCartaraIQWidget(config) {
   });
 
   // Add widget target + SharedDataModule to the Xcode project
+  const appVersion = config.version || '1.0.0';
+  const iosBuildNumber = config.ios?.buildNumber || '1';
   config = withXcodeProject(config, (cfg) => {
-    addWidgetTarget(cfg.modResults);
+    addWidgetTarget(cfg.modResults, appVersion, iosBuildNumber);
     addSharedDataModuleToMainTarget(cfg.modResults);
     disableUserScriptSandboxing(cfg.modResults);
     return cfg;
@@ -214,13 +216,14 @@ function addSharedDataModuleToMainTarget(project) {
       (bf) => bf && typeof bf === 'object' && bf.fileRef_comment && bf.fileRef_comment.includes(filename),
     );
     if (!alreadyAdded) {
-      // addFile with { target } already adds to PBXSourcesBuildPhase —
-      // do NOT also call addToPbxSourcesBuildPhase or it creates duplicate compile tasks.
-      project.addFile(filename, cartaraiqGroupKey, {
-        target: mainTargetKey,
+      // Use addSourceFile which correctly adds the file to both the project
+      // and the main target's PBXSourcesBuildPhase in one call.
+      // The CartaraIQ PBXGroup has no `path` attribute, so file references
+      // must use the full relative path (CartaraIQ/<file>) to resolve correctly.
+      project.addSourceFile(`CartaraIQ/${filename}`, {
         lastKnownFileType: fileType,
         sourceTree: '"<group>"',
-      });
+      }, cartaraiqGroupKey);
     }
   }
 }
@@ -239,7 +242,7 @@ function disableUserScriptSandboxing(project) {
   }
 }
 
-function addWidgetTarget(project) {
+function addWidgetTarget(project, appVersion, iosBuildNumber) {
   // Guard: skip if target already present
   const nativeTargets = project.pbxNativeTargetSection();
   for (const key of Object.keys(nativeTargets)) {
@@ -313,8 +316,8 @@ function addWidgetTarget(project) {
     DEVELOPMENT_TEAM:             'Q3Q2X7UJGT',
     // CODE_SIGN_STYLE intentionally omitted — EAS/fastlane manages signing
     // at build time via the appExtensions config in eas.json.
-    MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
-    CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
+    MARKETING_VERSION:            `"${appVersion}"`,
+    CURRENT_PROJECT_VERSION:      `"${iosBuildNumber}"`,
     SKIP_INSTALL:                 'YES',
     ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: 'NO',
     APPLICATION_EXTENSION_API_ONLY: 'YES',
@@ -364,10 +367,10 @@ function addWidgetTarget(project) {
     targetUuid,
   );
 
-  // ── Add WidgetKit.framework ──────────────────────────────────────────────
+  // ── Add frameworks ────────────────────────────────────────────────────────
   // Create a Frameworks build phase on the widget target
   project.addBuildPhase(
-    ['WidgetKit.framework', 'SwiftUI.framework'],
+    ['WidgetKit.framework', 'SwiftUI.framework', 'AppIntents.framework'],
     'PBXFrameworksBuildPhase',
     'Frameworks',
     targetUuid,

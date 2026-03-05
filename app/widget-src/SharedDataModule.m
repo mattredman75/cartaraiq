@@ -7,4 +7,8 @@ RCT_EXTERN_METHOD(syncToWidget:(NSString *)listName
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(syncAllListsToWidget:(NSArray *)lists
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 @end
