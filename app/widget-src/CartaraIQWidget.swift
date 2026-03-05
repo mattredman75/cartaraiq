@@ -283,7 +283,7 @@ struct CartaraIQWidgetEntryView: View {
       }
     }
     .padding(.vertical, 12)
-    .padding(.horizontal, 20)
+    .padding(.horizontal, family == .systemSmall ? 16 : 20)
   }
 }
 
