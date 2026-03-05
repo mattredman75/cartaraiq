@@ -222,19 +222,25 @@ struct CartaraIQWidgetEntryView: View {
   var remainingCount: Int { max(0, unchecked.count - visibleItems.count) }
 
   var body: some View {
+    let isSmall = family == .systemSmall
+
     VStack(alignment: .leading, spacing: 0) {
 
-      // Header row: logo top-left, count top-right
+      // Header row: app name top-left, count top-right
       HStack(alignment: .top, spacing: 0) {
-        Image("CartaraLogo")
-          .resizable()
-          .aspectRatio(contentMode: .fit)
-          .frame(width: 20, height: 20)
+        HStack(spacing: 0) {
+          Text("Cartara")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(Color(red: 0.106, green: 0.420, blue: 0.478)) // teal #1B6B7A
+          Text("IQ")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(Color(red: 0.961, green: 0.784, blue: 0.259)) // amber #F5C842
+        }
         Spacer()
         if totalCount > 0 {
           Text("\(checkedCount)/\(totalCount)")
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(Color.white.opacity(0.7))
+            .font(.system(size: 13, weight: .bold))
+            .foregroundColor(Color.white.opacity(0.8))
         }
       }
 
@@ -278,7 +284,8 @@ struct CartaraIQWidgetEntryView: View {
         Spacer(minLength: 0)
       }
     }
-    .padding(8)
+    .padding(.horizontal, isSmall ? 0 : 8)
+    .padding(.vertical, isSmall ? 0 : 6)
   }
 }
 
