@@ -142,6 +142,16 @@ function copyWidgetSources(projectRoot, iosDir) {
   if (fs.existsSync(swiftSrc)) fs.copyFileSync(swiftSrc, path.join(widgetTargetDir, 'CartaraIQWidget.swift'));
   else console.warn('[withCartaraIQWidget] Missing source: ' + swiftSrc);
 
+  // Assets.xcassets (logo and other widget assets)
+  const assetsSrc = path.join(srcDir, 'Assets.xcassets');
+  const assetsDst = path.join(widgetTargetDir, 'Assets.xcassets');
+  if (fs.existsSync(assetsSrc)) {
+    copyDirSync(assetsSrc, assetsDst);
+    console.log('[withCartaraIQWidget] Copied Assets.xcassets to widget target');
+  } else {
+    console.warn('[withCartaraIQWidget] Missing assets: ' + assetsSrc);
+  }
+
   // SharedDataModule files
   ['SharedDataModule.swift', 'SharedDataModule.m'].forEach((f) => {
     const src = path.join(srcDir, f);
@@ -180,6 +190,20 @@ function copyWidgetSources(projectRoot, iosDir) {
   );
 
   console.log('[withCartaraIQWidget] Widget sources written to ios/' + WIDGET_TARGET + '/');
+}
+
+// Recursively copy a directory
+function copyDirSync(src, dst) {
+  if (!fs.existsSync(dst)) fs.mkdirSync(dst, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const dstPath = path.join(dst, entry.name);
+    if (entry.isDirectory()) {
+      copyDirSync(srcPath, dstPath);
+    } else {
+      fs.copyFileSync(srcPath, dstPath);
+    }
+  }
 }
 
 // ─── Xcode project manipulation ───────────────────────────────────────────────
@@ -375,6 +399,34 @@ function addWidgetTarget(project, appVersion, iosBuildNumber) {
     'Frameworks',
     targetUuid,
   );
+
+  // ── Add resources (Assets.xcassets) ───────────────────────────────────────
+  project.addBuildPhase(
+    [`${WIDGET_TARGET}/Assets.xcassets`],
+    'PBXResourcesBuildPhase',
+    'Resources',
+    targetUuid,
+  );
+
+  // Add Assets.xcassets file reference to the widget group
+  project.addFile(
+    `${WIDGET_TARGET}/Assets.xcassets`,
+    widgetGroupKey,
+  );
+
+  // Tell the build system where to find the asset catalog
+  const buildConfigs2 = project.pbxXCBuildConfigurationSection();
+  const configListUuid2 = nativeTargets[targetUuid]?.buildConfigurationList;
+  if (configListUuid2) {
+    const configList2 = project.pbxXCConfigurationList()[configListUuid2];
+    const configRefs2 = configList2?.buildConfigurations || [];
+    for (const ref of configRefs2) {
+      const cfgUuid = ref.value || ref;
+      if (buildConfigs2[cfgUuid]) {
+        buildConfigs2[cfgUuid].buildSettings['ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS'] = 'YES';
+      }
+    }
+  }
 
   // ── Embed the widget extension in the main app ───────────────────────────
   embedExtensionInMainTarget(project, targetUuid);
