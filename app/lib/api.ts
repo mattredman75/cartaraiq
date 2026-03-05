@@ -7,6 +7,12 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Unauthenticated API client for public endpoints (no auth token)
+const apiNoAuth = axios.create({
+  baseURL: API_URL,
+  headers: { "Content-Type": "application/json" },
+});
+
 api.interceptors.request.use(async (config) => {
   const token = await getItem("auth_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -31,6 +37,10 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// --- App Status ---
+export const getAppStatus = () =>
+  apiNoAuth.get("/app/status");
 
 // --- Auth ---
 export const authRegister = (email: string, password: string, name: string) =>

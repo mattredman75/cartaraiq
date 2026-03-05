@@ -60,6 +60,23 @@ def run() -> None:
 # ── MySQL / MariaDB ───────────────────────────────────────────────────────────
 
 def _run_mysql(conn) -> None:
+    # 0. Create app_admin table for maintenance mode
+    if not _table_exists(conn, "app_admin"):
+        conn.execute(text("""
+            CREATE TABLE app_admin (
+                id        INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `key`     VARCHAR(255)  NOT NULL UNIQUE,
+                value     TINYINT(1)    NOT NULL DEFAULT 0,
+                message   TEXT          NULL,
+                updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        """))
+        # Seed default maintenance_mode record
+        conn.execute(text("""
+            INSERT INTO app_admin (`key`, value, message)
+            VALUES ('maintenance_mode', 0, 'We are currently performing scheduled maintenance. Please check back soon.')
+        """))
+
     # 1. Create shopping_lists (MariaDB needs VARCHAR lengths + DATETIME)
     if not _table_exists(conn, "shopping_lists"):
         conn.execute(text("""
@@ -128,6 +145,23 @@ def _run_mysql(conn) -> None:
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
 def _run_postgresql(conn) -> None:
+    # 0. Create app_admin table for maintenance mode
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS app_admin (
+            id        SERIAL PRIMARY KEY,
+            key       VARCHAR(255) NOT NULL UNIQUE,
+            value     BOOLEAN      NOT NULL DEFAULT FALSE,
+            message   TEXT         NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """))
+    # Seed default maintenance_mode record if not exists
+    conn.execute(text("""
+        INSERT INTO app_admin (key, value, message)
+        VALUES ('maintenance_mode', FALSE, 'We are currently performing scheduled maintenance. Please check back soon.')
+        ON CONFLICT (key) DO NOTHING
+    """))
+
     # 1. Create shopping_lists
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS shopping_lists (
