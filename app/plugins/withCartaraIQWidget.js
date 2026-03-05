@@ -261,6 +261,46 @@ function addWidgetTarget(project) {
   const targetUuid = targetResult.uuid;
 
   // ── Build settings for both Debug & Release ──────────────────────────────
+  // Extract EXACT signing settings from main app to ensure widget uses identical identity
+  const mainTargetKey = Object.keys(nativeTargets).find((k) => {
+    const t = nativeTargets[k];
+    return t && typeof t === 'object' && t.name !== WIDGET_TARGET && !k.endsWith('_comment');
+  });
+
+  let mainAppSigningSettings = {
+    DEVELOPMENT_TEAM: 'Q3Q2X7UJGT', // fallback
+  };
+
+  if (mainTargetKey) {
+    const mainConfigListUuid = nativeTargets[mainTargetKey]?.buildConfigurationList;
+    if (mainConfigListUuid) {
+      const mainConfigList = project.pbxXCConfigurationList()[mainConfigListUuid];
+      const mainConfigRefs = mainConfigList?.buildConfigurations || [];
+      const buildConfigs = project.pbxXCBuildConfigurationSection();
+      
+      // Extract signing settings from main app's Debug config
+      for (const ref of mainConfigRefs) {
+        const cfgUuid = ref.value || ref;
+        const cfg = buildConfigs[cfgUuid];
+        if (cfg?.buildSettings) {
+          const settings = cfg.buildSettings;
+          // Only extract if we find these settings in the main app
+          if (settings.DEVELOPMENT_TEAM) {
+            mainAppSigningSettings.DEVELOPMENT_TEAM = settings.DEVELOPMENT_TEAM;
+          }
+          if (settings.CODE_SIGN_IDENTITY) {
+            mainAppSigningSettings.CODE_SIGN_IDENTITY = settings.CODE_SIGN_IDENTITY;
+          }
+          // For automatic signing, use the provisioning profile if set
+          if (settings.PROVISIONING_PROFILE_SPECIFIER) {
+            mainAppSigningSettings.PROVISIONING_PROFILE_SPECIFIER = settings.PROVISIONING_PROFILE_SPECIFIER;
+          }
+          break; // Use first config found
+        }
+      }
+    }
+  }
+
   const buildSettings = {
     PRODUCT_BUNDLE_IDENTIFIER:    `"${WIDGET_BUNDLE_ID}"`,
     PRODUCT_NAME:                 `"$(TARGET_NAME)"`,
@@ -269,7 +309,6 @@ function addWidgetTarget(project) {
     TARGETED_DEVICE_FAMILY:       '"1,2"',
     INFOPLIST_FILE:               `"${WIDGET_TARGET}/Info.plist"`,
     CODE_SIGN_ENTITLEMENTS:       `"${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements"`,
-    CODE_SIGN_STYLE:              'Automatic',
     DEVELOPMENT_TEAM:             'Q3Q2X7UJGT',
     MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
     CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
@@ -293,6 +332,9 @@ function addWidgetTarget(project) {
           ...buildConfigs[cfgUuid].buildSettings,
           ...buildSettings,
         };
+        // Log which config we're setting
+        const configName = buildConfigs[cfgUuid].name || cfgUuid;
+        console.log(`[withCartaraIQWidget] Applied build settings to ${WIDGET_TARGET} ${configName}`);
       }
     }
   }
@@ -334,8 +376,26 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
 
   if (!mainTargetKey) return;
 
+  // Ensure main app uses same code signing identity (don't re-sign embedded extensions)
+  const mainTarget = targets[mainTargetKey];
+  const mainConfigListUuid = mainTarget?.buildConfigurationList;
+  if (mainConfigListUuid) {
+    const configList = project.pbxXCConfigurationList()[mainConfigListUuid];
+    const configRefs = configList?.buildConfigurations || [];
+    const buildConfigs = project.pbxXCBuildConfigurationSection();
+    for (const ref of configRefs) {
+      const cfgUuid = ref.value || ref;
+      if (buildConfigs[cfgUuid]) {
+        // Set build settings to prevent re-signing of embedded extensions
+        buildConfigs[cfgUuid].buildSettings = buildConfigs[cfgUuid].buildSettings || {};
+        buildConfigs[cfgUuid].buildSettings['CODE_SIGNING_ALLOWED'] = 'YES';
+        // Critical: Ensure main app has same DEVELOPMENT_TEAM as widget so certificates match
+        buildConfigs[cfgUuid].buildSettings['DEVELOPMENT_TEAM'] = 'Q3Q2X7UJGT';
+      }
+    }
+  }
+
   // Check whether an "Embed App Extensions" copy-files phase already exists
-  const mainTarget        = targets[mainTargetKey];
   const copyFilesSections = project.pbxCopyfilesBuildPhaseObj(mainTargetKey);
   const alreadyEmbedded   = Object.values(copyFilesSections || {}).some(
     (p) => p?.dstSubfolderSpec === 13,

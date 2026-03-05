@@ -49,7 +49,8 @@
           "microphonePermission": "Allow CartaraIQ to use the microphone for adding items by voice.",
           "speechRecognitionPermission": "Allow CartaraIQ to recognize speech to add items to your list."
         }
-      ]
+      ],
+      "./plugins/withCartaraIQWidget"
     ],
     "experiments": {
       "typedRoutes": true
