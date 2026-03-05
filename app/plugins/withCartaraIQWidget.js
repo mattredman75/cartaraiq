@@ -214,12 +214,13 @@ function addSharedDataModuleToMainTarget(project) {
       (bf) => bf && typeof bf === 'object' && bf.fileRef_comment && bf.fileRef_comment.includes(filename),
     );
     if (!alreadyAdded) {
-      const fileRef = project.addFile(filename, cartaraiqGroupKey, {
+      // addFile with { target } already adds to PBXSourcesBuildPhase —
+      // do NOT also call addToPbxSourcesBuildPhase or it creates duplicate compile tasks.
+      project.addFile(filename, cartaraiqGroupKey, {
         target: mainTargetKey,
         lastKnownFileType: fileType,
         sourceTree: '"<group>"',
       });
-      if (fileRef) project.addToPbxSourcesBuildPhase(fileRef, mainTargetKey);
     }
   }
 }
@@ -261,6 +262,46 @@ function addWidgetTarget(project) {
   const targetUuid = targetResult.uuid;
 
   // ── Build settings for both Debug & Release ──────────────────────────────
+  // Extract EXACT signing settings from main app to ensure widget uses identical identity
+  const mainTargetKey = Object.keys(nativeTargets).find((k) => {
+    const t = nativeTargets[k];
+    return t && typeof t === 'object' && t.name !== WIDGET_TARGET && !k.endsWith('_comment');
+  });
+
+  let mainAppSigningSettings = {
+    DEVELOPMENT_TEAM: 'Q3Q2X7UJGT', // fallback
+  };
+
+  if (mainTargetKey) {
+    const mainConfigListUuid = nativeTargets[mainTargetKey]?.buildConfigurationList;
+    if (mainConfigListUuid) {
+      const mainConfigList = project.pbxXCConfigurationList()[mainConfigListUuid];
+      const mainConfigRefs = mainConfigList?.buildConfigurations || [];
+      const buildConfigs = project.pbxXCBuildConfigurationSection();
+      
+      // Extract signing settings from main app's Debug config
+      for (const ref of mainConfigRefs) {
+        const cfgUuid = ref.value || ref;
+        const cfg = buildConfigs[cfgUuid];
+        if (cfg?.buildSettings) {
+          const settings = cfg.buildSettings;
+          // Only extract if we find these settings in the main app
+          if (settings.DEVELOPMENT_TEAM) {
+            mainAppSigningSettings.DEVELOPMENT_TEAM = settings.DEVELOPMENT_TEAM;
+          }
+          if (settings.CODE_SIGN_IDENTITY) {
+            mainAppSigningSettings.CODE_SIGN_IDENTITY = settings.CODE_SIGN_IDENTITY;
+          }
+          // For automatic signing, use the provisioning profile if set
+          if (settings.PROVISIONING_PROFILE_SPECIFIER) {
+            mainAppSigningSettings.PROVISIONING_PROFILE_SPECIFIER = settings.PROVISIONING_PROFILE_SPECIFIER;
+          }
+          break; // Use first config found
+        }
+      }
+    }
+  }
+
   const buildSettings = {
     PRODUCT_BUNDLE_IDENTIFIER:    `"${WIDGET_BUNDLE_ID}"`,
     PRODUCT_NAME:                 `"$(TARGET_NAME)"`,
@@ -269,8 +310,9 @@ function addWidgetTarget(project) {
     TARGETED_DEVICE_FAMILY:       '"1,2"',
     INFOPLIST_FILE:               `"${WIDGET_TARGET}/Info.plist"`,
     CODE_SIGN_ENTITLEMENTS:       `"${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements"`,
-    CODE_SIGN_STYLE:              'Automatic',
     DEVELOPMENT_TEAM:             'Q3Q2X7UJGT',
+    // CODE_SIGN_STYLE intentionally omitted — EAS/fastlane manages signing
+    // at build time via the appExtensions config in eas.json.
     MARKETING_VERSION:            '"$(MARKETING_VERSION)"',
     CURRENT_PROJECT_VERSION:      '"$(CURRENT_PROJECT_VERSION)"',
     SKIP_INSTALL:                 'YES',
@@ -293,25 +335,43 @@ function addWidgetTarget(project) {
           ...buildConfigs[cfgUuid].buildSettings,
           ...buildSettings,
         };
+        // Log which config we're setting
+        const configName = buildConfigs[cfgUuid].name || cfgUuid;
+        console.log(`[withCartaraIQWidget] Applied build settings to ${WIDGET_TARGET} ${configName}`);
       }
     }
   }
 
   // ── Add Swift source file ────────────────────────────────────────────────
+  // addFile / addFramework with { target } are broken for targets created by
+  // addTarget() — they find the main target's existing build phases instead of
+  // creating new ones for the widget.  Use addBuildPhase() which correctly
+  // creates a new phase AND wires it into the target's buildPhases array.
   let widgetGroupKey = project.findPBXGroupKey({ name: WIDGET_TARGET });
   if (!widgetGroupKey) widgetGroupKey = project.addPbxGroup([], WIDGET_TARGET, WIDGET_TARGET).uuid;
-  const swiftFile = project.addFile(
+
+  // Add the Swift file to the group for the file tree
+  project.addFile(
     `${WIDGET_TARGET}/CartaraIQWidget.swift`,
     widgetGroupKey,
-    { target: targetUuid },
   );
-  if (swiftFile) {
-    project.addToPbxSourcesBuildPhase(swiftFile, targetUuid);
-  }
+
+  // Create a Sources build phase on the widget target with the Swift file
+  project.addBuildPhase(
+    [`${WIDGET_TARGET}/CartaraIQWidget.swift`],
+    'PBXSourcesBuildPhase',
+    'Sources',
+    targetUuid,
+  );
 
   // ── Add WidgetKit.framework ──────────────────────────────────────────────
-  project.addFramework('WidgetKit.framework', { target: targetUuid });
-  project.addFramework('SwiftUI.framework',   { target: targetUuid });
+  // Create a Frameworks build phase on the widget target
+  project.addBuildPhase(
+    ['WidgetKit.framework', 'SwiftUI.framework'],
+    'PBXFrameworksBuildPhase',
+    'Frameworks',
+    targetUuid,
+  );
 
   // ── Embed the widget extension in the main app ───────────────────────────
   embedExtensionInMainTarget(project, targetUuid);
@@ -334,17 +394,74 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
 
   if (!mainTargetKey) return;
 
-  // Check whether an "Embed App Extensions" copy-files phase already exists
-  const mainTarget        = targets[mainTargetKey];
-  const copyFilesSections = project.pbxCopyfilesBuildPhaseObj(mainTargetKey);
-  const alreadyEmbedded   = Object.values(copyFilesSections || {}).some(
-    (p) => p?.dstSubfolderSpec === 13,
-  );
+  // Ensure main app uses same code signing identity (don't re-sign embedded extensions)
+  const mainTarget = targets[mainTargetKey];
+  const mainConfigListUuid = mainTarget?.buildConfigurationList;
+  if (mainConfigListUuid) {
+    const configList = project.pbxXCConfigurationList()[mainConfigListUuid];
+    const configRefs = configList?.buildConfigurations || [];
+    const buildConfigs = project.pbxXCBuildConfigurationSection();
+    for (const ref of configRefs) {
+      const cfgUuid = ref.value || ref;
+      if (buildConfigs[cfgUuid]) {
+        // Set build settings to prevent re-signing of embedded extensions
+        buildConfigs[cfgUuid].buildSettings = buildConfigs[cfgUuid].buildSettings || {};
+        buildConfigs[cfgUuid].buildSettings['CODE_SIGNING_ALLOWED'] = 'YES';
+        // Critical: Ensure main app has same DEVELOPMENT_TEAM as widget so certificates match
+        buildConfigs[cfgUuid].buildSettings['DEVELOPMENT_TEAM'] = 'Q3Q2X7UJGT';
+      }
+    }
+  }
 
-  if (!alreadyEmbedded) {
-    // Build the file reference for the widget product
-    const widgetProductRef = { value: widgetTargetUuid, comment: `${WIDGET_TARGET}` };
+  // addTarget() auto-creates a generic "Copy Files" phase on the main target
+  // that already contains the widget .appex.  If we also add our own "Embed App
+  // Extensions" phase, Xcode sees two tasks copying the same product and fails
+  // with "Unexpected duplicate tasks".  Remove the auto-created one first, then
+  // create a proper "Embed App Extensions" phase.
+  const copyPhaseSection = project.hash.project.objects['PBXCopyFilesBuildPhase'] || {};
+  const mainBuildPhases = mainTarget.buildPhases || [];
 
+  // Find and remove all generic "Copy Files" phases that contain the widget .appex
+  const widgetProductRef = targets[widgetTargetUuid]?.productReference;
+  for (let i = mainBuildPhases.length - 1; i >= 0; i--) {
+    const phaseId = mainBuildPhases[i].value || mainBuildPhases[i];
+    const phase = copyPhaseSection[phaseId];
+    if (!phase || phase.isa !== 'PBXCopyFilesBuildPhase') continue;
+    // Skip phases we've already named "Embed App Extensions"
+    if (phase.name === '"Embed App Extensions"' || phase.name === 'Embed App Extensions') continue;
+    // Check if this phase contains the widget product
+    const hasWidget = (phase.files || []).some((f) => {
+      const buildFileUuid = f.value || f;
+      const bf = project.hash.project.objects['PBXBuildFile']?.[buildFileUuid];
+      return bf && (bf.fileRef === widgetProductRef ||
+        (bf.fileRef_comment && bf.fileRef_comment.includes(WIDGET_TARGET)));
+    });
+    if (hasWidget) {
+      console.log(`[withCartaraIQWidget] Removing auto-created "Copy Files" phase (${phaseId}) to avoid duplicate tasks`);
+      // Also clean up the orphaned PBXBuildFile entries from this phase
+      for (const f of (phase.files || [])) {
+        const bfUuid = f.value || f;
+        delete project.hash.project.objects['PBXBuildFile']?.[bfUuid];
+        delete project.hash.project.objects['PBXBuildFile']?.[bfUuid + '_comment'];
+      }
+      mainBuildPhases.splice(i, 1);
+      delete copyPhaseSection[phaseId];
+      delete copyPhaseSection[phaseId + '_comment'];
+    }
+  }
+
+  // Now check whether an "Embed App Extensions" copy-files phase already exists
+  let embedPhaseKey = null;
+  for (const bp of mainBuildPhases) {
+    const phaseId = bp.value || bp;
+    const phase = copyPhaseSection[phaseId];
+    if (phase && phase.dstSubfolderSpec === 13) {
+      embedPhaseKey = phaseId;
+      break;
+    }
+  }
+
+  if (!embedPhaseKey) {
     // Add "Embed App Extensions" copy files phase to main target
     const copyPhaseResult = project.addBuildPhase(
       [],
@@ -353,16 +470,73 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
       mainTargetKey,
       'app_extension',
     );
+    embedPhaseKey = copyPhaseResult?.uuid;
+  }
 
-    // Wire the widget product into the copy phase
-    if (copyPhaseResult?.buildPhase) {
-      copyPhaseResult.buildPhase.files = copyPhaseResult.buildPhase.files || [];
-      const productUuid = widgetTargetKey(project, WIDGET_TARGET);
-      if (productUuid) {
-        copyPhaseResult.buildPhase.files.push({
-          value: productUuid,
-          comment: `${WIDGET_TARGET} in Embed App Extensions`,
+  // Add the widget product to the embedding phase
+  // The widgetTargetUuid is the UUID of the newly-created CartaraIQWidget target.
+  // We need to find its productReference to add to the embedding phase.
+  if (embedPhaseKey) {
+    const embedPhase = project.hash.project.objects['PBXCopyFilesBuildPhase'][embedPhaseKey];
+    if (embedPhase) {
+      embedPhase.files = embedPhase.files || [];
+      
+      // The widget target's productReference is generated by xcode library when we called
+      // project.addTarget(). It's typically in the format of a UUID reference to the
+      // product object. We need to search for it or construct it.
+      // For app_extension targets, the product reference is auto-generated.
+      // Let's get the widget target that was just created
+      const widgetTarget = targets[widgetTargetUuid];
+      
+      if (widgetTarget && widgetTarget.productReference) {
+        const productRefUuid = widgetTarget.productReference;
+        
+        // Create a PBXBuildFile that wraps this product reference
+        // This is required by CocoaPods/Xcodeproj type checking
+        const crypto = require('crypto');
+        const buildFileUuid = crypto.createHash('md5')
+          .update('widgetbuild-' + productRefUuid)
+          .digest('hex')
+          .slice(0, 24)
+          .toUpperCase();
+        
+        // Check if already added to avoid duplicates (check both value and direct UUID)
+        const alreadyAdded = embedPhase.files.some(f => {
+          const fileUuid = f.value || f;
+          return fileUuid === buildFileUuid || fileUuid === productRefUuid;
         });
+        
+        if (!alreadyAdded) {
+          // Check if the PBXBuildFile already exists (defensive check)
+          const buildFileSectionExists = project.hash.project.objects['PBXBuildFile'] && 
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid];
+          
+          if (!buildFileSectionExists) {
+            // Create the PBXBuildFile object that references the product
+            if (!project.hash.project.objects['PBXBuildFile']) {
+              project.hash.project.objects['PBXBuildFile'] = {};
+            }
+            
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid] = {
+              isa: 'PBXBuildFile',
+              fileRef: productRefUuid,
+            };
+            project.hash.project.objects['PBXBuildFile'][buildFileUuid + '_comment'] = `${WIDGET_TARGET}.appex in Embed App Extensions`;
+          }
+          
+          // Add the build file to the embedding phase
+          embedPhase.files.push({
+            value: buildFileUuid,
+            comment: `${WIDGET_TARGET}.appex in Embed App Extensions`,
+          });
+          
+          console.log(`[withCartaraIQWidget] Added ${WIDGET_TARGET} product (${productRefUuid}) to Embed App Extensions phase`);
+        } else {
+          console.log(`[withCartaraIQWidget] ${WIDGET_TARGET} already in Embed App Extensions phase — skipping.`);
+        }
+      } else {
+        // Fallback: if productReference not found, log warning but continue
+        console.warn(`[withCartaraIQWidget] Warning: widget target product reference not found for UUID ${widgetTargetUuid}`);
       }
     }
   }

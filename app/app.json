@@ -49,7 +49,8 @@
           "microphonePermission": "Allow CartaraIQ to use the microphone for adding items by voice.",
           "speechRecognitionPermission": "Allow CartaraIQ to recognize speech to add items to your list."
         }
-      ]
+      ],
+      "./plugins/withCartaraIQWidget"
     ],
     "experiments": {
       "typedRoutes": true
@@ -57,7 +58,22 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "46c11221-bce9-4975-9fc1-29bb301bb312"
+        "projectId": "46c11221-bce9-4975-9fc1-29bb301bb312",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "CartaraIQWidget",
+                  "bundleIdentifier": "com.cartaraiq.app.widget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": ["group.com.cartaraiq.app"]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "owner": "cartaraiq"
