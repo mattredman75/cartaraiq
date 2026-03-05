@@ -35,7 +35,7 @@ import { SuggestionsStrip } from "../../components/SuggestionsStrip";
 import { ListFooter } from "../../components/ListFooter";
 import { ModalStack } from "../../components/ModalStack";
 import { ItemActionDrawer } from "../../components/ItemActionDrawer";
-import { syncListToWidget } from "../../hooks/useWidgetSync";
+import { syncListToWidget, syncAllListsToWidget } from "../../hooks/useWidgetSync";
 
 const TEAL = "#1B6B7A";
 const BG = "#DDE4E7";
@@ -82,11 +82,6 @@ export default function ListScreen() {
     });
   }, []);
 
-  // Keep the iOS home-screen widget in sync with the current list
-  useEffect(() => {
-    syncListToWidget(currentList ?? null, items);
-  }, [items, currentList]);
-
   const { dismissedUntil, dismissSuggestion } = useDismissedSuggestions(
     user?.id,
   );
@@ -119,6 +114,20 @@ export default function ListScreen() {
     if (!currentList && shoppingLists.length > 0)
       setCurrentList(shoppingLists[0]);
   }, [shoppingLists, currentList]);
+
+  // Keep the iOS home-screen widget in sync with the current list
+  useEffect(() => {
+    if (currentList && !isLoading) {
+      syncListToWidget(currentList, items);
+    }
+  }, [items, currentList, isLoading]);
+
+  // Sync all lists (with current list's items) to the widget for the list picker
+  useEffect(() => {
+    if (shoppingLists.length > 0 && currentList && !isLoading) {
+      syncAllListsToWidget(shoppingLists, currentList, items);
+    }
+  }, [shoppingLists, items, currentList, isLoading]);
 
   const { addMutation, toggleMutation, deleteMutation, renameMutation } =
     useItemMutations({ listId, qc });
