@@ -88,25 +88,27 @@ export default function RootLayout() {
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
 
   useEffect(() => {
-    if (fontsLoaded) {
-      // Hide the native splash immediately — our animated one takes over
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
+    // Hide the native splash as soon as possible — our animated one is
+    // already rendering on top so the user sees a seamless transition
+    // from native splash → animated splash (same bg + logo, then rings start).
+    SplashScreen.hideAsync();
+  }, []);
 
   const handleSplashFinish = useCallback(() => {
     setShowAnimatedSplash(false);
   }, []);
 
-  if (!fontsLoaded) return null;
-
+  // Show the animated splash even while fonts are loading — this prevents
+  // any white flash between native splash and our animated version.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthGate />
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      {fontsLoaded ? (
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthGate />
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      ) : null}
       {showAnimatedSplash && <AnimatedSplash onFinish={handleSplashFinish} />}
     </GestureHandlerRootView>
   );
