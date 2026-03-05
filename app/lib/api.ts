@@ -50,6 +50,12 @@ export const authResetPassword = (
   new_password: string,
 ) => api.post("/auth/reset-password", { email, code, new_password });
 
+// --- Biometric ---
+export const setupBiometric = (pinHash: string, biometricType: string) =>
+  api.post("/auth/biometric/setup", { pin_hash: pinHash, biometric_type: biometricType });
+
+export const disableBiometric = () => api.post("/auth/biometric/disable");
+
 // --- Shopping Lists ---
 export const fetchShoppingLists = () => api.get("/lists/groups");
 
