@@ -431,15 +431,35 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
       if (widgetTarget && widgetTarget.productReference) {
         const productRefUuid = widgetTarget.productReference;
         
+        // Create a PBXBuildFile that wraps this product reference
+        // This is required by CocoaPods/Xcodeproj type checking
+        const crypto = require('crypto');
+        const buildFileUuid = crypto.createHash('md5')
+          .update('widgetbuild-' + productRefUuid)
+          .digest('hex')
+          .slice(0, 24)
+          .toUpperCase();
+        
         // Check if already added to avoid duplicates
         const alreadyAdded = embedPhase.files.some(f => 
-          (f.value || f) === productRefUuid
+          (f.value || f) === buildFileUuid
         );
         
         if (!alreadyAdded) {
-          // Add the product reference to the embedding phase
+          // Create the PBXBuildFile object that references the product
+          if (!project.hash.project.objects['PBXBuildFile']) {
+            project.hash.project.objects['PBXBuildFile'] = {};
+          }
+          
+          project.hash.project.objects['PBXBuildFile'][buildFileUuid] = {
+            isa: 'PBXBuildFile',
+            fileRef: productRefUuid,
+          };
+          project.hash.project.objects['PBXBuildFile'][buildFileUuid + '_comment'] = `${WIDGET_TARGET}.appex in Embed App Extensions`;
+          
+          // Add the build file to the embedding phase
           embedPhase.files.push({
-            value: productRefUuid,
+            value: buildFileUuid,
             comment: `${WIDGET_TARGET}.appex in Embed App Extensions`,
           });
           
