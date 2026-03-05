@@ -397,14 +397,11 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
 
   // Check whether an "Embed App Extensions" copy-files phase already exists
   const copyFilesSections = project.pbxCopyfilesBuildPhaseObj(mainTargetKey);
-  const alreadyEmbedded   = Object.values(copyFilesSections || {}).some(
-    (p) => p?.dstSubfolderSpec === 13,
+  let embedPhaseKey = Object.keys(copyFilesSections || {}).find(
+    (k) => copyFilesSections[k]?.dstSubfolderSpec === 13,
   );
 
-  if (!alreadyEmbedded) {
-    // Build the file reference for the widget product
-    const widgetProductRef = { value: widgetTargetUuid, comment: `${WIDGET_TARGET}` };
-
+  if (!embedPhaseKey) {
     // Add "Embed App Extensions" copy files phase to main target
     const copyPhaseResult = project.addBuildPhase(
       [],
@@ -413,16 +410,51 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
       mainTargetKey,
       'app_extension',
     );
+    embedPhaseKey = copyPhaseResult?.uuid;
+  }
 
-    // Wire the widget product into the copy phase
-    if (copyPhaseResult?.buildPhase) {
-      copyPhaseResult.buildPhase.files = copyPhaseResult.buildPhase.files || [];
-      const productUuid = widgetTargetKey(project, WIDGET_TARGET);
-      if (productUuid) {
-        copyPhaseResult.buildPhase.files.push({
-          value: productUuid,
+  // Add the widget target to the embedding phase
+  // The xcode library requires adding the target to the phase via its native method
+  if (embedPhaseKey && mainTargetKey) {
+    const embedPhase = project.hash.project.objects['PBXCopyFilesBuildPhase'][embedPhaseKey];
+    if (embedPhase) {
+      embedPhase.files = embedPhase.files || [];
+      
+      // Create a build file reference for the widget product
+      // We need to use the target UUID as the "reference" which Xcode will resolve
+      // to the product of that target when it's built
+      const crypto = require('crypto');
+      const buildFileUuid = crypto.createHash('md5')
+        .update('buildfile-' + widgetTargetUuid + embedPhaseKey)
+        .digest('hex')
+        .slice(0, 24)
+        .toUpperCase();
+      
+      // Check if already present
+      const alreadyAdded = embedPhase.files.some(f => 
+        (f.value || f) === buildFileUuid
+      );
+      
+      if (!alreadyAdded) {
+        // Create the actual PBXBuildFile object
+        if (!project.hash.project.objects['PBXBuildFile']) {
+          project.hash.project.objects['PBXBuildFile'] = {};
+        }
+        
+        project.hash.project.objects['PBXBuildFile'][buildFileUuid] = {
+          isa: 'PBXBuildFile',
+          fileRef: widgetTargetUuid,
+          settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
+        };
+        project.hash.project.objects['PBXBuildFile'][buildFileUuid + '_comment'] = `${WIDGET_TARGET} in Embed App Extensions`;
+        
+        // Add to the copy phase's files
+        embedPhase.files.push({
+          value: buildFileUuid,
           comment: `${WIDGET_TARGET} in Embed App Extensions`,
         });
+        
+        console.log(`[withCartaraIQWidget] Added ${WIDGET_TARGET} to Embed App Extensions phase (${embedPhaseKey})`);
       }
     }
   }
