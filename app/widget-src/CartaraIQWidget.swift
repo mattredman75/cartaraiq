@@ -224,23 +224,27 @@ struct CartaraIQWidgetEntryView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
 
-      // Header
-      HStack(spacing: 6) {
-        Image(systemName: "cart.fill")
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundColor(Color.white.opacity(0.7))
-        Text(entry.listName)
-          .font(.system(size: 12, weight: .bold))
-          .foregroundColor(.white)
-          .lineLimit(1)
+      // Header row: logo top-left, count top-right
+      HStack(alignment: .top, spacing: 0) {
+        Image("CartaraLogo")
+          .resizable()
+          .aspectRatio(contentMode: .fit)
+          .frame(width: 20, height: 20)
         Spacer()
         if totalCount > 0 {
           Text("\(checkedCount)/\(totalCount)")
-            .font(.system(size: 11, weight: .medium))
-            .foregroundColor(Color.white.opacity(0.6))
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundColor(Color.white.opacity(0.7))
         }
       }
-      .padding(.bottom, 8)
+
+      // List name
+      Text(entry.listName)
+        .font(.system(size: 15, weight: .bold))
+        .foregroundColor(.white)
+        .lineLimit(1)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
 
       if visibleItems.isEmpty {
         Spacer()
@@ -248,12 +252,12 @@ struct CartaraIQWidgetEntryView: View {
           Spacer()
           if !entry.hasData {
             Text("Open CartaraIQ\nto load your list")
-              .font(.system(size: 12))
+              .font(.system(size: 14))
               .foregroundColor(Color.white.opacity(0.6))
               .multilineTextAlignment(.center)
           } else {
             Label("All done!", systemImage: "checkmark.circle.fill")
-              .font(.system(size: 13, weight: .medium))
+              .font(.system(size: 15, weight: .medium))
               .foregroundColor(Color.white.opacity(0.8))
           }
           Spacer()
@@ -266,7 +270,7 @@ struct CartaraIQWidgetEntryView: View {
           }
           if remainingCount > 0 {
             Text("+\(remainingCount) more")
-              .font(.system(size: 10))
+              .font(.system(size: 12))
               .foregroundColor(Color.white.opacity(0.55))
               .padding(.top, 1)
           }
@@ -274,7 +278,7 @@ struct CartaraIQWidgetEntryView: View {
         Spacer(minLength: 0)
       }
     }
-    .padding(14)
+    .padding(8)
   }
 }
 
@@ -296,15 +300,15 @@ struct ItemRowView: View {
     HStack(spacing: 6) {
       Circle()
         .stroke(Color.white.opacity(0.5), lineWidth: 1.2)
-        .frame(width: 10, height: 10)
+        .frame(width: 12, height: 12)
       Text(item.name)
-        .font(.system(size: 13, weight: .medium))
+        .font(.system(size: 15, weight: .medium))
         .foregroundColor(.white)
         .lineLimit(1)
       Spacer()
       if let qty = quantityLabel {
         Text(qty)
-          .font(.system(size: 11))
+          .font(.system(size: 13))
           .foregroundColor(Color.white.opacity(0.6))
       }
     }
