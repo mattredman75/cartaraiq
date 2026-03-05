@@ -1,5 +1,5 @@
 import '../global.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
@@ -16,6 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../lib/store';
 import { useAppStatus } from '../hooks/useAppStatus';
 import { MaintenanceScreen } from '../components/MaintenanceScreen';
+import AnimatedSplash from '../components/AnimatedSplash';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -84,12 +85,18 @@ export default function RootLayout() {
     Montserrat_600SemiBold,
     Montserrat_700Bold,
   });
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
 
   useEffect(() => {
     if (fontsLoaded) {
+      // Hide the native splash immediately — our animated one takes over
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  const handleSplashFinish = useCallback(() => {
+    setShowAnimatedSplash(false);
+  }, []);
 
   if (!fontsLoaded) return null;
 
@@ -100,6 +107,7 @@ export default function RootLayout() {
           <AuthGate />
         </QueryClientProvider>
       </SafeAreaProvider>
+      {showAnimatedSplash && <AnimatedSplash onFinish={handleSplashFinish} />}
     </GestureHandlerRootView>
   );
 }
