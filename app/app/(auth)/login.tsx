@@ -36,6 +36,7 @@ export default function LoginScreen() {
     verifyPin,
     hashPin,
     checkBiometricAvailability,
+    disableAllQuickLogin,
   } = useBiometricAuth();
 
   const [email, setEmail] = useState("");
@@ -50,6 +51,7 @@ export default function LoginScreen() {
   const [firstPin, setFirstPin] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
   const [pinReady, setPinReady] = useState(false);
+  const [showCredentialsFailedModal, setShowCredentialsFailedModal] = useState(false);
 
   useEffect(() => {
     console.log("Login component mounted, checking biometric setup...");
@@ -120,8 +122,16 @@ export default function LoginScreen() {
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
-      // Silently fall through to username/password form
-      console.warn("Auto biometric login failed:", e);
+      // If auth failed (401), stored password is stale — disable quick login
+      if (e.response?.status === 401) {
+        await disableAllQuickLogin();
+        setBiometricReady(false);
+        setPinReady(false);
+        setShowCredentialsFailedModal(true);
+      } else {
+        // Silently fall through to username/password form
+        console.warn("Auto biometric login failed:", e);
+      }
     }
   };
 
@@ -185,7 +195,15 @@ export default function LoginScreen() {
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
+      // If auth failed (401), stored password is stale — disable quick login
+      if (e.response?.status === 401) {
+        await disableAllQuickLogin();
+        setBiometricReady(false);
+        setPinReady(false);
+        setShowCredentialsFailedModal(true);
+      } else {
+        setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
+      }
       setLoading(false);
     } finally {
       setLoading(false);
@@ -221,7 +239,16 @@ export default function LoginScreen() {
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
+      // If auth failed (401), stored password is stale — disable quick login
+      if (e.response?.status === 401) {
+        setShowPINEntry(false);
+        await disableAllQuickLogin();
+        setBiometricReady(false);
+        setPinReady(false);
+        setShowCredentialsFailedModal(true);
+      } else {
+        setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
+      }
       setLoading(false);
     }
   };
@@ -768,6 +795,79 @@ export default function LoginScreen() {
             maxLength={4}
           />
         </SafeAreaView>
+      </Modal>
+
+      {/* Credentials Failed Modal — shown when stored password is stale */}
+      <Modal visible={showCredentialsFailedModal} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.45)",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 20,
+              padding: 28,
+              marginHorizontal: 32,
+              alignItems: "center",
+              width: "85%",
+            }}
+          >
+            <Ionicons
+              name="alert-circle"
+              size={48}
+              color={COLORS.danger}
+              style={{ marginBottom: 16 }}
+            />
+            <Text
+              style={{
+                fontFamily: "Montserrat_700Bold",
+                fontSize: 18,
+                color: COLORS.ink,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              Face ID failed
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Montserrat_400Regular",
+                fontSize: 15,
+                color: COLORS.muted,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              Please log in again
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowCredentialsFailedModal(false)}
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: COLORS.teal,
+                borderRadius: 14,
+                paddingVertical: 14,
+                paddingHorizontal: 40,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Montserrat_700Bold",
+                  fontSize: 16,
+                  color: "#fff",
+                  letterSpacing: 0.3,
+                }}
+              >
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
