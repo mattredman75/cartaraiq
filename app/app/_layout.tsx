@@ -1,5 +1,5 @@
 import '../global.css';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
@@ -16,7 +16,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../lib/store';
 import { useAppStatus } from '../hooks/useAppStatus';
 import { MaintenanceScreen } from '../components/MaintenanceScreen';
-import AnimatedSplash from '../components/AnimatedSplash';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -85,31 +84,22 @@ export default function RootLayout() {
     Montserrat_600SemiBold,
     Montserrat_700Bold,
   });
-  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
 
   useEffect(() => {
-    // Hide the native splash as soon as possible — our animated one is
-    // already rendering on top so the user sees a seamless transition
-    // from native splash → animated splash (same bg + logo, then rings start).
-    SplashScreen.hideAsync();
-  }, []);
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
 
-  const handleSplashFinish = useCallback(() => {
-    setShowAnimatedSplash(false);
-  }, []);
+  if (!fontsLoaded) return null;
 
-  // Show the animated splash even while fonts are loading — this prevents
-  // any white flash between native splash and our animated version.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {fontsLoaded ? (
-        <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
-            <AuthGate />
-          </QueryClientProvider>
-        </SafeAreaProvider>
-      ) : null}
-      {showAnimatedSplash && <AnimatedSplash onFinish={handleSplashFinish} />}
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthGate />
+        </QueryClientProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
