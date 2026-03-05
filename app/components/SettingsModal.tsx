@@ -14,7 +14,7 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../lib/store";
-import { updateMe } from "../lib/api";
+import { updateMe, setupBiometric, disableBiometric } from "../lib/api";
 import { setItem, deleteItem } from "../lib/storage";
 import { useBiometricAuth } from "../hooks/useBiometricAuth";
 import { PINEntry } from "./PINEntry";
@@ -70,6 +70,7 @@ export function SettingsModal({
   const [resetPINStep, setResetPINStep] = useState<"first" | "confirm">("first");
   const [firstResetPIN, setFirstResetPIN] = useState("");
   const [resetPINError, setResetPINError] = useState("");
+  const [showBiometricSuccessModal, setShowBiometricSuccessModal] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -318,16 +319,70 @@ export function SettingsModal({
                   onValueChange={async (val) => {
                     if (!val) {
                       // Disable biometric — preserves credentials, auto-enables PIN
+                      await disableBiometric();
                       await disableBiometricLogin();
                       setBiometricEnabled(false);
                       setPinEnabledState(true); // PIN becomes the active fast-login method
                     } else {
-                      // Enable biometric — user must log out and back in to set it up
-                      Alert.alert(
-                        "Enable Biometric Login",
-                        `To enable ${biometricType?.includes("faceId") ? "Face ID" : biometricType?.includes("touchId") ? "Touch ID" : "biometric"} login, please log out and log back in to set it up.`,
-                        [{ text: "OK" }],
-                      );
+                      // Enable biometric — launch enrollment flow
+                      const credentials = await getBiometricCredentials();
+                      if (!credentials?.pinHash) {
+                        Alert.alert(
+                          "PIN Required",
+                          "You need to set up a PIN first before enabling biometric login. Please reset your PIN in the settings below.",
+                          [{ text: "OK" }],
+                        );
+                        return;
+                      }
+
+                      // Authenticate with biometric
+                      const bioSuccess = await authenticateWithBiometric();
+                      if (!bioSuccess) {
+                        Alert.alert(
+                          "Biometric Setup Failed",
+                          "Biometric authentication failed. Please try again.",
+                          [{ text: "OK" }],
+                        );
+                        return;
+                      }
+
+                      try {
+                        console.log("Setting up biometric with:", {
+                          pinHash: credentials.pinHash ? "present" : "missing",
+                          biometricType: biometricType || "faceId"
+                        });
+                        
+                        // Call backend to enable biometric
+                        const response = await setupBiometric(credentials.pinHash, biometricType || "faceId");
+                        console.log("Biometric setup response:", response);
+                        
+                        // Persist the enabled state to local storage
+                        try {
+                          await setItem("biometric_enabled", "true");
+                          console.log("Biometric enabled in local storage");
+                        } catch (storageError) {
+                          console.error("Failed to save biometric_enabled to storage:", storageError);
+                          Alert.alert(
+                            "Storage Error",
+                            "Biometric was enabled but couldn't be saved locally. Please try again.",
+                            [{ text: "OK" }],
+                          );
+                          return;
+                        }
+                        
+                        // Update local state
+                        setBiometricEnabled(true);
+                        setPinEnabledState(true); // PIN remains enabled as fallback
+                        
+                        setShowBiometricSuccessModal(true);
+                      } catch (error) {
+                        console.error("Failed to enable biometric:", error);
+                        Alert.alert(
+                          "Setup Failed",
+                          `Failed to enable biometric login: ${error.message || 'Unknown error'}. Please try again.`,
+                          [{ text: "OK" }],
+                        );
+                      }
                     }
                   }}
                   trackColor={{ false: BORDER, true: TEAL }}
@@ -505,6 +560,98 @@ export function SettingsModal({
             maxLength={4}
           />
         </SafeAreaView>
+      </Modal>
+
+      {/* Biometric Success Modal */}
+      <Modal
+        visible={showBiometricSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBiometricSuccessModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              margin: 20,
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 12,
+            }}
+          >
+            <Ionicons
+              name={
+                biometricType?.includes("faceId") ? "person" : "finger-print"
+              }
+              size={48}
+              color={TEAL}
+              style={{ marginBottom: 16 }}
+            />
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                color: TEXT,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              {biometricType?.includes("faceId")
+                ? "Face ID"
+                : biometricType?.includes("touchId")
+                  ? "Touch ID"
+                  : "Biometric"}{" "}
+              Enabled
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: MUTED,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              You can now use{" "}
+              {biometricType?.includes("faceId")
+                ? "Face ID"
+                : biometricType?.includes("touchId")
+                  ? "Touch ID"
+                  : "biometric authentication"}{" "}
+              to log in quickly.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowBiometricSuccessModal(false)}
+              style={{
+                backgroundColor: TEAL,
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Got it
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
     </Modal>

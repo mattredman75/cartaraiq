@@ -59,16 +59,7 @@ export default function LoginScreen() {
   const checkBiometricSetup = async () => {
     console.log("Starting biometric setup check...");
     try {
-      // Add timeout to prevent hanging on simulator
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Biometric check timeout")), 5000);
-      });
-
-      const availabilityPromise = checkBiometricAvailability();
-      const available = (await Promise.race([
-        availabilityPromise,
-        timeoutPromise,
-      ])) as boolean;
+      const available = await checkBiometricAvailability();
       console.log("Biometric availability check result:", available);
 
       const [bioEnabled, pinEnabledVal, credentials] = await Promise.all([
@@ -77,21 +68,28 @@ export default function LoginScreen() {
         getBiometricCredentials(),
       ]);
 
+      console.log("Biometric check results:", {
+        available,
+        bioEnabled,
+        pinEnabledVal,
+        hasCredentials: !!credentials,
+        credentialsKeys: credentials ? Object.keys(credentials) : null
+      });
+
       // Only mark bioReady if biometric is enabled AND credentials exist
       const bioReady = available && bioEnabled && !!credentials;
       setBiometricReady(bioReady);
       setPinReady(pinEnabledVal && !!credentials);
 
-      // Don't auto-trigger Face ID - let user see and tap the button for better UX
-      // This ensures the Face ID button is visible and user has explicit control
-      if (bioReady && credentials && !pinEnabledVal) {
-        // Face ID only (no PIN fallback) - can show button without auto-trigger
-        // (user will see button and can tap it)
-      } else if (pinEnabledVal && !bioReady && credentials) {
+      // Prioritize biometric login if enabled
+      if (bioReady && credentials) {
+        // Auto-trigger biometric login for better UX
+        handleBiometricLoginAuto();
+      } else if (pinEnabledVal && credentials) {
         // PIN is the ONLY fast-login method — show PIN entry straight away
         setShowPINEntry(true);
       }
-      // Otherwise show the form with visible Face ID button (if bioReady) and/or PIN button (if pinReady)
+      // Otherwise show the form with visible buttons
     } catch (error) {
       console.warn("Biometric setup check failed or timed out:", error);
       setBiometricReady(false);
@@ -511,8 +509,8 @@ export default function LoginScreen() {
               </TouchableOpacity>
             )}
 
-            {/* PIN Login — shown when PIN is enabled AND biometric is disabled */}
-            {pinReady && !biometricReady && (
+            {/* PIN Login — shown when PIN is enabled */}
+            {pinReady && (
               <TouchableOpacity
                 onPress={() => setShowPINEntry(true)}
                 disabled={loading}
