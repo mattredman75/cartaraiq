@@ -432,12 +432,15 @@ def dashboard_overview(
     total_users = db.query(sa_func.count(User.id)).scalar() or 0
     deactivated = db.query(sa_func.count(User.id)).filter(User.is_active == False).scalar() or 0  # noqa: E712
 
-    # Active users derived from audit_logs
+    # Active users derived from audit_logs (exclude automated events like token_refresh)
+    _AUTOMATED_ACTIONS = {"token_refresh", "token_refresh_blocked"}
+
     def _active_since(minutes: int) -> int:
         cutoff = now - timedelta(minutes=minutes)
         return db.query(sa_func.count(distinct(AuditLog.user_id))).filter(
             AuditLog.user_id.isnot(None),
             AuditLog.created_at >= cutoff,
+            AuditLog.action.notin_(_AUTOMATED_ACTIONS),
         ).scalar() or 0
 
     active_5 = _active_since(5)
