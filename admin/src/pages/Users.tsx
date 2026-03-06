@@ -1,7 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
-import { Search, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ArrowLeft,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 
 interface UserSummary {
   id: string;
@@ -11,6 +20,7 @@ interface UserSummary {
   auth_provider: string | null;
   is_active: boolean;
   created_at: string | null;
+  last_activity: string | null;
   list_count: number;
   item_count: number;
 }
@@ -23,12 +33,28 @@ interface PaginatedUsers {
 }
 
 export default function UsersPage() {
+  const formatRelative = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleDateString();
+  };
+
   const [data, setData] = useState<PaginatedUsers | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState<string>("");
   const [filterProvider, setFilterProvider] = useState("");
   const [filterRole, setFilterRole] = useState("");
+  const [sortBy, setSortBy] = useState<string>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,7 +74,12 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = { page, page_size: pageSize };
+      const params: any = {
+        page,
+        page_size: pageSize,
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      };
       if (search) params.search = search;
 
       // URL-based drill-down filters take precedence
@@ -75,6 +106,8 @@ export default function UsersPage() {
     filterActive,
     filterProvider,
     filterRole,
+    sortBy,
+    sortDir,
     urlActiveMinutes,
     urlRegisteredAfter,
     urlIsActive,
@@ -92,6 +125,26 @@ export default function UsersPage() {
   };
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
+
+  const toggleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(col);
+      setSortDir(col === "name" || col === "email" ? "asc" : "desc");
+    }
+    setPage(1);
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortBy !== col)
+      return <ArrowUpDown className="w-3.5 h-3.5 opacity-30" />;
+    return sortDir === "asc" ? (
+      <ArrowUp className="w-3.5 h-3.5" />
+    ) : (
+      <ArrowDown className="w-3.5 h-3.5" />
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -192,21 +245,35 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-750 text-left text-gray-500 dark:text-gray-400">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Provider</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Lists</th>
-                <th className="px-4 py-3 font-medium">Items</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
+                {[
+                  { key: "name", label: "Name" },
+                  { key: "email", label: "Email" },
+                  { key: "", label: "Provider" },
+                  { key: "role", label: "Role" },
+                  { key: "is_active", label: "Status" },
+                  { key: "list_count", label: "Lists" },
+                  { key: "item_count", label: "Items" },
+                  { key: "last_activity", label: "Last Activity" },
+                  { key: "created_at", label: "Joined" },
+                ].map((h) => (
+                  <th
+                    key={h.label}
+                    className={`px-4 py-3 font-medium ${h.key ? "cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200" : ""}`}
+                    onClick={h.key ? () => toggleSort(h.key) : undefined}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {h.label}
+                      {h.key && <SortIcon col={h.key} />}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-12 text-center text-gray-400"
                   >
                     Loading…
@@ -215,7 +282,7 @@ export default function UsersPage() {
               ) : data?.users.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-12 text-center text-gray-400"
                   >
                     No users found
@@ -266,6 +333,9 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                       {u.item_count}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {u.last_activity ? formatRelative(u.last_activity) : "—"}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                       {u.created_at
