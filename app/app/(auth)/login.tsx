@@ -794,14 +794,19 @@ export default function LoginScreen() {
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
           <PINEntry
             onComplete={handleSetUpPIN}
-            onCancel={() => {
-              // Don't allow skipping PIN setup - go back to biometric/PIN choice or straight to app
-              // If user cancels, they must have already set up biometric or agree to skip to app
+            onCancel={async () => {
+              // User skipped PIN setup — still log them in but do NOT mark PIN as enabled
               setShowPINSetup(false);
-              // Set biometric_credentials and flags so next login works
+              // Store credentials for biometric (if set up) but ensure PIN stays disabled
               if (email && password) {
-                storeBiometricCredentials(email, password);
+                const existingCreds = await getBiometricCredentials();
+                if (!existingCreds) {
+                  // No credentials at all yet — store them for biometric only
+                  await storeBiometricCredentials(email, password);
+                }
               }
+              // Explicitly disable PIN since no hash was created
+              await setItem("pin_enabled", "false");
               commitAuth();
             }}
             title="Set up PIN"
