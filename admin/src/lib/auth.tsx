@@ -19,6 +19,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function isValidAdminUser(obj: any): obj is AdminUser {
+  return (
+    obj &&
+    typeof obj.id === "string" &&
+    typeof obj.email === "string" &&
+    typeof obj.name === "string" &&
+    obj.role === "admin"
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -30,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedToken && savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
-        if (parsed.role === "admin") {
+        if (isValidAdminUser(parsed)) {
           setToken(savedToken);
           setUser(parsed);
         } else {
@@ -53,8 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { access_token, user: u } = res.data;
 
-    if (u.role !== "admin") {
-      throw new Error("Admin access required");
+    if (!access_token || typeof access_token !== "string") {
+      throw new Error("Invalid server response");
+    }
+
+    if (!isValidAdminUser(u)) {
+      if (u && u.role && u.role !== "admin") {
+        throw new Error("Admin access required");
+      }
+      throw new Error("Invalid server response");
     }
 
     // Use sessionStorage (not localStorage) — session dies when browser closes

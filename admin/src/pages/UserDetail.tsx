@@ -38,15 +38,23 @@ export default function UserDetailPage() {
   const isSelf = adminUser?.id === userId;
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState("");
   const [message, setMessage] = useState("");
 
   const fetchUser = useCallback(async () => {
     try {
+      setFetchError(null);
       const res = await api.get(`/admin/users/${userId}`);
       setUser(res.data);
-    } catch {
-      navigate("/users");
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        navigate("/users");
+      } else {
+        setFetchError(
+          err.response?.data?.detail || "Failed to load user details",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -78,12 +86,46 @@ export default function UserDetailPage() {
     }
   };
 
-  if (loading || !user) {
+  if (loading || (!user && !fetchError)) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
       </div>
     );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="space-y-4 max-w-4xl">
+        <button
+          onClick={() => navigate("/users")}
+          className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Users
+        </button>
+        <div className="flex items-center justify-center h-48">
+          <div className="text-center">
+            <p className="text-gray-600 dark:text-gray-400 mb-3">
+              {fetchError}
+            </p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchUser();
+              }}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (

@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
+import api from "../lib/api";
 import {
   LayoutDashboard,
   Users,
@@ -24,7 +25,12 @@ export default function Layout() {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Best-effort — always clear local session
+    }
     logout();
     navigate("/login");
   };
