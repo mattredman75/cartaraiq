@@ -36,6 +36,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+    client: Optional[str] = None  # "admin" for admin dashboard logins
 
 
 class UserOut(BaseModel):
@@ -115,7 +116,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         token = create_access_token({"sub": user.id, "role": user.role or "user"})
         rt = _issue_refresh_token(user, db)
         logger.info("[DEBUG] Login successful, token created for user: %s", user.id)
-        log_audit(db, action="login", request=request, user_id=user.id)
+        log_audit(db, action="admin_login" if payload.client == "admin" else "login", request=request, user_id=user.id)
         return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
     except Exception as e:
         logger.exception("Error in login for email %s: %s", payload.email, str(e))
