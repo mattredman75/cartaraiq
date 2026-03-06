@@ -44,7 +44,7 @@ export default function StatsCard({
       </div>
       {icon && (
         <div
-          className={`p-3 rounded-lg shrink-0 absolute right-6 top-1/2 -translate-y-1/2 ${colorMap[color] || colorMap.indigo}`}
+          className={`p-3 rounded-lg shrink-0 absolute right-6 top-6 ${colorMap[color] || colorMap.indigo}`}
         >
           {icon}
         </div>
