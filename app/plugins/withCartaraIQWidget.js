@@ -115,13 +115,11 @@ function withCartaraIQWidget(config) {
       }
       if (injected) {
         fs.writeFileSync(podfilePath, patched2.join('\n'), 'utf8');
-        console.log('[withCartaraIQWidget] Patched Podfile (fallback) with sandboxing/signing hooks');
       }
       return cfg;
     }
 
     fs.writeFileSync(podfilePath, patched.join('\n'), 'utf8');
-    console.log('[withCartaraIQWidget] Patched Podfile with sandboxing/signing hooks (after react_native_post_install)');
     return cfg;
   }]);
 
@@ -147,7 +145,6 @@ function copyWidgetSources(projectRoot, iosDir) {
   const assetsDst = path.join(widgetTargetDir, 'Assets.xcassets');
   if (fs.existsSync(assetsSrc)) {
     copyDirSync(assetsSrc, assetsDst);
-    console.log('[withCartaraIQWidget] Copied Assets.xcassets to widget target');
   } else {
     console.warn('[withCartaraIQWidget] Missing assets: ' + assetsSrc);
   }
@@ -189,7 +186,6 @@ function copyWidgetSources(projectRoot, iosDir) {
     '</dict></plist>\n'
   );
 
-  console.log('[withCartaraIQWidget] Widget sources written to ios/' + WIDGET_TARGET + '/');
 }
 
 // Recursively copy a directory
@@ -272,12 +268,10 @@ function addWidgetTarget(project, appVersion, iosBuildNumber) {
   for (const key of Object.keys(nativeTargets)) {
     const t = nativeTargets[key];
     if (t && typeof t === 'object' && t.name === WIDGET_TARGET) {
-      console.log(`[withCartaraIQWidget] Target "${WIDGET_TARGET}" already exists — skipping.`);
       return;
     }
   }
 
-  console.log(`[withCartaraIQWidget] Adding "${WIDGET_TARGET}" target…`);
 
   // ── Create the native target ─────────────────────────────────────────────
   const targetResult = project.addTarget(
@@ -364,7 +358,6 @@ function addWidgetTarget(project, appVersion, iosBuildNumber) {
         };
         // Log which config we're setting
         const configName = buildConfigs[cfgUuid].name || cfgUuid;
-        console.log(`[withCartaraIQWidget] Applied build settings to ${WIDGET_TARGET} ${configName}`);
       }
     }
   }
@@ -431,7 +424,6 @@ function addWidgetTarget(project, appVersion, iosBuildNumber) {
   // ── Embed the widget extension in the main app ───────────────────────────
   embedExtensionInMainTarget(project, targetUuid);
 
-  console.log(`[withCartaraIQWidget] Done ✓`);
 }
 
 function embedExtensionInMainTarget(project, widgetTargetUuid) {
@@ -492,7 +484,6 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
         (bf.fileRef_comment && bf.fileRef_comment.includes(WIDGET_TARGET)));
     });
     if (hasWidget) {
-      console.log(`[withCartaraIQWidget] Removing auto-created "Copy Files" phase (${phaseId}) to avoid duplicate tasks`);
       // Also clean up the orphaned PBXBuildFile entries from this phase
       for (const f of (phase.files || [])) {
         const bfUuid = f.value || f;
@@ -584,8 +575,6 @@ function embedExtensionInMainTarget(project, widgetTargetUuid) {
             value: buildFileUuid,
             comment: `${WIDGET_TARGET}.appex in Embed App Extensions`,
           });
-          
-          console.log(`[withCartaraIQWidget] Added ${WIDGET_TARGET} product (${productRefUuid}) to Embed App Extensions phase`);
         } else {
           console.log(`[withCartaraIQWidget] ${WIDGET_TARGET} already in Embed App Extensions phase — skipping.`);
         }
@@ -650,8 +639,6 @@ function addExplicitTargetDependency(project, mainTargetKey, widgetTargetUuid) {
       mainTarget.dependencies.push({ value: depUuid, comment: 'PBXTargetDependency' });
     }
   }
-
-  console.log(`[withCartaraIQWidget] Wrote PBXTargetDependency (${depUuid}) for ${WIDGET_TARGET}`);
 }
 
 function widgetTargetKey(project, targetName) {

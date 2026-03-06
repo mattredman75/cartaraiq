@@ -2,5 +2,9 @@
   "name": "cartaraiq",
   "version": "1.0.0",
   "description": "CartaraIQ - Shopping list assistant with AI",
-  "private": true
+  "private": true,
+  "scripts": {
+    "expo-server": "uvicorn backend.main:app --reload --host 0.0.0.0",
+    "expo-migrate": "python -m backend.migrate && uvicorn backend.main:app --reload --host 0.0.0.0"
+  }
 }

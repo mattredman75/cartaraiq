@@ -358,19 +358,12 @@ export function SettingsModal({
                       }
 
                       try {
-                        console.log("Setting up biometric with:", {
-                          pinHash: credentials.pinHash ? "present" : "missing",
-                          biometricType: biometricType || "faceId"
-                        });
-                        
                         // Call backend to enable biometric
                         const response = await setupBiometric(credentials.pinHash, biometricType || "faceId");
-                        console.log("Biometric setup response:", response);
                         
                         // Persist the enabled state to local storage
                         try {
                           await setItem("biometric_enabled", "true");
-                          console.log("Biometric enabled in local storage");
                         } catch (storageError) {
                           console.error("Failed to save biometric_enabled to storage:", storageError);
                           Alert.alert(
@@ -386,7 +379,7 @@ export function SettingsModal({
                         setPinEnabledState(true); // PIN remains enabled as fallback
                         
                         setShowBiometricSuccessModal(true);
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error("Failed to enable biometric:", error);
                         Alert.alert(
                           "Setup Failed",

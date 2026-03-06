@@ -1,15 +1,23 @@
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { getAppStatus } from "../lib/api";
 import { syncMaintenanceToWidget } from "./useWidgetSync";
-
-const POLL_INTERVAL_MS = 20_000; // Check every 20 seconds
 
 interface AppStatus {
   maintenance: boolean;
   message: string;
 }
 
+/**
+ * App status hook — checks maintenance mode.
+ *
+ * Performs a single HTTP check on:
+ *   - App launch
+ *   - App returning to foreground
+ *
+ * Real-time updates are delivered via silent push notifications
+ * (see usePushNotifications). No periodic polling.
+ */
 export function useAppStatus() {
   const [status, setStatus] = useState<AppStatus>({
     maintenance: false,
@@ -18,9 +26,8 @@ export function useAppStatus() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const appStateSubscription = useRef<any>(null);
-  const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Check app status from backend
+  // Check app status from backend (single request)
   const checkStatus = useCallback(async () => {
     try {
       setError(null);
@@ -54,47 +61,38 @@ export function useAppStatus() {
     }
   }, [checkStatus]);
 
-  // Listen for app foreground events
+  /**
+   * Called by usePushNotifications when a maintenance_update push arrives.
+   * Updates state immediately without making a network request.
+   */
+  const applyPushUpdate = useCallback(
+    (maintenance: boolean, message: string) => {
+      setStatus({ maintenance, message });
+      syncMaintenanceToWidget(maintenance, message);
+    },
+    [],
+  );
+
+  // Listen for app foreground events — single check, no polling
   const setupAppStateListener = useCallback(() => {
     const subscription = AppState.addEventListener(
       "change",
       async (nextAppState: AppStateStatus) => {
         if (nextAppState === "active") {
-          // App came to foreground, check status and restart polling
+          // App came to foreground — single check
           await checkStatus();
-          startPolling();
-        } else if (nextAppState === "background") {
-          // Stop polling when app goes to background
-          stopPolling();
         }
-      }
+      },
     );
     appStateSubscription.current = subscription;
   }, [checkStatus]);
 
-  // Start periodic polling
-  const startPolling = useCallback(() => {
-    stopPolling();
-    pollInterval.current = setInterval(() => {
-      checkStatus();
-    }, POLL_INTERVAL_MS);
-  }, [checkStatus]);
-
-  // Stop periodic polling
-  const stopPolling = useCallback(() => {
-    if (pollInterval.current) {
-      clearInterval(pollInterval.current);
-      pollInterval.current = null;
-    }
-  }, []);
-
-  // Cleanup listener and polling
+  // Cleanup listener
   const cleanup = useCallback(() => {
     if (appStateSubscription.current) {
       appStateSubscription.current.remove();
     }
-    stopPolling();
-  }, [stopPolling]);
+  }, []);
 
   return {
     maintenance: status.maintenance,
@@ -103,8 +101,8 @@ export function useAppStatus() {
     error,
     checkStatus,
     refresh,
+    applyPushUpdate,
     setupAppStateListener,
-    startPolling,
     cleanup,
   };
 }

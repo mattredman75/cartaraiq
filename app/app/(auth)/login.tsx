@@ -46,29 +46,18 @@ export default function LoginScreen() {
   const [showCredentialsFailedModal, setShowCredentialsFailedModal] = useState(false);
 
   useEffect(() => {
-    console.log("Login component mounted, checking biometric setup...");
     checkBiometricSetup();
   }, []);
 
   const checkBiometricSetup = async () => {
-    console.log("Starting biometric setup check...");
     try {
       const available = await checkBiometricAvailability();
-      console.log("Biometric availability check result:", available);
 
       const [bioEnabled, pinEnabledVal, credentials] = await Promise.all([
         isBiometricEnabled(),
         isPinEnabled(),
         getBiometricCredentials(),
       ]);
-
-      console.log("Biometric check results:", {
-        available,
-        bioEnabled,
-        pinEnabledVal,
-        hasCredentials: !!credentials,
-        credentialsKeys: credentials ? Object.keys(credentials) : null
-      });
 
       // Only mark bioReady if biometric is enabled AND credentials exist
       const bioReady = available && bioEnabled && !!credentials;

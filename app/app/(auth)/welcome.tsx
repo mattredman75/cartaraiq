@@ -17,10 +17,10 @@ const { width } = Dimensions.get('window');
 const SLIDES = [
   {
     id: '1',
-    title: 'Shop Smarter,\nNot Harder',
+    title: 'Your Lists,\nAI Enhanced',
     subtitle:
       'CartaraIQ learns what you buy and when — so your list is ready before you even open the app.',
-    emoji: '🛒',
+    image: require('../../assets/cartara_step-1.png'),
     accent: COLORS.cyan,
   },
   {
@@ -28,7 +28,7 @@ const SLIDES = [
     title: 'Predictive\nShopping Lists',
     subtitle:
       "Running low on milk? We already know. AI tracks your patterns and surfaces the right items at the right time.",
-    emoji: '🤖',
+    image: require('../../assets/cartara_step-2.png'),
     accent: COLORS.amber,
   },
   {
@@ -36,7 +36,7 @@ const SLIDES = [
     title: 'Discover What\nYou\'ll Love',
     subtitle:
       'Get AI-powered product recommendations tailored to your tastes, budget, and shopping habits.',
-    emoji: '✨',
+    image: require('../../assets/cartara_step-3.png'),
     accent: COLORS.tealLight,
   },
 ];
@@ -81,31 +81,27 @@ export default function WelcomeScreen() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          scrollEnabled={false}
+          scrollEnabled
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(e.nativeEvent.contentOffset.x / width);
+            setCurrentIndex(index);
+          }}
           renderItem={({ item }) => (
             <View
               style={{
                 width,
                 paddingHorizontal: 28,
                 justifyContent: 'center',
-                alignItems: 'flex-start',
-                paddingTop: 60,
+                alignItems: 'center',
+                paddingTop: 40,
               }}
             >
-              {/* Icon card */}
-              <View
-                style={{
-                  width: 96,
-                  height: 96,
-                  borderRadius: 28,
-                  backgroundColor: 'rgba(255,255,255,0.12)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 40,
-                }}
-              >
-                <Text style={{ fontSize: 42 }}>{item.emoji}</Text>
-              </View>
+              {/* Step image */}
+              <Image
+                source={item.image}
+                style={{ width: width - 56, height: 160, marginBottom: 32 }}
+                resizeMode="contain"
+              />
 
               <Text
                 style={{
@@ -114,6 +110,7 @@ export default function WelcomeScreen() {
                   color: '#FFFFFF',
                   lineHeight: 44,
                   marginBottom: 20,
+                  textAlign: 'center',
                 }}
               >
                 {item.title}
@@ -125,6 +122,7 @@ export default function WelcomeScreen() {
                   fontSize: 16,
                   color: 'rgba(255,255,255,0.7)',
                   lineHeight: 26,
+                  textAlign: 'center',
                 }}
               >
                 {item.subtitle}
