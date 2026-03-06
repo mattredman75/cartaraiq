@@ -25,12 +25,11 @@ npm run build
 echo ""
 echo "→ Build complete: $(du -sh dist | cut -f1) total"
 
-# 2. Upload
+# 2. Upload — clear remote dir, then scp fresh build
 echo ""
 echo "→ Deploying to $SSH_HOST:$REMOTE_DIR ..."
-rsync -avz --delete \
-  --exclude='.DS_Store' \
-  dist/ "$SSH_HOST:$REMOTE_DIR/"
+ssh "$SSH_HOST" "rm -rf ${REMOTE_DIR:?}/* ${REMOTE_DIR:?}/.[!.]*"
+scp -r dist/. "$SSH_HOST:$REMOTE_DIR/"
 
 echo ""
 echo "══════════════════════════════════════════"
