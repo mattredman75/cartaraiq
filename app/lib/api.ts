@@ -127,3 +127,9 @@ export const searchProducts = (q: string) =>
   api.get("/products/search", { params: { q } });
 
 export const fetchProduct = (id: string) => api.get(`/products/${id}`);
+
+// --- My Data ---
+export const exportMyData = () => api.get("/my/data");
+
+export const importMyData = (data: { lists: any[]; version?: number }) =>
+  api.post("/my/data", data);

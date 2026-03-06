@@ -473,6 +473,29 @@ export function SettingsModal({
             </View>
           )}
 
+          {/* Manage my data */}
+          <TouchableOpacity
+            onPress={() => {
+              onClose();
+              router.push("/(app)/manage-data" as any);
+            }}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              borderBottomWidth: 1,
+              borderBottomColor: BORDER,
+            }}
+          >
+            <Ionicons name="folder-outline" size={20} color={TEAL} style={{ marginRight: 12 }} />
+            <Text style={{ flex: 1, fontSize: 15, fontWeight: "500", color: TEXT }}>
+              Manage my data
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={MUTED} />
+          </TouchableOpacity>
+
           {/* Version */}
           <View
             style={{
