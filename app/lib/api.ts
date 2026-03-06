@@ -133,3 +133,7 @@ export const registerPushToken = (token: string) =>
 
 export const unregisterPushToken = (token: string) =>
   api.delete("/push/unregister", { data: { token } });
+
+// --- Social Auth ---
+export const authSocial = (provider: string, id_token: string, name?: string) =>
+  apiNoAuth.post("/auth/social", { provider, id_token, name });

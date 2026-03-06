@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Modal,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -19,6 +20,7 @@ import { authLogin } from "../../lib/api";
 import { useAuthStore } from "../../lib/store";
 import { COLORS } from "../../lib/constants";
 import { useBiometricAuth } from "../../hooks/useBiometricAuth";
+import { useSocialAuth } from "../../hooks/useSocialAuth";
 import { PINEntry } from "../../components/PINEntry";
 
 export default function LoginScreen() {
@@ -36,9 +38,21 @@ export default function LoginScreen() {
     disableAllQuickLogin,
   } = useBiometricAuth();
 
+  const {
+    loginWithApple,
+    loginWithGoogle,
+    loginWithFacebook,
+    appleAvailable,
+    googleAvailable,
+    facebookAvailable,
+    googleReady,
+    facebookReady,
+  } = useSocialAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [showPINEntry, setShowPINEntry] = useState(false);
   const [biometricReady, setBiometricReady] = useState(false);
@@ -247,7 +261,7 @@ export default function LoginScreen() {
             {/* Back */}
             <TouchableOpacity
               onPress={() => router.back()}
-              style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}
+              style={{ marginLeft: -10, marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}
             >
               <Ionicons name="chevron-back" size={30} color={COLORS.tealDark} />
             </TouchableOpacity>
@@ -478,6 +492,139 @@ export default function LoginScreen() {
                 Forgot password?
               </Text>
             </TouchableOpacity>
+
+            {/* ── Or continue with ── */}
+            {(appleAvailable || googleAvailable || facebookAvailable) && (
+              <>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginTop: 28,
+                    marginBottom: 20,
+                  }}
+                >
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 1,
+                      backgroundColor: COLORS.border,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: "Montserrat_500Medium",
+                      fontSize: 13,
+                      color: COLORS.muted,
+                      marginHorizontal: 16,
+                    }}
+                  >
+                    or continue with
+                  </Text>
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 1,
+                      backgroundColor: COLORS.border,
+                    }}
+                  />
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    gap: 16,
+                  }}
+                >
+                  {/* Apple */}
+                  {appleAvailable && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        setSocialLoading("apple");
+                        await loginWithApple();
+                        setSocialLoading(null);
+                      }}
+                      disabled={!!socialLoading}
+                      activeOpacity={0.85}
+                      style={{
+                        backgroundColor: "#000",
+                        borderRadius: 14,
+                        width: 56,
+                        height: 56,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {socialLoading === "apple" ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Ionicons name="logo-apple" size={28} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Google */}
+                  {googleAvailable && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        setSocialLoading("google");
+                        await loginWithGoogle();
+                        setSocialLoading(null);
+                      }}
+                      disabled={!!socialLoading || !googleReady}
+                      activeOpacity={0.85}
+                      style={{
+                        backgroundColor: COLORS.card,
+                        borderRadius: 14,
+                        width: 56,
+                        height: 56,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderWidth: 1.5,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      {socialLoading === "google" ? (
+                        <ActivityIndicator color={COLORS.teal} />
+                      ) : (
+                        <Image
+                          source={require("../../assets/google-icon.png")}
+                          style={{ width: 24, height: 24 }}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Facebook */}
+                  {facebookAvailable && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        setSocialLoading("facebook");
+                        await loginWithFacebook();
+                        setSocialLoading(null);
+                      }}
+                      disabled={!!socialLoading || !facebookReady}
+                      activeOpacity={0.85}
+                      style={{
+                        backgroundColor: "#1877F2",
+                        borderRadius: 14,
+                        width: 56,
+                        height: 56,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {socialLoading === "facebook" ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Ionicons name="logo-facebook" size={28} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
 
             <TouchableOpacity
               onPress={() => router.replace("/(auth)/signup")}

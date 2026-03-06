@@ -162,6 +162,25 @@ def _run_mysql(conn) -> None:
             ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'
         """))
 
+    # 9. Social auth columns on users
+    if not _col_exists(conn, "users", "auth_provider"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN auth_provider VARCHAR(20) NULL
+        """))
+
+    if not _col_exists(conn, "users", "auth_provider_id"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN auth_provider_id VARCHAR(255) NULL
+        """))
+        conn.execute(text("""
+            CREATE INDEX ix_users_auth_provider_id ON users(auth_provider_id)
+        """))
+
+    # 10. Make hashed_password nullable (social auth users have no password)
+    conn.execute(text("""
+        ALTER TABLE users MODIFY COLUMN hashed_password VARCHAR(255) NULL
+    """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -259,6 +278,23 @@ def _run_postgresql(conn) -> None:
     conn.execute(text("""
         ALTER TABLE users
             ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'
+    """))
+
+    # 8. Social auth columns on users
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) NULL
+    """))
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS auth_provider_id VARCHAR(255) NULL
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_users_auth_provider_id ON users(auth_provider_id)
+    """))
+    conn.execute(text("""
+        ALTER TABLE users
+            ALTER COLUMN hashed_password DROP NOT NULL
     """))
 
     # 7. Convert checked from Boolean to Integer if needed
