@@ -50,8 +50,9 @@ export default function ProductDetailScreen() {
         {/* Back button */}
         <TouchableOpacity
           onPress={() => router.back()}
-          style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 }}
+          style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' }}
         >
+          <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
           <Text
             style={{
               fontFamily: 'Montserrat_500Medium',
@@ -59,7 +60,7 @@ export default function ProductDetailScreen() {
               fontSize: 14,
             }}
           >
-            ← Back
+            Back
           </Text>
         </TouchableOpacity>
 

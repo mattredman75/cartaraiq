@@ -387,8 +387,9 @@ export default function LoginScreen() {
             {/* Back */}
             <TouchableOpacity
               onPress={() => router.back()}
-              style={{ marginBottom: 36 }}
+              style={{ marginBottom: 36, flexDirection: 'row', alignItems: 'center' }}
             >
+              <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
               <Text
                 style={{
                   fontFamily: "Montserrat_500Medium",
@@ -396,7 +397,7 @@ export default function LoginScreen() {
                   fontSize: 14,
                 }}
               >
-                ← Back
+                Back
               </Text>
             </TouchableOpacity>
 
@@ -661,8 +662,9 @@ export default function LoginScreen() {
               onPress={() => {
                 setShowBiometricSetup(false);
               }}
-              style={{ marginBottom: 36 }}
+              style={{ marginBottom: 36, flexDirection: 'row', alignItems: 'center' }}
             >
+              <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
               <Text
                 style={{
                   fontFamily: "Montserrat_500Medium",
@@ -670,7 +672,7 @@ export default function LoginScreen() {
                   fontSize: 14,
                 }}
               >
-                ← Back
+                Back
               </Text>
             </TouchableOpacity>
 
