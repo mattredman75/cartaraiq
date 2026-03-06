@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 interface Props {
   title: string;
@@ -6,6 +7,7 @@ interface Props {
   subtitle?: string;
   icon?: ReactNode;
   color?: string;
+  to?: string;
 }
 
 export default function StatsCard({
@@ -14,6 +16,7 @@ export default function StatsCard({
   subtitle,
   icon,
   color = "indigo",
+  to,
 }: Props) {
   const colorMap: Record<string, string> = {
     indigo:
@@ -24,8 +27,10 @@ export default function StatsCard({
     blue: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
   };
 
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+  const card = (
+    <div
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -48,4 +53,10 @@ export default function StatsCard({
       </div>
     </div>
   );
+
+  if (to) {
+    return <Link to={to}>{card}</Link>;
+  }
+
+  return card;
 }

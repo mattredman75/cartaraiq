@@ -105,6 +105,14 @@ export default function Dashboard() {
     }),
   );
 
+  // Build date strings for drill-down links
+  const now = new Date();
+  const todayISO = now.toISOString().slice(0, 10);
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  const weekISO = weekStart.toISOString().slice(0, 10);
+  const monthISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
   return (
     <div className="space-y-8">
       <div>
@@ -120,6 +128,7 @@ export default function Dashboard() {
           title="Total Users"
           value={overview.total_users}
           icon={<Users className="w-6 h-6" />}
+          to="/users"
         />
         <StatsCard
           title="Active Now (15m)"
@@ -127,6 +136,7 @@ export default function Dashboard() {
           subtitle={`${overview.active_users_5m} in last 5m`}
           icon={<UserCheck className="w-6 h-6" />}
           color="green"
+          to="/users?active_minutes=15&label=Active+Now+(15m)"
         />
         <StatsCard
           title="New Today"
@@ -134,12 +144,14 @@ export default function Dashboard() {
           subtitle={`${overview.new_this_week} this week`}
           icon={<UserPlus className="w-6 h-6" />}
           color="blue"
+          to={`/users?registered_after=${todayISO}&label=New+Today`}
         />
         <StatsCard
           title="Deactivated"
           value={overview.deactivated_users}
           icon={<ShieldAlert className="w-6 h-6" />}
           color="red"
+          to="/users?is_active=false&label=Deactivated+Users"
         />
       </div>
 
@@ -162,12 +174,14 @@ export default function Dashboard() {
           value={overview.active_users_30m}
           icon={<Activity className="w-6 h-6" />}
           color="green"
+          to="/users?active_minutes=30&label=Active+(30m)"
         />
         <StatsCard
           title="New This Month"
           value={overview.new_this_month}
           icon={<UserPlus className="w-6 h-6" />}
           color="amber"
+          to={`/users?registered_after=${monthISO}&label=New+This+Month`}
         />
       </div>
 
