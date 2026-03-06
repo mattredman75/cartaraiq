@@ -128,12 +128,12 @@ export default function Dashboard() {
           to="/users"
         />
         <StatsCard
-          title="Active Now (15m)"
+          title="Active (15m)"
           value={overview.active_users_15m}
-          subtitle={`${overview.active_users_5m} in last 5m`}
+          subtitle="Users with activity in last 15 min"
           icon={<UserCheck className="w-6 h-6" />}
           color="green"
-          to="/users?active_minutes=15&label=Active+Now+(15m)"
+          to="/users?active_minutes=15&label=Active+(15m)"
         />
         <StatsCard
           title="New Today"
@@ -169,6 +169,7 @@ export default function Dashboard() {
         <StatsCard
           title="Active (30m)"
           value={overview.active_users_30m}
+          subtitle="Users with activity in last 30 min"
           icon={<Activity className="w-6 h-6" />}
           color="green"
           to="/users?active_minutes=30&label=Active+(30m)"

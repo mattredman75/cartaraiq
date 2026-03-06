@@ -286,6 +286,12 @@ def deactivate_user(
     if user.id == admin.id:
         raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
 
+    # Prevent deactivating the last admin
+    if user.role == "admin":
+        admin_count = db.query(sa_func.count(User.id)).filter(User.role == "admin", User.is_active == True).scalar() or 0  # noqa: E712
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot deactivate the last admin. Promote another user first.")
+
     user.is_active = False
     user.refresh_token = None
     user.refresh_token_expiry = None
@@ -396,6 +402,12 @@ def change_role(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent demoting the last admin — system must always have at least one
+    if payload.role != "admin" and user.role == "admin":
+        admin_count = db.query(sa_func.count(User.id)).filter(User.role == "admin", User.is_active == True).scalar() or 0  # noqa: E712
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot demote the last admin. Promote another user first.")
 
     old_role = user.role
     user.role = payload.role
