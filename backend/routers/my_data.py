@@ -96,6 +96,8 @@ async def export_data(
             )
         )
 
+    log_audit(db, action="data_export", request=request, user_id=user.id, detail={"lists_count": len(lists_out)})
+
     return DataExport(
         lists=lists_out,
         exporter=user.id,

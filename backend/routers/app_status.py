@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from typing import Optional
 from ..database import get_db
 from ..models import AppAdmin, PushToken
-from ..auth import get_admin_user
+from ..auth import get_admin_user, get_current_user
+from ..models.user import User
 from ..services.push_notifications import broadcast_maintenance_update
 from ..services.audit import log_audit
 import logging
@@ -88,4 +90,24 @@ def set_maintenance_mode(
         maintenance=record.value,
         message=record.message or "",
     )
+
+
+# ── App Lifecycle ────────────────────────────────────────────────────────────
+
+class AppLifecycleRequest(BaseModel):
+    state: str  # "foreground" or "background"
+
+
+@router.post("/lifecycle", status_code=204)
+def report_lifecycle(
+    payload: AppLifecycleRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Report app foreground/background transitions for audit trail."""
+    action = f"app_{payload.state}" if payload.state in ("foreground", "background") else None
+    if not action:
+        return
+    log_audit(db, action=action, request=request, user_id=current_user.id)
 

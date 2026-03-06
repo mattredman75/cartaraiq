@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -13,6 +13,7 @@ from ..config import settings
 from ..services.prediction import get_frequency_candidates, get_smart_suggestions
 from ..services.recipe_suggestions import get_recipe_suggestions, warm_ingredient_pairings
 from ..services.nl_parser import parse_shopping_input
+from ..services.audit import log_audit
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -185,6 +186,7 @@ def get_lists(
 @router.post("/groups", response_model=ShoppingListOut, status_code=201)
 def create_list(
     payload: CreateListRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -192,6 +194,7 @@ def create_list(
     db.add(lst)
     db.commit()
     db.refresh(lst)
+    log_audit(db, action="list_create", request=request, user_id=current_user.id, detail={"list_id": lst.id, "name": payload.name})
     return lst
 
 
@@ -199,6 +202,7 @@ def create_list(
 def rename_list(
     list_id: str,
     payload: UpdateListRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -208,15 +212,18 @@ def rename_list(
     ).first()
     if not lst:
         raise HTTPException(status_code=404, detail="List not found.")
+    old_name = lst.name
     lst.name = payload.name
     db.commit()
     db.refresh(lst)
+    log_audit(db, action="list_rename", request=request, user_id=current_user.id, detail={"list_id": list_id, "old_name": old_name, "new_name": payload.name})
     return lst
 
 
 @router.delete("/groups/{list_id}", status_code=204)
 def delete_list(
     list_id: str,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -226,9 +233,11 @@ def delete_list(
     ).first()
     if not lst:
         raise HTTPException(status_code=404, detail="List not found.")
+    list_name = lst.name
     db.query(ListItem).filter(ListItem.list_id == list_id).delete()
     db.delete(lst)
     db.commit()
+    log_audit(db, action="list_delete", request=request, user_id=current_user.id, detail={"list_id": list_id, "name": list_name})
 
 
 # ── List items ────────────────────────────────────────────────────────────────
