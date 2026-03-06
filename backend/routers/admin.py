@@ -168,7 +168,7 @@ def list_users(
     if role:
         query = query.filter(User.role == role)
     if active_minutes:
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=active_minutes)
+        cutoff = datetime.now() - timedelta(minutes=active_minutes)
         _auto = {"token_refresh", "token_refresh_blocked"}
         active_ids = [
             uid for (uid,) in db.query(distinct(AuditLog.user_id))
@@ -178,7 +178,7 @@ def list_users(
         query = query.filter(User.id.in_(active_ids)) if active_ids else query.filter(User.id == None)  # noqa: E711
     if registered_after:
         try:
-            reg_date = datetime.strptime(registered_after, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            reg_date = datetime.strptime(registered_after, "%Y-%m-%d")
             query = query.filter(User.created_at >= reg_date)
         except ValueError:
             pass  # Ignore invalid date format
@@ -428,7 +428,7 @@ def dashboard_overview(
     admin: User = Depends(get_admin_user),
 ):
     """Aggregated stats for the admin dashboard."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()  # MySQL NOW() stores server-local time, not UTC
 
     total_users = db.query(sa_func.count(User.id)).scalar() or 0
     deactivated = db.query(sa_func.count(User.id)).filter(User.is_active == False).scalar() or 0  # noqa: E712
@@ -489,7 +489,7 @@ def dashboard_growth(
     admin: User = Depends(get_admin_user),
 ):
     """Daily registration counts for the last N days."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     cutoff = now - timedelta(days=days)
 
     rows = (
@@ -512,7 +512,7 @@ def dashboard_security(
     admin: User = Depends(get_admin_user),
 ):
     """Security-focused metrics for the last 24 hours."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     cutoff = now - timedelta(hours=24)
 
     failed_logins = db.query(sa_func.count(AuditLog.id)).filter(
