@@ -191,12 +191,14 @@ export default function UserDetailPage() {
               variant="success"
             />
           )}
-          <ActionBtn
-            icon={<KeyRound className="w-4 h-4" />}
-            label="Force Password Reset"
-            onClick={() => doAction("force-password-reset")}
-            loading={actionLoading === "force-password-reset"}
-          />
+          {!user.auth_provider && (
+            <ActionBtn
+              icon={<KeyRound className="w-4 h-4" />}
+              label="Force Password Reset"
+              onClick={() => doAction("force-password-reset")}
+              loading={actionLoading === "force-password-reset"}
+            />
+          )}
           <ActionBtn
             icon={<LogOut className="w-4 h-4" />}
             label="Revoke Sessions"
