@@ -25,13 +25,6 @@ api.interceptors.response.use(
     return res;
   },
   (err) => {
-    console.log(
-      "❌ API Error:",
-      err.response?.status,
-      err.config?.method?.toUpperCase(),
-      err.config?.url,
-      err.message,
-    );
     return Promise.reject(err);
   },
 );
@@ -133,3 +126,10 @@ export const exportMyData = () => api.get("/my/data");
 
 export const importMyData = (data: { lists: any[]; version?: number }) =>
   api.post("/my/data", data);
+
+// --- Push Notifications ---
+export const registerPushToken = (token: string) =>
+  api.post("/push/register", { token });
+
+export const unregisterPushToken = (token: string) =>
+  api.delete("/push/unregister", { data: { token } });

@@ -20,7 +20,6 @@ function writeBuildInfo() {
 
   try {
     fs.writeFileSync(pkgPath, JSON.stringify(info, null, 2));
-    console.log("Wrote build info to", pkgPath);
   } catch (err) {
     console.error("Failed to write build info:", err);
     process.exitCode = 1;

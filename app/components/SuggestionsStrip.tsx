@@ -49,8 +49,6 @@ export function SuggestionsStrip({
   const spinAnim = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    // debug logging helps verify refresh state
-    // console.log("SuggestionsStrip isRefreshing", isRefreshing);
     if (isRefreshing) {
       // create and start a looping animation if not already running
       if (!spinAnim.current) {

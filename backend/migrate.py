@@ -141,6 +141,21 @@ def _run_mysql(conn) -> None:
             ALTER TABLE users ADD COLUMN biometric_type VARCHAR(50) NULL
         """))
 
+    # 7. Push tokens table for Expo push notifications
+    if not _table_exists(conn, "push_tokens"):
+        conn.execute(text("""
+            CREATE TABLE push_tokens (
+                id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+                user_id    VARCHAR(36)  NOT NULL,
+                token      VARCHAR(255) NOT NULL UNIQUE,
+                created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX ix_push_tokens_user_id (user_id),
+                INDEX ix_push_tokens_token (token),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -217,7 +232,24 @@ def _run_postgresql(conn) -> None:
             ADD COLUMN IF NOT EXISTS biometric_type VARCHAR(50) NULL
     """))
 
-    # 5. Convert checked from Boolean to Integer if needed
+    # 6. Push tokens table for Expo push notifications
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS push_tokens (
+            id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+            user_id    VARCHAR(36)  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token      VARCHAR(255) NOT NULL UNIQUE,
+            created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+        )
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_push_tokens_user_id ON push_tokens(user_id)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_push_tokens_token ON push_tokens(token)
+    """))
+
+    # 7. Convert checked from Boolean to Integer if needed
     col_type = conn.execute(text("""
         SELECT data_type FROM information_schema.columns
         WHERE table_name = 'list_items' AND column_name = 'checked'

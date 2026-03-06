@@ -25,7 +25,6 @@ if (!fs.existsSync(podfilePath)) {
 const contents = fs.readFileSync(podfilePath, 'utf8');
 
 if (contents.includes('CODE_SIGNING_ALLOWED')) {
-  console.log('[fix-podfile] Podfile already contains CODE_SIGNING_ALLOWED — nothing to do.');
   process.exit(0);
 }
 
@@ -50,13 +49,11 @@ for (const line of lines) {
   if (!injected && /^\s*post_install\s+do\s+\|/.test(line)) {
     patched.push(injection);
     injected = true;
-    console.log('[fix-podfile] Injected after: ' + line.trim());
   }
 }
 
 if (!injected) {
   // Expo always generates a post_install block, but handle the edge case anyway
-  console.log('[fix-podfile] No post_install block found — appending standalone hook.');
   patched.push('');
   patched.push('post_install do |installer|');
   patched.push(injection);
@@ -65,4 +62,3 @@ if (!injected) {
 }
 
 fs.writeFileSync(podfilePath, patched.join('\n'), 'utf8');
-console.log('[fix-podfile] Podfile patched successfully at ' + podfilePath);

@@ -1,5 +1,5 @@
 import '../global.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../lib/store';
 import { useAppStatus } from '../hooks/useAppStatus';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import { MaintenanceScreen } from '../components/MaintenanceScreen';
 
 SplashScreen.preventAutoHideAsync();
@@ -25,18 +26,42 @@ function AuthGate() {
   const { token, setAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const { maintenance, message, refresh, checkStatus, setupAppStateListener, startPolling, cleanup } = useAppStatus();
+  const {
+    maintenance,
+    message,
+    refresh,
+    checkStatus,
+    applyPushUpdate,
+    setupAppStateListener,
+    cleanup,
+  } = useAppStatus();
   const [statusChecked, setStatusChecked] = useState(false);
 
+  // Handle maintenance updates from silent push
+  const onMaintenanceUpdate = useCallback(
+    (m: boolean, msg: string) => {
+      applyPushUpdate(m, msg);
+    },
+    [applyPushUpdate],
+  );
+
+  const { register: registerPush, unregister: unregisterPush } =
+    usePushNotifications({ onMaintenanceUpdate });
+
+  // Initial status check (single request, no polling)
   useEffect(() => {
     (async () => {
-      // Check maintenance status on app start
       await checkStatus();
       setStatusChecked(true);
-      // Start polling every 20 seconds
-      startPolling();
     })();
   }, []);
+
+  // Register push token once user is authenticated
+  useEffect(() => {
+    if (token) {
+      registerPush();
+    }
+  }, [token, registerPush]);
 
   useEffect(() => {
     // Setup app foreground listener to re-check maintenance status
