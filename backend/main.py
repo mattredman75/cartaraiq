@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from .routers import auth, lists, products, app_status, my_data, push
+from .routers import admin, auth, lists, products, app_status, my_data, push
 
 # Write logs to a file next to passenger_wsgi.py so they're easy to find.
 # Falls back to stderr (works fine under local uvicorn).
@@ -53,6 +53,8 @@ app.add_middleware(
     allow_origins=[
         "https://cartaraiq.app",
         "https://www.cartaraiq.app",
+        "https://admin.cartaraiq.app",
+        "http://localhost:5173",
         "http://localhost:8081",
         "http://localhost:19006",
     ],
@@ -61,6 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(lists.router)
 app.include_router(products.router)
