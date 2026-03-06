@@ -62,7 +62,6 @@ export function PINEntry({
       {onCancel && (
         <TouchableOpacity onPress={onCancel} style={styles.backButton}>
           <Ionicons name="chevron-back" size={20} color={COLORS.ink} />
-          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
       )}
 
@@ -135,6 +134,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     alignItems: "center",
     paddingHorizontal: KEYPAD_PADDING,
+    paddingTop: 20,
     paddingBottom: 24,
   },
   backButton: {
