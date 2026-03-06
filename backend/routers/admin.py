@@ -43,6 +43,7 @@ class AdminUserSummary(BaseModel):
     auth_provider: Optional[str] = None
     is_active: bool
     created_at: Optional[datetime] = None
+    last_activity: Optional[datetime] = None
     list_count: int = 0
     item_count: int = 0
 
@@ -149,6 +150,8 @@ def list_users(
     role: Optional[str] = None,
     active_minutes: Optional[int] = Query(None, ge=1, le=1440, description="Filter to users active in the last N minutes"),
     registered_after: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD). Filter to users registered on or after this date"),
+    sort_by: Optional[str] = Query(None, description="Column to sort by: name, email, role, created_at, last_activity, list_count, item_count"),
+    sort_dir: Optional[str] = Query("desc", description="Sort direction: asc or desc"),
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
@@ -184,9 +187,52 @@ def list_users(
             pass  # Ignore invalid date format
 
     total = query.count()
-    users_raw = query.order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
-    # Batch-fetch counts for the page of users
+    # Determine sort order
+    _SORT_COLUMNS = {
+        "name": User.name,
+        "email": User.email,
+        "role": User.role,
+        "created_at": User.created_at,
+        "is_active": User.is_active,
+    }
+    direction = "asc" if sort_dir == "asc" else "desc"
+    sort_col = _SORT_COLUMNS.get(sort_by or "", User.created_at)
+    order_clause = sort_col.asc() if direction == "asc" else sort_col.desc()
+
+    # For last_activity / list_count / item_count sorting we need subqueries
+    _last_activity_sq = (
+        db.query(AuditLog.user_id, sa_func.max(AuditLog.created_at).label("last_act"))
+        .filter(AuditLog.user_id.isnot(None))
+        .group_by(AuditLog.user_id)
+        .subquery()
+    )
+    _list_count_sq = (
+        db.query(ShoppingList.user_id, sa_func.count(ShoppingList.id).label("cnt"))
+        .group_by(ShoppingList.user_id)
+        .subquery()
+    )
+    _item_count_sq = (
+        db.query(ListItem.user_id, sa_func.count(ListItem.id).label("cnt"))
+        .group_by(ListItem.user_id)
+        .subquery()
+    )
+
+    if sort_by in ("last_activity", "list_count", "item_count"):
+        if sort_by == "last_activity":
+            query = query.outerjoin(_last_activity_sq, User.id == _last_activity_sq.c.user_id)
+            col = _last_activity_sq.c.last_act
+        elif sort_by == "list_count":
+            query = query.outerjoin(_list_count_sq, User.id == _list_count_sq.c.user_id)
+            col = _list_count_sq.c.cnt
+        else:  # item_count
+            query = query.outerjoin(_item_count_sq, User.id == _item_count_sq.c.user_id)
+            col = _item_count_sq.c.cnt
+        order_clause = col.asc().nullslast() if direction == "asc" else col.desc().nullslast()
+
+    users_raw = query.order_by(order_clause).offset((page - 1) * page_size).limit(page_size).all()
+
+    # Batch-fetch counts & last activity for the page of users
     user_ids = [u.id for u in users_raw]
     list_counts = dict(
         db.query(ShoppingList.user_id, sa_func.count(ShoppingList.id))
@@ -200,6 +246,12 @@ def list_users(
         .group_by(ListItem.user_id)
         .all()
     ) if user_ids else {}
+    last_activities = dict(
+        db.query(AuditLog.user_id, sa_func.max(AuditLog.created_at))
+        .filter(AuditLog.user_id.in_(user_ids))
+        .group_by(AuditLog.user_id)
+        .all()
+    ) if user_ids else {}
 
     users = []
     for u in users_raw:
@@ -211,6 +263,7 @@ def list_users(
             auth_provider=u.auth_provider,
             is_active=u.is_active,
             created_at=u.created_at,
+            last_activity=last_activities.get(u.id),
             list_count=list_counts.get(u.id, 0),
             item_count=item_counts.get(u.id, 0),
         ))
