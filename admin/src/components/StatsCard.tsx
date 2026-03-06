@@ -29,28 +29,26 @@ export default function StatsCard({
 
   const card = (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full relative ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
     >
-      <div className="flex items-center justify-between h-full">
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            {title}
+      <div>
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 pr-14">
+          {title}
+        </p>
+        <p className="text-3xl font-bold mt-1 dark:text-white">{value}</p>
+        {subtitle && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 pr-14">
+            {subtitle}
           </p>
-          <p className="text-3xl font-bold mt-1 dark:text-white">{value}</p>
-          {subtitle && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              {subtitle}
-            </p>
-          )}
-        </div>
-        {icon && (
-          <div
-            className={`p-3 rounded-lg shrink-0 ${colorMap[color] || colorMap.indigo}`}
-          >
-            {icon}
-          </div>
         )}
       </div>
+      {icon && (
+        <div
+          className={`p-3 rounded-lg shrink-0 absolute right-6 top-1/2 -translate-y-1/2 ${colorMap[color] || colorMap.indigo}`}
+        >
+          {icon}
+        </div>
+      )}
     </div>
   );
 
