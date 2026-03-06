@@ -29,7 +29,7 @@ export default function StatsCard({
 
   const card = (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
     >
       <div className="flex items-center justify-between">
         <div>
@@ -55,7 +55,11 @@ export default function StatsCard({
   );
 
   if (to) {
-    return <Link to={to}>{card}</Link>;
+    return (
+      <Link to={to} className="block h-full">
+        {card}
+      </Link>
+    );
   }
 
   return card;
