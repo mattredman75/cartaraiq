@@ -62,16 +62,16 @@ export default function SignupScreen() {
           style={{ flex: 1 }}
         >
           <ScrollView
-            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 32 }}
+            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 12 }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Back */}
             <TouchableOpacity
               onPress={() => router.back()}
-              style={{ marginBottom: 36 }}
+              style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}
             >
               
-              <Ionicons name="chevron-back" size={20} color={COLORS.ink} />
+              <Ionicons name="chevron-back" size={30} color={COLORS.tealDark} />
             </TouchableOpacity>
 
             {/* Header */}
