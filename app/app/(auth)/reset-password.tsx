@@ -60,9 +60,10 @@ export default function ResetPasswordScreen() {
             contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 32 }}
             keyboardShouldPersistTaps="handled"
           >
-            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 36 }}>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 36, flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
               <Text style={{ fontFamily: 'Montserrat_500Medium', color: COLORS.muted, fontSize: 14 }}>
-                ← Back
+                Back
               </Text>
             </TouchableOpacity>
 
