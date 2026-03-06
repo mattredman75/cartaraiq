@@ -58,30 +58,32 @@ export function PINEntry({
 
   return (
     <View style={styles.container}>
-      {/* Back button */}
+      {/* Back button — outside the padded content so it sits near the screen edge */}
       {onCancel && (
         <TouchableOpacity onPress={onCancel} style={styles.backButton}>
           <Ionicons name="chevron-back" size={20} color={COLORS.ink} />
         </TouchableOpacity>
       )}
 
-      {/* Lock icon */}
-      <View style={styles.iconWrapper}>
-        <Ionicons name="lock-closed" size={36} color={COLORS.ink} />
-      </View>
+      {/* Centered content with keypad padding */}
+      <View style={styles.content}>
+        {/* Lock icon */}
+        <View style={styles.iconWrapper}>
+          <Ionicons name="lock-closed" size={36} color={COLORS.ink} />
+        </View>
 
-      {/* Title */}
-      <Text style={styles.title}>{title}</Text>
+        {/* Title */}
+        <Text style={styles.title}>{title}</Text>
 
-      {/* Dots */}
-      <View style={styles.dotsRow}>
-        {Array.from({ length: maxLength }).map((_, i) => (
-          <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
-        ))}
-      </View>
+        {/* Dots */}
+        <View style={styles.dotsRow}>
+          {Array.from({ length: maxLength }).map((_, i) => (
+            <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
+          ))}
+        </View>
 
-      {/* Keypad */}
-      <View style={styles.keypad}>
+        {/* Keypad */}
+        <View style={styles.keypad}>
         {rows.map((row, ri) => (
           <View key={ri} style={styles.row}>
             {row.map((n) => (
@@ -123,7 +125,8 @@ export function PINEntry({
       </View>
 
       {/* Subtitle */}
-      <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      </View>
     </View>
   );
 }
@@ -132,19 +135,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    alignItems: "center",
-    paddingHorizontal: KEYPAD_PADDING,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 24,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    marginTop: 8,
-    marginBottom: 8,
-    marginLeft: -54,
-    gap: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  content: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: KEYPAD_PADDING,
   },
   backText: {
     fontFamily: "Montserrat_500Medium",
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
     color: COLORS.ink,
   },
   iconWrapper: {
-    marginTop: 28,
+    marginTop: 12,
     marginBottom: 20,
   },
   title: {
