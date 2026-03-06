@@ -625,6 +625,7 @@ def browse_audit_logs(
     status_filter: Optional[str] = Query(None, alias="status"),
     ip: Optional[str] = None,
     search: Optional[str] = None,
+    since_hours: Optional[int] = Query(None, ge=1, le=720),
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
@@ -632,7 +633,15 @@ def browse_audit_logs(
     query = db.query(AuditLog)
 
     if action:
-        query = query.filter(AuditLog.action == action)
+        # Support comma-separated actions for multi-action filtering
+        actions = [a.strip() for a in action.split(",") if a.strip()]
+        if len(actions) == 1:
+            query = query.filter(AuditLog.action == actions[0])
+        else:
+            query = query.filter(AuditLog.action.in_(actions))
+    if since_hours:
+        cutoff = datetime.now() - timedelta(hours=since_hours)
+        query = query.filter(AuditLog.created_at >= cutoff)
     if user_id:
         query = query.filter(AuditLog.user_id == user_id)
     if status_filter:
