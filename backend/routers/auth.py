@@ -38,6 +38,7 @@ class UserOut(BaseModel):
     id: str
     email: str
     name: str
+    role: str = "user"
 
     class Config:
         from_attributes = True
@@ -68,7 +69,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     db.add(default_list)
     db.commit()
 
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": user.id, "role": user.role or "user"})
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
@@ -82,7 +83,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             logger.warning("[DEBUG] Invalid login attempt for email: %s", payload.email)
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
-        token = create_access_token({"sub": user.id})
+        token = create_access_token({"sub": user.id, "role": user.role or "user"})
         logger.info("[DEBUG] Login successful, token created for user: %s", user.id)
         return TokenResponse(access_token=token, user=UserOut.model_validate(user))
     except Exception as e:

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import AppAdmin, PushToken
-from ..auth import get_current_user
+from ..auth import get_admin_user
 from ..services.push_notifications import broadcast_maintenance_update
 import logging
 
@@ -54,7 +54,7 @@ def set_maintenance_mode(
     req: SetMaintenanceRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _user=Depends(get_current_user),
+    _user=Depends(get_admin_user),
 ):
     """
     Toggle maintenance mode and broadcast a silent push to all devices.

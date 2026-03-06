@@ -156,6 +156,12 @@ def _run_mysql(conn) -> None:
             )
         """))
 
+    # 8. Role column on users (admin / user)
+    if not _col_exists(conn, "users", "role"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -247,6 +253,12 @@ def _run_postgresql(conn) -> None:
     """))
     conn.execute(text("""
         CREATE INDEX IF NOT EXISTS ix_push_tokens_token ON push_tokens(token)
+    """))
+
+    # 7. Role column on users (admin / user)
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'
     """))
 
     # 7. Convert checked from Boolean to Integer if needed
