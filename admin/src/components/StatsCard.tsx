@@ -31,7 +31,7 @@ export default function StatsCard({
     <div
       className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between h-full">
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {title}
@@ -45,7 +45,7 @@ export default function StatsCard({
         </div>
         {icon && (
           <div
-            className={`p-3 rounded-lg ${colorMap[color] || colorMap.indigo}`}
+            className={`p-3 rounded-lg shrink-0 ${colorMap[color] || colorMap.indigo}`}
           >
             {icon}
           </div>
