@@ -656,7 +656,7 @@ export default function LoginScreen() {
       {/* Biometric Setup Modal */}
       <Modal visible={showBiometricSetup} transparent animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 32 }}>
+          <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 48 }}>
             <TouchableOpacity
               onPress={() => {
                 setShowBiometricSetup(false);
