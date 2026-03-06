@@ -11,6 +11,7 @@ import {
   Activity,
   AlertTriangle,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -252,30 +253,39 @@ export default function Dashboard() {
             Security (Last 24h)
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+            <Link
+              to="/audit?action=login_failed,admin_login_failed,admin_login_denied,social_login_failed&since_hours=24&label=Failed+Logins+(24h)"
+              className="text-center p-4 bg-red-50 dark:bg-red-950 rounded-lg hover:ring-2 hover:ring-red-300 dark:hover:ring-red-700 transition-all"
+            >
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {security.total_failed_logins_24h}
               </p>
               <p className="text-sm text-red-500 dark:text-red-400">
                 Failed Logins
               </p>
-            </div>
-            <div className="text-center p-4 bg-amber-50 dark:bg-amber-950 rounded-lg">
+            </Link>
+            <Link
+              to="/audit?action=login_blocked,admin_login_blocked,social_login_blocked,token_refresh_blocked&since_hours=24&label=Blocked+Logins+(24h)"
+              className="text-center p-4 bg-amber-50 dark:bg-amber-950 rounded-lg hover:ring-2 hover:ring-amber-300 dark:hover:ring-amber-700 transition-all"
+            >
               <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                 {security.total_blocked_logins_24h}
               </p>
               <p className="text-sm text-amber-500 dark:text-amber-400">
                 Blocked Logins
               </p>
-            </div>
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+            </Link>
+            <Link
+              to="/audit?action=password_reset_request,admin_force_password_reset&since_hours=24&label=Password+Resets+(24h)"
+              className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 transition-all"
+            >
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {security.total_password_resets_24h}
               </p>
               <p className="text-sm text-blue-500 dark:text-blue-400">
                 Password Resets
               </p>
-            </div>
+            </Link>
           </div>
 
           {security.recent_failures.length > 0 && (

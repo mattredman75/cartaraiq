@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../lib/api";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 
 interface AuditEntry {
   id: string;
@@ -22,14 +23,32 @@ interface PaginatedAuditLogs {
 }
 
 export default function AuditLogPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<PaginatedAuditLogs | null>(null);
   const [page, setPage] = useState(1);
-  const [actionFilter, setActionFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState(
+    searchParams.get("action") || "",
+  );
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") || "",
+  );
   const [userSearch, setUserSearch] = useState("");
   const [ipFilter, setIpFilter] = useState("");
+  const [sinceHours, setSinceHours] = useState(
+    searchParams.get("since_hours") || "",
+  );
   const [loading, setLoading] = useState(true);
   const pageSize = 50;
+
+  const drillLabel = searchParams.get("label");
+
+  const clearDrillDown = () => {
+    setActionFilter("");
+    setStatusFilter("");
+    setSinceHours("");
+    setPage(1);
+    setSearchParams({});
+  };
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -39,6 +58,7 @@ export default function AuditLogPage() {
       if (statusFilter) params.status = statusFilter;
       if (userSearch) params.search = userSearch;
       if (ipFilter) params.ip = ipFilter;
+      if (sinceHours) params.since_hours = sinceHours;
 
       const res = await api.get("/admin/audit-logs", { params });
       setData(res.data);
@@ -47,7 +67,7 @@ export default function AuditLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, actionFilter, statusFilter, userSearch, ipFilter]);
+  }, [page, actionFilter, statusFilter, userSearch, ipFilter, sinceHours]);
 
   useEffect(() => {
     const debounce = setTimeout(fetchLogs, 300);
@@ -58,8 +78,12 @@ export default function AuditLogPage() {
 
   const ACTIONS = [
     "login",
+    "admin_login",
     "login_failed",
+    "admin_login_failed",
+    "admin_login_denied",
     "login_blocked",
+    "admin_login_blocked",
     "register",
     "register_duplicate",
     "social_login",
@@ -85,11 +109,27 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold dark:text-white">Audit Log</h1>
+        <h1 className="text-2xl font-bold dark:text-white">
+          {drillLabel
+            ? decodeURIComponent(drillLabel.replace(/\+/g, " "))
+            : "Audit Log"}
+        </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {data ? `${data.total} total events` : "Loading…"}
+          {sinceHours ? ` (last ${sinceHours}h)` : ""}
         </p>
       </div>
+
+      {/* Drill-down banner */}
+      {drillLabel && (
+        <button
+          onClick={clearDrillDown}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors cursor-pointer"
+        >
+          <X className="w-3.5 h-3.5" />
+          Clear filter — show all events
+        </button>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
