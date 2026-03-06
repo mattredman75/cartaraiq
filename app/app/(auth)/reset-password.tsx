@@ -57,14 +57,11 @@ export default function ResetPasswordScreen() {
           style={{ flex: 1 }}
         >
           <ScrollView
-            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 32 }}
+            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 12 }}
             keyboardShouldPersistTaps="handled"
           >
-            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 36, flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
-              <Text style={{ fontFamily: 'Montserrat_500Medium', color: COLORS.muted, fontSize: 14 }}>
-                Back
-              </Text>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="chevron-back" size={30} color={COLORS.tealDark} />
             </TouchableOpacity>
 
             <Text

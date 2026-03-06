@@ -380,25 +380,16 @@ export default function LoginScreen() {
             contentContainerStyle={{
               flexGrow: 1,
               paddingHorizontal: 28,
-              paddingTop: 32,
+              paddingTop: 12,
             }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Back */}
             <TouchableOpacity
               onPress={() => router.back()}
-              style={{ marginBottom: 36, flexDirection: 'row', alignItems: 'center' }}
+              style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}
             >
-              <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  color: COLORS.muted,
-                  fontSize: 14,
-                }}
-              >
-                Back
-              </Text>
+              <Ionicons name="chevron-back" size={30} color={COLORS.tealDark} />
             </TouchableOpacity>
 
             {/* Header */}
@@ -657,23 +648,14 @@ export default function LoginScreen() {
       {/* Biometric Setup Modal */}
       <Modal visible={showBiometricSetup} transparent animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 48 }}>
+          <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 16 }}>
             <TouchableOpacity
               onPress={() => {
                 setShowBiometricSetup(false);
               }}
-              style={{ marginBottom: 36, flexDirection: 'row', alignItems: 'center' }}
+              style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}
             >
-              <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  color: COLORS.muted,
-                  fontSize: 14,
-                }}
-              >
-                Back
-              </Text>
+              <Ionicons name="chevron-back" size={30} color={COLORS.tealDark} />
             </TouchableOpacity>
 
             <Text
