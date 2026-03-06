@@ -108,8 +108,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Live overview — auto-refreshes every 30 seconds
         </p>
       </div>
@@ -174,8 +174,8 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Growth Chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">
             Registrations (Last 30 Days)
           </h2>
           <ResponsiveContainer width="100%" height={300}>
@@ -205,8 +205,10 @@ export default function Dashboard() {
         </div>
 
         {/* Auth Provider Pie */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">Auth Providers</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">
+            Auth Providers
+          </h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -232,41 +234,47 @@ export default function Dashboard() {
 
       {/* Security summary */}
       {security && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
             <AlertTriangle className="w-5 h-5 text-amber-500" />
             Security (Last 24h)
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <p className="text-2xl font-bold text-red-600">
+            <div className="text-center p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {security.total_failed_logins_24h}
               </p>
-              <p className="text-sm text-red-500">Failed Logins</p>
+              <p className="text-sm text-red-500 dark:text-red-400">
+                Failed Logins
+              </p>
             </div>
-            <div className="text-center p-4 bg-amber-50 rounded-lg">
-              <p className="text-2xl font-bold text-amber-600">
+            <div className="text-center p-4 bg-amber-50 dark:bg-amber-950 rounded-lg">
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                 {security.total_blocked_logins_24h}
               </p>
-              <p className="text-sm text-amber-500">Blocked Logins</p>
+              <p className="text-sm text-amber-500 dark:text-amber-400">
+                Blocked Logins
+              </p>
             </div>
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <p className="text-2xl font-bold text-blue-600">
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {security.total_password_resets_24h}
               </p>
-              <p className="text-sm text-blue-500">Password Resets</p>
+              <p className="text-sm text-blue-500 dark:text-blue-400">
+                Password Resets
+              </p>
             </div>
           </div>
 
           {security.recent_failures.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-600 mb-2">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                 Recent Failures
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-gray-500 border-b">
+                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
                       <th className="pb-2 font-medium">Action</th>
                       <th className="pb-2 font-medium">Status</th>
                       <th className="pb-2 font-medium">IP</th>
@@ -275,17 +283,22 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {security.recent_failures.slice(0, 10).map((f: any) => (
-                      <tr key={f.id} className="border-b border-gray-100">
-                        <td className="py-2 font-mono text-xs">{f.action}</td>
+                      <tr
+                        key={f.id}
+                        className="border-b border-gray-100 dark:border-gray-700"
+                      >
+                        <td className="py-2 font-mono text-xs dark:text-gray-300">
+                          {f.action}
+                        </td>
                         <td className="py-2">
                           <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
                             {f.status}
                           </span>
                         </td>
-                        <td className="py-2 text-gray-500">
+                        <td className="py-2 text-gray-500 dark:text-gray-400">
                           {f.ip_address || "—"}
                         </td>
-                        <td className="py-2 text-gray-500">
+                        <td className="py-2 text-gray-500 dark:text-gray-400">
                           {f.created_at
                             ? new Date(f.created_at).toLocaleString()
                             : "—"}
