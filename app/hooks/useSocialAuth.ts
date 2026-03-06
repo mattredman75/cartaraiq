@@ -60,39 +60,21 @@ export function useSocialAuth() {
   const googleClientId =
     Platform.OS === "ios" ? GOOGLE_IOS_CLIENT_ID : GOOGLE_WEB_CLIENT_ID;
 
-  const googleRedirectUri = AuthSession.makeRedirectUri({
-    scheme: "cartaraiq",
-    path: "redirect",
-  });
+  // iOS: Google requires the reversed client ID as the redirect URI scheme
+  const googleRedirectUri =
+    Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID
+      ? `${GOOGLE_IOS_CLIENT_ID.split(".").reverse().join(".")}:/oauthredirect`
+      : AuthSession.makeRedirectUri({ scheme: "cartaraiq", path: "redirect" });
 
   const [googleRequest, , googlePromptAsync] = AuthSession.useAuthRequest(
     {
       clientId: googleClientId,
       scopes: ["openid", "profile", "email"],
       redirectUri: googleRedirectUri,
-      responseType: AuthSession.ResponseType.IdToken,
-      usePKCE: false,
+      responseType: AuthSession.ResponseType.Code,
+      usePKCE: true,
     },
     googleDiscovery
-  );
-
-  // ── Facebook ──
-  // Facebook rejects custom-scheme redirect URIs — use an HTTPS bridge page
-  // that reads the token from the hash fragment and redirects to cartaraiq://
-  const facebookRedirectUri = "https://cartaraiq.app/auth/callback.html";
-
-  const [facebookRequest, , facebookPromptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: FACEBOOK_APP_ID,
-      scopes: ["public_profile", "email"],
-      redirectUri: facebookRedirectUri,
-      responseType: AuthSession.ResponseType.Token,
-      extraParams: { display: "popup" },
-    },
-    {
-      authorizationEndpoint: "https://www.facebook.com/v19.0/dialog/oauth",
-      tokenEndpoint: "https://graph.facebook.com/v19.0/oauth/access_token",
-    }
   );
 
   // ── Shared login finisher ──
@@ -112,6 +94,53 @@ export function useSocialAuth() {
     setAuth(access_token, user);
   };
 
+  // ── Facebook ──
+  // Facebook rejects custom-scheme redirect URIs, so we use an HTTPS bridge
+  // page + WebBrowser.openAuthSessionAsync which handles the cartaraiq://
+  // deep-link return properly on iOS.
+  const facebookRedirectUri = "https://api.cartaraiq.app/auth/callback.html";
+
+  const loginWithFacebook = async () => {
+    try {
+      const state = Math.random().toString(36).substring(2);
+      const authUrl =
+        `https://www.facebook.com/v19.0/dialog/oauth` +
+        `?client_id=${FACEBOOK_APP_ID}` +
+        `&redirect_uri=${encodeURIComponent(facebookRedirectUri)}` +
+        `&response_type=token` +
+        `&scope=public_profile,email` +
+        `&state=${state}` +
+        `&display=popup`;
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        "cartaraiq://redirect"
+      );
+
+      if (result.type !== "success" || !result.url) {
+        if (result.type === "cancel" || result.type === "dismiss") return;
+        throw new Error("Facebook sign in failed.");
+      }
+
+      // Parse access_token from the returned URL
+      // The callback page redirects to: cartaraiq://redirect?access_token=...&...
+      const url = new URL(result.url);
+      const accessToken =
+        url.searchParams.get("access_token") ||
+        // Some browsers may keep it as a hash fragment
+        new URLSearchParams(url.hash.substring(1)).get("access_token");
+
+      if (!accessToken) {
+        throw new Error("No access token received from Facebook.");
+      }
+
+      await finishLogin({ provider: "facebook", id_token: accessToken });
+    } catch (e: any) {
+      if (e.message?.includes("cancelled")) return;
+      Alert.alert("Facebook Sign In", e.message ?? "Something went wrong.");
+    }
+  };
+
   // ── Provider sign-in functions ──
   const loginWithApple = async () => {
     try {
@@ -126,34 +155,36 @@ export function useSocialAuth() {
   const loginWithGoogle = async () => {
     try {
       const result = await googlePromptAsync();
-      if (result.type !== "success" || !result.params?.id_token) {
+      if (result.type !== "success" || !result.params?.code) {
         if (result.type === "dismiss" || result.type === "cancel") return;
         throw new Error("Google sign in failed.");
       }
+
+      // Exchange auth code for tokens
+      const tokenResp = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code: result.params.code,
+          client_id: googleClientId,
+          redirect_uri: googleRedirectUri,
+          grant_type: "authorization_code",
+          code_verifier: googleRequest?.codeVerifier ?? "",
+        }).toString(),
+      });
+
+      const tokenData = await tokenResp.json();
+      if (!tokenData.id_token) {
+        throw new Error("Failed to exchange Google auth code for ID token.");
+      }
+
       await finishLogin({
         provider: "google",
-        id_token: result.params.id_token,
+        id_token: tokenData.id_token,
       });
     } catch (e: any) {
       if (e.message?.includes("cancelled")) return;
       Alert.alert("Google Sign In", e.message ?? "Something went wrong.");
-    }
-  };
-
-  const loginWithFacebook = async () => {
-    try {
-      const result = await facebookPromptAsync();
-      if (result.type !== "success" || !result.params?.access_token) {
-        if (result.type === "dismiss" || result.type === "cancel") return;
-        throw new Error("Facebook sign in failed.");
-      }
-      await finishLogin({
-        provider: "facebook",
-        id_token: result.params.access_token,
-      });
-    } catch (e: any) {
-      if (e.message?.includes("cancelled")) return;
-      Alert.alert("Facebook Sign In", e.message ?? "Something went wrong.");
     }
   };
 
@@ -166,6 +197,6 @@ export function useSocialAuth() {
     googleAvailable: !!GOOGLE_IOS_CLIENT_ID || !!GOOGLE_WEB_CLIENT_ID,
     facebookAvailable: !!FACEBOOK_APP_ID,
     googleReady: !!googleRequest,
-    facebookReady: !!facebookRequest,
+    facebookReady: true,
   };
 }
