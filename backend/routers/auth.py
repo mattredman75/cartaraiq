@@ -113,6 +113,11 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
             log_audit(db, action="admin_login_blocked" if payload.client == "admin" else "login_blocked", request=request, user_id=user.id, status="blocked")
             raise HTTPException(status_code=403, detail="Account has been deactivated. Contact support.")
 
+        if payload.client == "admin" and (user.role or "user") != "admin":
+            logger.warning("Non-admin user attempted admin login: %s", user.id)
+            log_audit(db, action="admin_login_denied", request=request, user_id=user.id, status="failure")
+            raise HTTPException(status_code=403, detail="Admin access required.")
+
         token = create_access_token({"sub": user.id, "role": user.role or "user"})
         rt = _issue_refresh_token(user, db)
         logger.info("[DEBUG] Login successful, token created for user: %s", user.id)
