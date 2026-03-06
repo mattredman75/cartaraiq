@@ -169,9 +169,10 @@ def list_users(
         query = query.filter(User.role == role)
     if active_minutes:
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=active_minutes)
+        _auto = {"token_refresh", "token_refresh_blocked"}
         active_ids = [
             uid for (uid,) in db.query(distinct(AuditLog.user_id))
-            .filter(AuditLog.user_id.isnot(None), AuditLog.created_at >= cutoff)
+            .filter(AuditLog.user_id.isnot(None), AuditLog.created_at >= cutoff, AuditLog.action.notin_(_auto))
             .all()
         ]
         query = query.filter(User.id.in_(active_ids)) if active_ids else query.filter(User.id == None)  # noqa: E711
