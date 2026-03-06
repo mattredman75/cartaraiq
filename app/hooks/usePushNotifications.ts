@@ -95,26 +95,38 @@ export function usePushNotifications({
     }
   }, []);
 
-  // Listen for incoming notifications
+  // Listen for incoming notifications (foreground + background response)
   useEffect(() => {
     if (!Notifications) return;
 
+    const handleNotificationData = (data: Record<string, any> | undefined) => {
+      if (data?.type === "maintenance_update" && onMaintenanceUpdate) {
+        onMaintenanceUpdate(
+          Boolean(data.maintenance),
+          String(data.message ?? ""),
+        );
+      }
+    };
+
+    // Fires when a notification is received while app is foregrounded
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
         const data = notification.request.content.data;
+        handleNotificationData(data);
+      });
 
-        if (data?.type === "maintenance_update" && onMaintenanceUpdate) {
-          onMaintenanceUpdate(
-            Boolean(data.maintenance),
-            String(data.message ?? ""),
-          );
-        }
+    // Fires when user taps a notification (app in background/killed)
+    const responseListener =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        handleNotificationData(data);
       });
 
     return () => {
       if (notificationListener.current) {
         notificationListener.current.remove();
       }
+      responseListener.remove();
     };
   }, [onMaintenanceUpdate]);
 
