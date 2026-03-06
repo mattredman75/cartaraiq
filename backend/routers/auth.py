@@ -7,20 +7,24 @@ from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..auth import create_access_token, get_current_user, hash_password, verify_password, generate_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS
 from ..config import settings
 from ..database import get_db
 from ..models.shopping_list import ShoppingList
 from ..models.user import User
+from ..services.audit import log_audit
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class RegisterRequest(BaseModel):
@@ -62,10 +66,15 @@ def _issue_refresh_token(user: User, db: Session) -> str:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def register(request: Request, payload: RegisterRequest, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered.")
+        log_audit(db, action="register_duplicate", request=request, detail={"email": payload.email}, status="failure")
+        raise HTTPException(
+            status_code=409,
+            detail="Unable to create account. An account may already exist with this email. Try logging in instead.",
+        )
 
     user = User(
         email=payload.email,
@@ -82,22 +91,31 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": user.id, "role": user.role or "user"})
     rt = _issue_refresh_token(user, db)
+    log_audit(db, action="register", request=request, user_id=user.id)
     return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     logger.info("[DEBUG] login endpoint called with email: %s", payload.email)
     try:
         user = db.query(User).filter(User.email == payload.email).first()
         logger.info("[DEBUG] Database query executed, user found: %s", user is not None)
         if not user or not verify_password(payload.password, user.hashed_password):
             logger.warning("[DEBUG] Invalid login attempt for email: %s", payload.email)
+            log_audit(db, action="login_failed", request=request, detail={"email": payload.email}, status="failure")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+        if not getattr(user, "is_active", True):
+            logger.warning("Blocked login for deactivated user: %s", user.id)
+            log_audit(db, action="login_blocked", request=request, user_id=user.id, status="blocked")
+            raise HTTPException(status_code=403, detail="Account has been deactivated. Contact support.")
 
         token = create_access_token({"sub": user.id, "role": user.role or "user"})
         rt = _issue_refresh_token(user, db)
         logger.info("[DEBUG] Login successful, token created for user: %s", user.id)
+        log_audit(db, action="login", request=request, user_id=user.id)
         return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
     except Exception as e:
         logger.exception("Error in login for email %s: %s", payload.email, str(e))
@@ -113,7 +131,8 @@ class SocialAuthRequest(BaseModel):
 
 
 @router.post("/social", response_model=TokenResponse)
-async def social_login(payload: SocialAuthRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def social_login(request: Request, payload: SocialAuthRequest, db: Session = Depends(get_db)):
     """
     Authenticate via social provider (Apple, Google, Facebook).
     Verifies the provider token, creates or finds the user, and returns a JWT.
@@ -138,6 +157,7 @@ async def social_login(payload: SocialAuthRequest, db: Session = Depends(get_db)
             raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
     except SocialAuthError as e:
         logger.warning("Social auth failed for provider %s: %s", provider, str(e))
+        log_audit(db, action="social_login_failed", request=request, detail={"provider": provider, "error": str(e)}, status="failure")
         raise HTTPException(status_code=401, detail=str(e))
 
     provider_id = social_info["provider_id"]
@@ -184,8 +204,14 @@ async def social_login(payload: SocialAuthRequest, db: Session = Depends(get_db)
         db.commit()
         logger.info("Created new %s user: %s", provider, user.id)
 
+    if not getattr(user, "is_active", True):
+        logger.warning("Blocked social login for deactivated user: %s", user.id)
+        log_audit(db, action="social_login_blocked", request=request, user_id=user.id, detail={"provider": provider}, status="blocked")
+        raise HTTPException(status_code=403, detail="Account has been deactivated. Contact support.")
+
     token = create_access_token({"sub": user.id, "role": user.role or "user"})
     rt = _issue_refresh_token(user, db)
+    log_audit(db, action="social_login", request=request, user_id=user.id, detail={"provider": provider})
     return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
 
 
@@ -196,7 +222,8 @@ class RefreshRequest(BaseModel):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def refresh_token(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
     """
     Exchange a valid refresh token for a new access token + refresh token.
     The old refresh token is rotated (invalidated) on each use.
@@ -218,10 +245,18 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         db.commit()
         raise HTTPException(status_code=401, detail="Refresh token expired. Please sign in again.")
 
+    if not getattr(user, "is_active", True):
+        user.refresh_token = None
+        user.refresh_token_expiry = None
+        db.commit()
+        log_audit(db, action="token_refresh_blocked", request=request, user_id=user.id, status="blocked")
+        raise HTTPException(status_code=403, detail="Account has been deactivated. Contact support.")
+
     # Issue new access token + rotate refresh token
     access = create_access_token({"sub": user.id, "role": user.role or "user"})
     new_rt = _issue_refresh_token(user, db)
     logger.info("Token refreshed for user %s", user.id)
+    log_audit(db, action="token_refresh", request=request, user_id=user.id)
     return TokenResponse(access_token=access, refresh_token=new_rt, user=UserOut.model_validate(user))
 
 
@@ -306,20 +341,24 @@ class UpdateMeRequest(BaseModel):
 @router.patch("/me", response_model=UserOut)
 def update_me(
     payload: UpdateMeRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name cannot be empty.")
+    old_name = current_user.name
     current_user.name = name
     db.commit()
     db.refresh(current_user)
+    log_audit(db, action="user_update", request=request, user_id=current_user.id, detail={"old_name": old_name, "new_name": name})
     return current_user
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -329,11 +368,14 @@ def logout(
         user.refresh_token = None
         user.refresh_token_expiry = None
         db.commit()
+    log_audit(db, action="logout", request=request, user_id=current_user.id)
     return {"message": "Signed out successfully."}
 
 
 @router.post("/forgot-password")
+@limiter.limit("3/minute")
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -356,6 +398,7 @@ def forgot_password(
             db.commit()
             logger.info("[DEBUG] Reset token created for user, scheduling email")
             background_tasks.add_task(_send_reset_email, user.email, code)
+        log_audit(db, action="password_reset_request", request=request, detail={"email": payload.email}, status="success")
         return {"message": "If that email is registered, a reset code has been sent."}
     except Exception as e:
         logger.exception("Error in forgot_password for email %s: %s", payload.email, str(e))
@@ -363,9 +406,11 @@ def forgot_password(
 
 
 @router.post("/reset-password")
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(request: Request, payload: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not user.reset_token or not user.reset_token_expiry:
+        log_audit(db, action="password_reset_failed", request=request, detail={"email": payload.email, "reason": "invalid_code"}, status="failure")
         raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
 
     # Block social-only users from creating a password via reset flow
@@ -389,6 +434,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     user.reset_token = None
     user.reset_token_expiry = None
     db.commit()
+    log_audit(db, action="password_reset", request=request, user_id=user.id)
     return {"message": "Password updated successfully."}
 
 
@@ -407,6 +453,7 @@ class BiometricStatusResponse(BaseModel):
 @router.post("/biometric/setup", status_code=status.HTTP_200_OK)
 def setup_biometric(
     payload: BiometricSetupRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -423,6 +470,7 @@ def setup_biometric(
         user.biometric_pin_hash = payload.pin_hash
         user.biometric_type = payload.biometric_type
         db.commit()
+        log_audit(db, action="biometric_setup", request=request, user_id=current_user.id, detail={"type": payload.biometric_type})
         return {"message": "Biometric authentication enabled successfully."}
     except Exception as e:
         logger.exception("Error setting up biometric for user %s: %s", current_user.id, str(e))
@@ -431,6 +479,7 @@ def setup_biometric(
 
 @router.post("/biometric/disable", status_code=status.HTTP_200_OK)
 def disable_biometric(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -444,6 +493,7 @@ def disable_biometric(
         user.biometric_pin_hash = None
         user.biometric_type = None
         db.commit()
+        log_audit(db, action="biometric_disable", request=request, user_id=current_user.id)
         return {"message": "Biometric authentication disabled successfully."}
     except Exception as e:
         logger.exception("Error disabling biometric for user %s: %s", current_user.id, str(e))

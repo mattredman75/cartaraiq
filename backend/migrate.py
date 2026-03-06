@@ -195,6 +195,30 @@ def _run_mysql(conn) -> None:
             ALTER TABLE users ADD COLUMN refresh_token_expiry DATETIME NULL
         """))
 
+    # 12. is_active flag for user blocking
+    if not _col_exists(conn, "users", "is_active"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1
+        """))
+
+    # 13. Audit logs table
+    if not _table_exists(conn, "audit_logs"):
+        conn.execute(text("""
+            CREATE TABLE audit_logs (
+                id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+                user_id    VARCHAR(36)  NULL,
+                action     VARCHAR(100) NOT NULL,
+                detail     TEXT         NULL,
+                ip_address VARCHAR(45)  NULL,
+                user_agent VARCHAR(500) NULL,
+                status     VARCHAR(20)  NOT NULL DEFAULT 'success',
+                created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX ix_audit_logs_user_id (user_id),
+                INDEX ix_audit_logs_action (action),
+                INDEX ix_audit_logs_created_at (created_at)
+            )
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -335,6 +359,35 @@ def _run_postgresql(conn) -> None:
                 ALTER COLUMN checked TYPE INTEGER
                 USING CASE WHEN checked THEN 1 ELSE 0 END
         """))
+
+    # 10. is_active flag for user blocking
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE
+    """))
+
+    # 11. Audit logs table
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+            user_id    VARCHAR(36)  NULL,
+            action     VARCHAR(100) NOT NULL,
+            detail     TEXT         NULL,
+            ip_address VARCHAR(45)  NULL,
+            user_agent VARCHAR(500) NULL,
+            status     VARCHAR(20)  NOT NULL DEFAULT 'success',
+            created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+        )
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_audit_logs_user_id ON audit_logs(user_id)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_audit_logs_action ON audit_logs(action)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs(created_at)
+    """))
 
 
 def _run_mysql_ingredient_pairings(conn) -> None:

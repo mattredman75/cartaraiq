@@ -1,7 +1,11 @@
 import logging
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from .routers import auth, lists, products, app_status, my_data, push
 
 # Write logs to a file next to passenger_wsgi.py so they're easy to find.
@@ -28,7 +32,21 @@ if not _file_logging_enabled:
         _log_path,
     )
 
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+
+def _custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Return a JSON response (with 'detail' key) so the mobile app can display it."""
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many requests. Please try again shortly."},
+    )
+
+
 app = FastAPI(title="CartaraIQ API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _custom_rate_limit_handler)
 
 app.add_middleware(
     CORSMiddleware,

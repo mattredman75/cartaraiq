@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import AppAdmin, PushToken
 from ..auth import get_admin_user
 from ..services.push_notifications import broadcast_maintenance_update
+from ..services.audit import log_audit
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ def get_app_status(db: Session = Depends(get_db)):
 @router.put("/maintenance", response_model=AppStatusResponse)
 def set_maintenance_mode(
     req: SetMaintenanceRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _user=Depends(get_admin_user),
@@ -68,6 +70,8 @@ def set_maintenance_mode(
     record.message = req.message
     db.commit()
     db.refresh(record)
+
+    log_audit(db, action="maintenance_toggle", request=request, user_id=_user.id, detail={"maintenance": req.maintenance, "message": req.message})
 
     # Gather all push tokens and broadcast in the background
     all_tokens = [pt.token for pt in db.query(PushToken.token).all()]

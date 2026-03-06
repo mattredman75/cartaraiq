@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
@@ -8,6 +8,7 @@ from ..models.list_item import ListItem
 from ..models.shopping_list import ShoppingList
 from ..auth import get_current_user
 from ..models.user import User
+from ..services.audit import log_audit
 
 router = APIRouter(prefix="/my", tags=["my-data"])
 
@@ -63,6 +64,7 @@ class DataImport(BaseModel):
 
 @router.get("/data", response_model=DataExport)
 async def export_data(
+    request: Request = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -106,6 +108,7 @@ async def export_data(
 @router.post("/data", response_model=DataExport)
 async def import_data(
     payload: DataImport,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -150,5 +153,7 @@ async def import_data(
 
     db.commit()
 
+    log_audit(db, action="data_import", request=request, user_id=user.id, detail={"lists_count": len(payload.lists)})
+
     # Return the freshly-imported state using the same export logic
-    return await export_data(user=user, db=db)
+    return await export_data(request=request, user=user, db=db)
