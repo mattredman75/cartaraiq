@@ -3,7 +3,10 @@
     "name": "CartaraIQ",
     "slug": "cartaraiq",
     "version": "1.0.0",
-    "scheme": "cartaraiq",
+    "scheme": [
+      "cartaraiq",
+      "com.googleusercontent.apps.439468927034-64rs6sd4l8ug3d1sj1nv2no3qfuc4gcq"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
