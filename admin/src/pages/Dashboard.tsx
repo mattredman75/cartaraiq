@@ -108,9 +108,6 @@ export default function Dashboard() {
   // Build date strings for drill-down links
   const now = new Date();
   const todayISO = now.toISOString().slice(0, 10);
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay());
-  const weekISO = weekStart.toISOString().slice(0, 10);
   const monthISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
   return (
@@ -232,7 +229,7 @@ export default function Dashboard() {
                 outerRadius={90}
                 dataKey="value"
                 label={({ name, percent }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
+                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                 }
               >
                 {providerData.map((_, i) => (
