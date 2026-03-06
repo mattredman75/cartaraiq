@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../lib/api";
+import { useAuth } from "../lib/auth";
 import {
   ArrowLeft,
   UserX,
@@ -33,6 +34,8 @@ interface UserDetail {
 export default function UserDetailPage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { user: adminUser } = useAuth();
+  const isSelf = adminUser?.id === userId;
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
@@ -220,6 +223,8 @@ export default function UserDetailPage() {
               onClick={() => doAction("role", "PUT", { role: "user" })}
               loading={actionLoading === "role"}
               variant="warning"
+              disabled={isSelf}
+              title={isSelf ? "You cannot demote yourself" : undefined}
             />
           )}
         </div>
@@ -321,12 +326,16 @@ function ActionBtn({
   onClick,
   loading,
   variant = "default",
+  disabled = false,
+  title,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   loading: boolean;
   variant?: "default" | "danger" | "success" | "warning";
+  disabled?: boolean;
+  title?: string;
 }) {
   const base =
     "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer";
@@ -344,7 +353,8 @@ function ActionBtn({
   return (
     <button
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
+      title={title}
       className={`${base} ${variants[variant]}`}
     >
       {loading ? (
