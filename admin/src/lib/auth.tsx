@@ -1,10 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import api from "./api";
 
 interface AdminUser {
@@ -51,7 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await api.post("/auth/login", { email, password, client: "admin" });
+    const res = await api.post("/auth/login", {
+      email,
+      password,
+      client: "admin",
+    });
     const { access_token, user: u } = res.data;
 
     if (u.role !== "admin") {
