@@ -20,12 +20,17 @@ export default function Login() {
       await login(email, password);
       navigate("/");
     } catch (err: any) {
-      if (err.message === "Admin access required") {
-        setError("This account does not have admin privileges.");
-      } else if (err.response?.status === 401) {
+      if (err.response?.status === 401) {
         setError("Invalid email or password.");
       } else if (err.response?.status === 403) {
-        setError("Account has been deactivated.");
+        const detail = err.response?.data?.detail || "";
+        if (detail.includes("Admin access required")) {
+          setError("This account does not have admin privileges.");
+        } else {
+          setError("Account has been deactivated.");
+        }
+      } else if (err.message === "Admin access required") {
+        setError("This account does not have admin privileges.");
       } else if (err.response?.status === 429) {
         setError("Too many attempts. Please wait and try again.");
       } else {
