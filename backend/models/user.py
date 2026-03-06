@@ -23,6 +23,7 @@ class User(Base):
     biometric_type = Column(String(50), nullable=True)
     refresh_token = Column(String(255), nullable=True, index=True)
     refresh_token_expiry = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False, server_default="1")
 
     list_items = relationship("ListItem", back_populates="user", cascade="all, delete-orphan")
     shopping_lists = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")

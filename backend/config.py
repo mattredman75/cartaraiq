@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://root:password@localhost:3306/cartaraiq"
     jwt_secret: str = "changeme-use-a-real-secret"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 30  # 30 days
+    jwt_expire_minutes: int = 15  # 15 minutes (refresh token handles longevity)
     claude_api_key: str = ""
     groq_api_key: str = ""
     smtp_host: str = "mail.cartaraiq.app"
