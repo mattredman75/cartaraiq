@@ -11,8 +11,10 @@ class User(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)  # nullable for social auth users
     role = Column(String(20), nullable=False, default="user", server_default="user")
+    auth_provider = Column(String(20), nullable=True)  # 'apple', 'google', 'facebook', or NULL for email
+    auth_provider_id = Column(String(255), nullable=True, index=True)  # provider's user ID
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reset_token = Column(String(255), nullable=True)
     reset_token_expiry = Column(DateTime(timezone=True), nullable=True)

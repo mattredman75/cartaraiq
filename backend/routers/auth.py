@@ -39,6 +39,7 @@ class UserOut(BaseModel):
     email: str
     name: str
     role: str = "user"
+    auth_provider: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -89,6 +90,90 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     except Exception as e:
         logger.exception("Error in login for email %s: %s", payload.email, str(e))
         raise
+
+
+# ── Social Authentication ─────────────────────────────────────────────────────
+
+class SocialAuthRequest(BaseModel):
+    provider: str  # 'apple', 'google', 'facebook'
+    id_token: str  # ID token or access token from the provider
+    name: Optional[str] = None  # Apple only sends name on first auth
+
+
+@router.post("/social", response_model=TokenResponse)
+async def social_login(payload: SocialAuthRequest, db: Session = Depends(get_db)):
+    """
+    Authenticate via social provider (Apple, Google, Facebook).
+    Verifies the provider token, creates or finds the user, and returns a JWT.
+    """
+    from ..services.social_auth import (
+        verify_apple_token,
+        verify_google_token,
+        verify_facebook_token,
+        SocialAuthError,
+    )
+
+    provider = payload.provider.lower()
+
+    try:
+        if provider == "apple":
+            social_info = await verify_apple_token(payload.id_token)
+        elif provider == "google":
+            social_info = verify_google_token(payload.id_token)
+        elif provider == "facebook":
+            social_info = await verify_facebook_token(payload.id_token)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+    except SocialAuthError as e:
+        logger.warning("Social auth failed for provider %s: %s", provider, str(e))
+        raise HTTPException(status_code=401, detail=str(e))
+
+    provider_id = social_info["provider_id"]
+    email = social_info.get("email")
+    name = social_info.get("name") or payload.name or "User"
+
+    # 1. Try to find by provider + provider_id (returning user via social)
+    user = db.query(User).filter(
+        User.auth_provider == provider,
+        User.auth_provider_id == provider_id,
+    ).first()
+
+    # 2. If not found, try by email (link social to existing email account)
+    if not user and email:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Link social provider to existing account
+            user.auth_provider = provider
+            user.auth_provider_id = provider_id
+            db.commit()
+            logger.info("Linked %s to existing user %s", provider, user.id)
+
+    # 3. If still not found, create new user
+    if not user:
+        if not email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email is required. Please grant email permission and try again.",
+            )
+        user = User(
+            email=email,
+            name=name,
+            hashed_password=None,
+            auth_provider=provider,
+            auth_provider_id=provider_id,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # Create default shopping list for new user
+        default_list = ShoppingList(user_id=user.id, name="My List")
+        db.add(default_list)
+        db.commit()
+        logger.info("Created new %s user: %s", provider, user.id)
+
+    token = create_access_token({"sub": user.id, "role": user.role or "user"})
+    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
 # ── Password Reset ────────────────────────────────────────────────────────────

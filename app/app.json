@@ -50,7 +50,9 @@
           "speechRecognitionPermission": "Allow CartaraIQ to recognize speech to add items to your list."
         }
       ],
-      "./plugins/withCartaraIQWidget"
+      "./plugins/withCartaraIQWidget",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
@@ -67,7 +69,9 @@
                   "targetName": "CartaraIQWidget",
                   "bundleIdentifier": "com.cartaraiq.app.widget",
                   "entitlements": {
-                    "com.apple.security.application-groups": ["group.com.cartaraiq.app"]
+                    "com.apple.security.application-groups": [
+                      "group.com.cartaraiq.app"
+                    ]
                   }
                 }
               ]

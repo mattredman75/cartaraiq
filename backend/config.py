@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     smtp_user: str = "support@cartaraiq.app"
     smtp_pass: str = "support_123QWE!"
     smtp_from: str = "support@cartaraiq.app"
+    google_ios_client_id: str = ""
+    google_web_client_id: str = ""
+    facebook_app_id: str = ""
+    facebook_app_secret: str = ""
 
     class Config:
         env_file = ".env"
