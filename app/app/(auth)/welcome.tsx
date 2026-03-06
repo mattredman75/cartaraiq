@@ -25,7 +25,7 @@ const SLIDES = [
   },
   {
     id: '2',
-    title: 'Predictive\nShopping Lists',
+    title: 'Predictive Lists\nFrom Your Habits',
     subtitle:
       "Running low on milk? We already know. AI tracks your patterns and surfaces the right items at the right time.",
     image: require('../../assets/cartara_step-2.png'),
