@@ -1,6 +1,6 @@
 import { useCallback, useState, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
-import { getAppStatus } from "../lib/api";
+import { getAppStatus, reportLifecycle } from "../lib/api";
 import { syncMaintenanceToWidget } from "./useWidgetSync";
 
 interface AppStatus {
@@ -81,6 +81,9 @@ export function useAppStatus() {
         if (nextAppState === "active") {
           // App came to foreground — single check
           await checkStatus();
+          reportLifecycle("foreground").catch(() => {});
+        } else if (nextAppState === "background") {
+          reportLifecycle("background").catch(() => {});
         }
       },
     );

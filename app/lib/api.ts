@@ -97,6 +97,9 @@ export default api;
 export const getAppStatus = () =>
   apiNoAuth.get("/app/status");
 
+export const reportLifecycle = (state: "foreground" | "background") =>
+  api.post("/app/lifecycle", { state });
+
 // --- Auth ---
 export const authRegister = (email: string, password: string, name: string) =>
   api.post("/auth/register", { email, password, name });

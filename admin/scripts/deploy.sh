@@ -33,5 +33,5 @@ scp -r dist/. "$SSH_HOST:$REMOTE_DIR/"
 
 echo ""
 echo "══════════════════════════════════════════"
-echo "  ✓ Deployed to admin.cartaraiq.app"
+echo "  ✓ Deployed to https://admin.cartaraiq.app"
 echo "══════════════════════════════════════════"
