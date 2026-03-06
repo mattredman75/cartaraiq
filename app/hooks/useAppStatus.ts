@@ -1,6 +1,9 @@
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { getAppStatus } from "../lib/api";
+import { syncMaintenanceToWidget } from "./useWidgetSync";
+
+const POLL_INTERVAL_MS = 20_000; // Check every 20 seconds
 
 interface AppStatus {
   maintenance: boolean;
@@ -15,16 +18,21 @@ export function useAppStatus() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const appStateSubscription = useRef<any>(null);
+  const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Check app status from backend
   const checkStatus = useCallback(async () => {
     try {
       setError(null);
       const response = await getAppStatus();
+      const maintenanceFlag = response.data.maintenance;
+      const maintenanceMessage = response.data.message || "";
       setStatus({
-        maintenance: response.data.maintenance,
-        message: response.data.message || "",
+        maintenance: maintenanceFlag,
+        message: maintenanceMessage,
       });
+      // Sync maintenance status to the iOS widget
+      syncMaintenanceToWidget(maintenanceFlag, maintenanceMessage);
       return response.data;
     } catch (err: any) {
       console.error("Failed to check app status:", err);
@@ -39,7 +47,8 @@ export function useAppStatus() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      await checkStatus();
+      const result = await checkStatus();
+      return result;
     } finally {
       setLoading(false);
     }
@@ -51,20 +60,41 @@ export function useAppStatus() {
       "change",
       async (nextAppState: AppStateStatus) => {
         if (nextAppState === "active") {
-          // App came to foreground, check status
+          // App came to foreground, check status and restart polling
           await checkStatus();
+          startPolling();
+        } else if (nextAppState === "background") {
+          // Stop polling when app goes to background
+          stopPolling();
         }
       }
     );
     appStateSubscription.current = subscription;
   }, [checkStatus]);
 
-  // Cleanup listener
+  // Start periodic polling
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollInterval.current = setInterval(() => {
+      checkStatus();
+    }, POLL_INTERVAL_MS);
+  }, [checkStatus]);
+
+  // Stop periodic polling
+  const stopPolling = useCallback(() => {
+    if (pollInterval.current) {
+      clearInterval(pollInterval.current);
+      pollInterval.current = null;
+    }
+  }, []);
+
+  // Cleanup listener and polling
   const cleanup = useCallback(() => {
     if (appStateSubscription.current) {
       appStateSubscription.current.remove();
     }
-  }, []);
+    stopPolling();
+  }, [stopPolling]);
 
   return {
     maintenance: status.maintenance,
@@ -74,6 +104,7 @@ export function useAppStatus() {
     checkStatus,
     refresh,
     setupAppStateListener,
+    startPolling,
     cleanup,
   };
 }

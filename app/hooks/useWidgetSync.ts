@@ -26,6 +26,10 @@ const { SharedDataModule } = NativeModules as {
         }>;
       }>,
     ) => Promise<void>;
+    syncMaintenanceToWidget: (
+      maintenance: boolean,
+      message: string,
+    ) => Promise<void>;
   };
 };
 
@@ -84,5 +88,22 @@ export async function syncAllListsToWidget(
     await SharedDataModule.syncAllListsToWidget(payload);
   } catch (e) {
     console.warn('[useWidgetSync] syncAllLists failed:', e);
+  }
+}
+
+/**
+ * Syncs the maintenance mode flag to the iOS widget via App Group UserDefaults.
+ * The widget reads this to show a maintenance screen instead of list data.
+ */
+export async function syncMaintenanceToWidget(
+  maintenance: boolean,
+  message: string,
+): Promise<void> {
+  if (Platform.OS !== 'ios' || !SharedDataModule) return;
+
+  try {
+    await SharedDataModule.syncMaintenanceToWidget(maintenance, message);
+  } catch (e) {
+    console.warn('[useWidgetSync] syncMaintenance failed:', e);
   }
 }

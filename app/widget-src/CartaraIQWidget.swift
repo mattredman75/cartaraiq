@@ -7,6 +7,7 @@ import AppIntents
 private let appGroupID = "group.com.cartaraiq.app"
 private let legacyDataKey = "widgetData"
 private let allListsKey = "widgetAllLists"
+private let maintenanceKey = "widgetMaintenance"
 
 struct WidgetItem: Identifiable {
   let id: String
@@ -91,6 +92,27 @@ func loadLegacyPayload() -> LegacyPayload? {
   return LegacyPayload(listName: listName, items: items, lastUpdated: lastUpdated)
 }
 
+// MARK: - Maintenance Loading
+
+struct MaintenanceStatus {
+  let maintenance: Bool
+  let message: String
+}
+
+func loadMaintenanceStatus() -> MaintenanceStatus {
+  guard
+    let defaults = UserDefaults(suiteName: appGroupID),
+    let json = defaults.string(forKey: maintenanceKey),
+    let data = json.data(using: .utf8),
+    let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+    let maintenance = root["maintenance"] as? Bool
+  else {
+    return MaintenanceStatus(maintenance: false, message: "")
+  }
+  let message = root["message"] as? String ?? ""
+  return MaintenanceStatus(maintenance: maintenance, message: message)
+}
+
 // MARK: - Timeline Entry
 
 struct CartaraIQWidgetEntry: TimelineEntry {
@@ -98,6 +120,8 @@ struct CartaraIQWidgetEntry: TimelineEntry {
   let listName: String
   let items: [WidgetItem]
   let hasData: Bool
+  let maintenance: Bool
+  let maintenanceMessage: String
 }
 
 // MARK: - AppIntent: List Picker
@@ -153,7 +177,9 @@ struct CartaraIQWidgetProvider: AppIntentTimelineProvider {
         WidgetItem(id: "2", name: "Eggs", quantity: 12, unit: nil, checked: 0),
         WidgetItem(id: "3", name: "Bread", quantity: 1, unit: nil, checked: 1),
       ],
-      hasData: true
+      hasData: true,
+      maintenance: false,
+      maintenanceMessage: ""
     )
   }
 
@@ -168,6 +194,19 @@ struct CartaraIQWidgetProvider: AppIntentTimelineProvider {
   }
 
   private func makeEntry(for configuration: SelectListIntent) -> CartaraIQWidgetEntry {
+    // Check maintenance status first
+    let maintenanceStatus = loadMaintenanceStatus()
+    if maintenanceStatus.maintenance {
+      return CartaraIQWidgetEntry(
+        date: Date(),
+        listName: "CartaraIQ",
+        items: [],
+        hasData: true,
+        maintenance: true,
+        maintenanceMessage: maintenanceStatus.message
+      )
+    }
+
     // 1. Use the user-selected list if available
     if let selectedList = configuration.shoppingList,
        let listData = loadListById(selectedList.id) {
@@ -175,7 +214,9 @@ struct CartaraIQWidgetProvider: AppIntentTimelineProvider {
         date: Date(),
         listName: listData.name,
         items: listData.items,
-        hasData: true
+        hasData: true,
+        maintenance: false,
+        maintenanceMessage: ""
       )
     }
     // 2. Fallback: first list from all-lists data
@@ -184,7 +225,9 @@ struct CartaraIQWidgetProvider: AppIntentTimelineProvider {
         date: Date(),
         listName: first.name,
         items: first.items,
-        hasData: true
+        hasData: true,
+        maintenance: false,
+        maintenanceMessage: ""
       )
     }
     // 3. Fallback: legacy single-list data
@@ -193,11 +236,13 @@ struct CartaraIQWidgetProvider: AppIntentTimelineProvider {
         date: Date(),
         listName: legacy.listName,
         items: legacy.items,
-        hasData: true
+        hasData: true,
+        maintenance: false,
+        maintenanceMessage: ""
       )
     }
     // 4. No data yet
-    return CartaraIQWidgetEntry(date: Date(), listName: "CartaraIQ", items: [], hasData: false)
+    return CartaraIQWidgetEntry(date: Date(), listName: "CartaraIQ", items: [], hasData: false, maintenance: false, maintenanceMessage: "")
   }
 }
 
@@ -235,12 +280,39 @@ struct CartaraIQWidgetEntryView: View {
             .foregroundColor(Color(red: 0.961, green: 0.784, blue: 0.259)) // amber #F5C842
         }
         Spacer()
+      }
+
+      if entry.maintenance {
+        // Maintenance mode
+        Spacer()
+        HStack {
+          Spacer()
+          VStack(spacing: 6) {
+            Image("CartaraMaintenance")
+              .resizable()
+              .aspectRatio(contentMode: .fit)
+              .frame(height: family == .systemSmall ? 50 : 70)
+              .opacity(0.75)
+            Text("Under Maintenance")
+              .font(.system(size: 14, weight: .bold))
+              .foregroundColor(Color.white.opacity(0.5))
+          }
+          Spacer()
+        }
+        Spacer()
+      } else {
+      Group {
+
+      // Header count (only when not in maintenance)
+      HStack(alignment: .top, spacing: 0) {
+        Spacer()
         if totalCount > 0 {
           Text("\(checkedCount)/\(totalCount)")
             .font(.system(size: 13, weight: .bold))
             .foregroundColor(Color.white.opacity(0.8))
         }
       }
+      .padding(.top, -18) // align with header row
 
       // List name
       Text(entry.listName)
@@ -260,9 +332,16 @@ struct CartaraIQWidgetEntryView: View {
               .foregroundColor(Color.white.opacity(0.6))
               .multilineTextAlignment(.center)
           } else {
-            Label("All done!", systemImage: "checkmark.circle.fill")
-              .font(.system(size: 15, weight: .medium))
-              .foregroundColor(Color.white.opacity(0.8))
+            VStack(spacing: 6) {
+              Image("CartaraEmptyFancy")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: family == .systemSmall ? 60 : 80)
+                .opacity(0.75)
+              Text("All done!")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color.white.opacity(0.5))
+            }
           }
           Spacer()
         }
@@ -281,6 +360,9 @@ struct CartaraIQWidgetEntryView: View {
         }
         Spacer(minLength: 0)
       }
+
+      } // end Group
+      } // end maintenance else
     }
     .padding(.vertical, 12)
     .padding(.horizontal, family == .systemSmall ? 16 : 20)

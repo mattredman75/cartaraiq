@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
@@ -41,24 +42,12 @@ export function MaintenanceScreen({
           paddingHorizontal: 24,
         }}
       >
-        {/* Maintenance Icon */}
-        <View
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 40,
-            backgroundColor: COLORS.tealLight,
-            justifyContent: "center",
-            alignItems: "center",
-            marginBottom: 24,
-          }}
-        >
-          <Ionicons
-            name="construct"
-            size={40}
-            color={COLORS.teal}
-          />
-        </View>
+        {/* Maintenance Image */}
+        <Image
+          source={require("../assets/cartara_maintenance.png")}
+          style={{ width: 240, height: 240, marginBottom: 24, opacity: 0.85 }}
+          resizeMode="contain"
+        />
 
         {/* Title */}
         <Text
