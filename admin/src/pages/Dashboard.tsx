@@ -67,9 +67,11 @@ export default function Dashboard() {
   const [growth, setGrowth] = useState<GrowthData[]>([]);
   const [security, setSecurity] = useState<SecurityData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
+      setError(null);
       const [ov, gr, sec] = await Promise.all([
         api.get("/admin/dashboard/overview"),
         api.get("/admin/dashboard/growth?days=30"),
@@ -80,6 +82,7 @@ export default function Dashboard() {
       setSecurity(sec.data);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
+      setError("Failed to load dashboard data. Retrying automatically…");
     } finally {
       setLoading(false);
     }
@@ -91,12 +94,27 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  if (loading || !overview) {
+  if (loading && !overview) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
       </div>
     );
+  }
+
+  if (error && !overview) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+          <p className="text-gray-600 dark:text-gray-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!overview) {
+    return null;
   }
 
   const providerData = Object.entries(overview.auth_provider_breakdown).map(

@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -22,7 +23,10 @@ export default function SettingsPage() {
         setMessage(res.data.message || "");
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setFetchError("Failed to load maintenance status");
+        setLoading(false);
+      });
   }, []);
 
   const toggleMaintenance = async (enable: boolean) => {
@@ -54,6 +58,22 @@ export default function SettingsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <h1 className="text-2xl font-bold dark:text-white">Settings</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            System configuration
+          </p>
+        </div>
+        <div className="p-4 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400 rounded-lg text-sm">
+          {fetchError}
+        </div>
       </div>
     );
   }
