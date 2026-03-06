@@ -27,7 +27,12 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
+          try {
+            const { authLogout } = await import('../../lib/api');
+            await authLogout();
+          } catch (_) { /* best-effort */ }
           await deleteItem('auth_token');
+          await deleteItem('refresh_token');
           await deleteItem('auth_user');
           clearAuth();
         },

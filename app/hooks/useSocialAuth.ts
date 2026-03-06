@@ -88,8 +88,9 @@ export function useSocialAuth() {
       payload.id_token,
       payload.name
     );
-    const { access_token, user } = res.data;
+    const { access_token, refresh_token, user } = res.data;
     await setItem("auth_token", access_token);
+    if (refresh_token) await setItem("refresh_token", refresh_token);
     await setItem("auth_user", JSON.stringify(user));
     setAuth(access_token, user);
   };
