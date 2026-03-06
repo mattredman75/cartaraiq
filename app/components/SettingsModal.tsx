@@ -103,11 +103,14 @@ export function SettingsModal({
       if (credentials) {
         credentials.pinHash = pinHash;
         await setItem("biometric_credentials", JSON.stringify(credentials));
+        // Ensure PIN is enabled now that a valid hash exists
+        await enablePin();
+        setPinEnabledState(true);
         setShowResetPINModal(false);
         setResetPINStep("first");
         setFirstResetPIN("");
         setResetPINError("");
-        Alert.alert("Success", "Your PIN has been reset successfully.");
+        Alert.alert("Success", "Your PIN has been updated successfully.");
       } else {
         setResetPINError("Could not update PIN. Please try again.");
       }
@@ -412,6 +415,16 @@ export function SettingsModal({
                   disabled={biometricEnabled}
                   onValueChange={async (val) => {
                     if (val) {
+                      // Check if a PIN hash already exists
+                      const creds = await getBiometricCredentials();
+                      if (!creds?.pinHash) {
+                        // No PIN set — prompt user to create one
+                        setShowResetPINModal(true);
+                        setResetPINStep("first");
+                        setFirstResetPIN("");
+                        setResetPINError("");
+                        return;
+                      }
                       await enablePin();
                       setPinEnabledState(true);
                     } else {
