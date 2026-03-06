@@ -77,10 +77,9 @@ export function useSocialAuth() {
   );
 
   // ── Facebook ──
-  const facebookRedirectUri = AuthSession.makeRedirectUri({
-    scheme: "cartaraiq",
-    path: "redirect",
-  });
+  // Facebook rejects custom-scheme redirect URIs — use an HTTPS bridge page
+  // that reads the token from the hash fragment and redirects to cartaraiq://
+  const facebookRedirectUri = "https://cartaraiq.app/auth/callback.html";
 
   const [facebookRequest, , facebookPromptAsync] = AuthSession.useAuthRequest(
     {

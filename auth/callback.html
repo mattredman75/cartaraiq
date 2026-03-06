@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting…</title>
+    <style>
+      body {
+        font-family: -apple-system, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #f5f9fa;
+        color: #1a1a2e;
+      }
+      .card {
+        text-align: center;
+        padding: 32px;
+      }
+      p {
+        color: #8a9ba2;
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <p>Redirecting to CartaraIQ…</p>
+    </div>
+    <script>
+      // Facebook puts the access_token in the URL hash fragment.
+      // Read it and redirect to the app's custom scheme so expo-auth-session
+      // can pick it up.
+      (function () {
+        var hash = window.location.hash.substring(1); // strip leading #
+        var search = window.location.search.substring(1); // strip leading ?
+
+        // Combine hash and query params (prefer hash — that's where Facebook puts the token)
+        var params = hash || search;
+
+        if (params) {
+          window.location.href = "cartaraiq://redirect?" + params;
+        } else {
+          document.querySelector("p").textContent =
+            "Something went wrong — no authentication data received.";
+        }
+      })();
+    </script>
+  </body>
+</html>
