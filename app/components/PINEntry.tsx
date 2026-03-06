@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    paddingTop: 12,
+    paddingTop: 48,
     paddingBottom: 24,
   },
   backButton: {

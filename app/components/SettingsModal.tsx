@@ -332,8 +332,16 @@ export function SettingsModal({
                       if (!credentials?.pinHash) {
                         Alert.alert(
                           "PIN Required",
-                          "You need to set up a PIN first before enabling biometric login. Please reset your PIN in the settings below.",
-                          [{ text: "OK" }],
+                          "You need to set up a PIN first before enabling biometric login.",
+                          [{
+                            text: "Set PIN",
+                            onPress: () => {
+                              setShowResetPINModal(true);
+                              setResetPINStep("first");
+                              setFirstResetPIN("");
+                              setResetPINError("");
+                            },
+                          }],
                         );
                         return;
                       }
