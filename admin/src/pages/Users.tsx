@@ -39,7 +39,11 @@ export default function UsersPage() {
   const urlRegisteredAfter = searchParams.get("registered_after");
   const urlIsActive = searchParams.get("is_active");
   const urlLabel = searchParams.get("label");
-  const hasDrillDown = !!(urlActiveMinutes || urlRegisteredAfter || urlIsActive);
+  const hasDrillDown = !!(
+    urlActiveMinutes ||
+    urlRegisteredAfter ||
+    urlIsActive
+  );
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -65,7 +69,17 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterActive, filterProvider, filterRole, urlActiveMinutes, urlRegisteredAfter, urlIsActive, hasDrillDown]);
+  }, [
+    page,
+    search,
+    filterActive,
+    filterProvider,
+    filterRole,
+    urlActiveMinutes,
+    urlRegisteredAfter,
+    urlIsActive,
+    hasDrillDown,
+  ]);
 
   useEffect(() => {
     const debounce = setTimeout(fetchUsers, 300);
@@ -91,7 +105,10 @@ export default function UsersPage() {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-              Filtered: {urlLabel ? decodeURIComponent(urlLabel.replace(/\+/g, " ")) : "Dashboard drill-down"}
+              Filtered:{" "}
+              {urlLabel
+                ? decodeURIComponent(urlLabel.replace(/\+/g, " "))
+                : "Dashboard drill-down"}
             </span>
             <span className="text-sm text-indigo-500 dark:text-indigo-400">
               ({data?.total ?? "…"} users)
