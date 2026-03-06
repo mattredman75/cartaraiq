@@ -105,12 +105,12 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         logger.info("[DEBUG] Database query executed, user found: %s", user is not None)
         if not user or not verify_password(payload.password, user.hashed_password):
             logger.warning("[DEBUG] Invalid login attempt for email: %s", payload.email)
-            log_audit(db, action="login_failed", request=request, detail={"email": payload.email}, status="failure")
+            log_audit(db, action="admin_login_failed" if payload.client == "admin" else "login_failed", request=request, detail={"email": payload.email}, status="failure")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
         if not getattr(user, "is_active", True):
             logger.warning("Blocked login for deactivated user: %s", user.id)
-            log_audit(db, action="login_blocked", request=request, user_id=user.id, status="blocked")
+            log_audit(db, action="admin_login_blocked" if payload.client == "admin" else "login_blocked", request=request, user_id=user.id, status="blocked")
             raise HTTPException(status_code=403, detail="Account has been deactivated. Contact support.")
 
         token = create_access_token({"sub": user.id, "role": user.role or "user"})

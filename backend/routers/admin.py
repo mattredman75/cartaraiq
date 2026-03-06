@@ -569,12 +569,12 @@ def dashboard_security(
     cutoff = now - timedelta(hours=24)
 
     failed_logins = db.query(sa_func.count(AuditLog.id)).filter(
-        AuditLog.action.in_(["login_failed", "social_login_failed"]),
+        AuditLog.action.in_(["login_failed", "admin_login_failed", "social_login_failed"]),
         AuditLog.created_at >= cutoff,
     ).scalar() or 0
 
     blocked_logins = db.query(sa_func.count(AuditLog.id)).filter(
-        AuditLog.action.in_(["login_blocked", "social_login_blocked", "token_refresh_blocked"]),
+        AuditLog.action.in_(["login_blocked", "admin_login_blocked", "social_login_blocked", "token_refresh_blocked"]),
         AuditLog.created_at >= cutoff,
     ).scalar() or 0
 
