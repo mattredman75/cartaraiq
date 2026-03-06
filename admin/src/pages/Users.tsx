@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, ArrowLeft } from "lucide-react";
 
 interface UserSummary {
   id: string;
@@ -31,16 +31,32 @@ export default function UsersPage() {
   const [filterRole, setFilterRole] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const pageSize = 25;
+
+  // Read dashboard drill-down params from URL
+  const urlActiveMinutes = searchParams.get("active_minutes");
+  const urlRegisteredAfter = searchParams.get("registered_after");
+  const urlIsActive = searchParams.get("is_active");
+  const urlLabel = searchParams.get("label");
+  const hasDrillDown = !!(urlActiveMinutes || urlRegisteredAfter || urlIsActive);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = { page, page_size: pageSize };
       if (search) params.search = search;
-      if (filterActive !== "") params.is_active = filterActive === "true";
-      if (filterProvider) params.auth_provider = filterProvider;
-      if (filterRole) params.role = filterRole;
+
+      // URL-based drill-down filters take precedence
+      if (hasDrillDown) {
+        if (urlActiveMinutes) params.active_minutes = urlActiveMinutes;
+        if (urlRegisteredAfter) params.registered_after = urlRegisteredAfter;
+        if (urlIsActive) params.is_active = urlIsActive;
+      } else {
+        if (filterActive !== "") params.is_active = filterActive === "true";
+        if (filterProvider) params.auth_provider = filterProvider;
+        if (filterRole) params.role = filterRole;
+      }
 
       const res = await api.get("/admin/users", { params });
       setData(res.data);
@@ -49,17 +65,48 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterActive, filterProvider, filterRole]);
+  }, [page, search, filterActive, filterProvider, filterRole, urlActiveMinutes, urlRegisteredAfter, urlIsActive, hasDrillDown]);
 
   useEffect(() => {
     const debounce = setTimeout(fetchUsers, 300);
     return () => clearTimeout(debounce);
   }, [fetchUsers]);
 
+  const clearDrillDown = () => {
+    setSearchParams({});
+    setPage(1);
+  };
+
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
   return (
     <div className="space-y-6">
+      {hasDrillDown && (
+        <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate("/")}
+              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+              Filtered: {urlLabel ? decodeURIComponent(urlLabel.replace(/\+/g, " ")) : "Dashboard drill-down"}
+            </span>
+            <span className="text-sm text-indigo-500 dark:text-indigo-400">
+              ({data?.total ?? "…"} users)
+            </span>
+          </div>
+          <button
+            onClick={clearDrillDown}
+            className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            Clear filter
+          </button>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold dark:text-white">Users</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

@@ -147,6 +147,8 @@ def list_users(
     is_active: Optional[bool] = None,
     auth_provider: Optional[str] = None,
     role: Optional[str] = None,
+    active_minutes: Optional[int] = Query(None, ge=1, le=1440, description="Filter to users active in the last N minutes"),
+    registered_after: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD). Filter to users registered on or after this date"),
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
@@ -165,6 +167,20 @@ def list_users(
             query = query.filter(User.auth_provider == auth_provider)
     if role:
         query = query.filter(User.role == role)
+    if active_minutes:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=active_minutes)
+        active_ids = [
+            uid for (uid,) in db.query(distinct(AuditLog.user_id))
+            .filter(AuditLog.user_id.isnot(None), AuditLog.created_at >= cutoff)
+            .all()
+        ]
+        query = query.filter(User.id.in_(active_ids)) if active_ids else query.filter(User.id == None)  # noqa: E711
+    if registered_after:
+        try:
+            reg_date = datetime.strptime(registered_after, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            query = query.filter(User.created_at >= reg_date)
+        except ValueError:
+            pass  # Ignore invalid date format
 
     total = query.count()
     users_raw = query.order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
