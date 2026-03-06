@@ -237,7 +237,7 @@ export function ListHeader({
             </Text>
           </View>
         )}
-        {suggestions.length > 0 && (
+        {allSuggestions.length > 0 && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
             <View
               style={{

@@ -11,4 +11,9 @@ RCT_EXTERN_METHOD(syncAllListsToWidget:(NSArray *)lists
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(syncMaintenanceToWidget:(BOOL)maintenance
+                  message:(NSString *)message
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

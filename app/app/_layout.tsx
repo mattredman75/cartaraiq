@@ -25,7 +25,7 @@ function AuthGate() {
   const { token, setAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const { maintenance, message, refresh, checkStatus, setupAppStateListener, cleanup } = useAppStatus();
+  const { maintenance, message, refresh, checkStatus, setupAppStateListener, startPolling, cleanup } = useAppStatus();
   const [statusChecked, setStatusChecked] = useState(false);
 
   useEffect(() => {
@@ -33,6 +33,8 @@ function AuthGate() {
       // Check maintenance status on app start
       await checkStatus();
       setStatusChecked(true);
+      // Start polling every 20 seconds
+      startPolling();
     })();
   }, []);
 
@@ -52,6 +54,18 @@ function AuthGate() {
     })();
   }, []);
 
+  // Navigation effect — must be declared before any conditional returns
+  useEffect(() => {
+    if (statusChecked && maintenance) return; // skip navigation when in maintenance
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!token && !inAuthGroup) {
+      router.replace('/(auth)/welcome');
+    } else if (token && inAuthGroup) {
+      router.replace('/(app)/list');
+    }
+  }, [token, segments, statusChecked, maintenance]);
+
   // If app is in maintenance mode, show maintenance screen and block all navigation
   if (statusChecked && maintenance) {
     return <MaintenanceScreen message={message} onRefresh={async () => {
@@ -62,17 +76,6 @@ function AuthGate() {
       }
     }} />;
   }
-
-  // Otherwise, continue with normal auth-based navigation
-  useEffect(() => {
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (!token && !inAuthGroup) {
-      router.replace('/(auth)/welcome');
-    } else if (token && inAuthGroup) {
-      router.replace('/(app)/list');
-    }
-  }, [token, segments]);
 
   return <Slot />;
 }

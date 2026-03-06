@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, ActivityIndicator, Pressable, Alert } from "react-native";
+import { View, Text, Image, ActivityIndicator, Pressable, Alert } from "react-native";
 import type { ListItem } from "../lib/types";
 import { ItemRow } from "./ItemRow";
 
 const TEAL = "#1B6B7A";
 const TEXT = "#1A1A2E";
-const MUTED = "#64748B";
+const MUTED = "rgb(100, 116, 139)";
+const MUTED_SEMITRANSPARENT = "rgba(100, 116, 139, 0.5)";
 
 interface ListFooterProps {
   checked: ListItem[];
@@ -92,27 +93,20 @@ export function ListFooter({
       )}
 
       {items.length === 0 && !isLoading && (
-        <View style={{ alignItems: "center", marginTop: 60 }}>
-          <Text style={{ fontSize: 52, marginBottom: 14 }}>🛒</Text>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Image
+            source={require("../assets/cartara_empty_fancy.png")}
+            style={{ width: 300, height: 300, marginBottom: -30, marginTop: -75 , opacity: 0.75 }}
+            resizeMode="contain"
+          />
           <Text
             style={{
-              fontSize: 18,
-              fontWeight: "700",
-              color: TEXT,
-              marginBottom: 6,
+              fontSize: 24,
+              fontWeight: "400",
+              color: MUTED_SEMITRANSPARENT,
             }}
           >
-            Your list is empty
-          </Text>
-          <Text
-            style={{
-              fontSize: 14,
-              color: MUTED,
-              textAlign: "center",
-              paddingHorizontal: 40,
-            }}
-          >
-            Add items above or pick from AI suggestions
+            All done!
           </Text>
         </View>
       )}

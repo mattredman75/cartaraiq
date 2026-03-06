@@ -11,6 +11,7 @@ class SharedDataModule: NSObject {
   private static let appGroupID = "group.com.cartaraiq.app"
   private static let widgetDataKey = "widgetData"
   private static let allListsKey = "widgetAllLists"
+  private static let maintenanceKey = "widgetMaintenance"
 
   /// Write the current list + items JSON to the shared App Group UserDefaults,
   /// then ask WidgetKit to reload all widget timelines.
@@ -94,6 +95,39 @@ class SharedDataModule: NSObject {
     }
 
     defaults.set(json, forKey: SharedDataModule.allListsKey)
+    defaults.synchronize()
+
+    if #available(iOS 14.0, *) {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    resolve(nil)
+  }
+
+  /// Write the maintenance mode flag to shared App Group UserDefaults,
+  /// then ask WidgetKit to reload all widget timelines.
+  @objc func syncMaintenanceToWidget(_ maintenance: Bool,
+                                      message: String,
+                                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let defaults = UserDefaults(suiteName: SharedDataModule.appGroupID) else {
+      reject("APP_GROUP_ERROR", "Could not open App Group UserDefaults", nil)
+      return
+    }
+
+    let payload: [String: Any] = [
+      "maintenance": maintenance,
+      "message": message,
+      "lastUpdated": Int(Date().timeIntervalSince1970)
+    ]
+
+    guard let data = try? JSONSerialization.data(withJSONObject: payload),
+          let json = String(data: data, encoding: .utf8) else {
+      reject("SERIALISATION_ERROR", "Could not serialise maintenance data", nil)
+      return
+    }
+
+    defaults.set(json, forKey: SharedDataModule.maintenanceKey)
     defaults.synchronize()
 
     if #available(iOS 14.0, *) {

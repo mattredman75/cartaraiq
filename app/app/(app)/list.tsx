@@ -289,9 +289,9 @@ export default function ListScreen() {
   const firstName = user?.name?.split(" ")[0] ?? "there";
   const getGreeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good Evening";
+    if (h < 12) return "Morning";
+    if (h < 17) return "Afternoon";
+    return "Evening";
   };
 
   const renderDraggableItem = ({
@@ -451,10 +451,16 @@ export default function ListScreen() {
                   />
                 }
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 32 }}
+                contentContainerStyle={{
+                  paddingBottom: 32,
+                  ...(items.length === 0 && !isLoading ? { flexGrow: 1 } : {}),
+                }}
                 containerStyle={{ flex: 1 }}
                 ListHeaderComponent={ListHeaderComponent}
                 ListFooterComponent={ListFooterComponent}
+                ListFooterComponentStyle={
+                  items.length === 0 && !isLoading ? { flex: 1 } : undefined
+                }
               />
             </View>
           )}
