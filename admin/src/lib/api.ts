@@ -16,11 +16,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401/403 redirect to login
+// On 401/403 redirect to login (skip for login endpoint itself)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    const url = err.config?.url || "";
+    const isLoginRequest = url.includes("/auth/login");
+    if (
+      !isLoginRequest &&
+      (err.response?.status === 401 || err.response?.status === 403)
+    ) {
       sessionStorage.removeItem("admin_token");
       sessionStorage.removeItem("admin_user");
       window.location.href = "/login";
