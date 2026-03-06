@@ -113,6 +113,7 @@ class SecurityEvent(BaseModel):
 class AuditLogEntry(BaseModel):
     id: str
     user_id: Optional[str] = None
+    user_email: Optional[str] = None
     action: str
     detail: Optional[str] = None
     ip_address: Optional[str] = None
@@ -538,6 +539,7 @@ def browse_audit_logs(
     user_id: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
     ip: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
@@ -552,17 +554,48 @@ def browse_audit_logs(
         query = query.filter(AuditLog.status == status_filter)
     if ip:
         query = query.filter(AuditLog.ip_address == ip)
+    if search:
+        # Search by user email — find matching user IDs first
+        like = f"%{search}%"
+        matching_ids = [uid for (uid,) in db.query(User.id).filter(User.email.ilike(like)).all()]
+        if matching_ids:
+            query = query.filter(AuditLog.user_id.in_(matching_ids))
+        else:
+            # No matching users — return empty result
+            return PaginatedAuditLogs(logs=[], total=0, page=page, page_size=page_size)
 
     total = query.count()
-    logs = (
+    logs_raw = (
         query.order_by(AuditLog.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
 
+    # Batch-resolve user emails
+    log_user_ids = list({log.user_id for log in logs_raw if log.user_id})
+    email_map = {}
+    if log_user_ids:
+        email_rows = db.query(User.id, User.email).filter(User.id.in_(log_user_ids)).all()
+        email_map = {uid: email for uid, email in email_rows}
+
+    entries = [
+        AuditLogEntry(
+            id=log.id,
+            user_id=log.user_id,
+            user_email=email_map.get(log.user_id) if log.user_id else None,
+            action=log.action,
+            detail=log.detail,
+            ip_address=log.ip_address,
+            user_agent=log.user_agent,
+            status=log.status,
+            created_at=log.created_at,
+        )
+        for log in logs_raw
+    ]
+
     return PaginatedAuditLogs(
-        logs=[AuditLogEntry.model_validate(log) for log in logs],
+        logs=entries,
         total=total,
         page=page,
         page_size=page_size,

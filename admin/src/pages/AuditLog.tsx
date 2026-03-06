@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 interface AuditEntry {
   id: string;
   user_id: string | null;
+  user_email: string | null;
   action: string;
   detail: string | null;
   ip_address: string | null;
@@ -36,7 +37,7 @@ export default function AuditLogPage() {
       const params: any = { page, page_size: pageSize };
       if (actionFilter) params.action = actionFilter;
       if (statusFilter) params.status = statusFilter;
-      if (userSearch) params.user_id = userSearch;
+      if (userSearch) params.search = userSearch;
       if (ipFilter) params.ip = ipFilter;
 
       const res = await api.get("/admin/audit-logs", { params });
@@ -84,8 +85,8 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Audit Log</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold dark:text-white">Audit Log</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {data ? `${data.total} total events` : "Loading…"}
         </p>
       </div>
@@ -98,7 +99,7 @@ export default function AuditLogPage() {
             setActionFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white"
         >
           <option value="">All Actions</option>
           {ACTIONS.map((a) => (
@@ -113,7 +114,7 @@ export default function AuditLogPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white"
         >
           <option value="">All Status</option>
           <option value="success">Success</option>
@@ -124,13 +125,13 @@ export default function AuditLogPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="User ID…"
+            placeholder="Search by email…"
             value={userSearch}
             onChange={(e) => {
               setUserSearch(e.target.value);
               setPage(1);
             }}
-            className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
           />
         </div>
         <div className="relative">
@@ -143,21 +144,21 @@ export default function AuditLogPage() {
               setIpFilter(e.target.value);
               setPage(1);
             }}
-            className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44"
+            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44"
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-left text-gray-500">
+              <tr className="bg-gray-50 dark:bg-gray-750 text-left text-gray-500 dark:text-gray-400">
                 <th className="px-4 py-3 font-medium">Time</th>
                 <th className="px-4 py-3 font-medium">Action</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">User ID</th>
+                <th className="px-4 py-3 font-medium">User</th>
                 <th className="px-4 py-3 font-medium">IP</th>
                 <th className="px-4 py-3 font-medium">Detail</th>
               </tr>
@@ -185,14 +186,14 @@ export default function AuditLogPage() {
                 data?.logs.map((log) => (
                   <tr
                     key={log.id}
-                    className="border-t border-gray-100 hover:bg-gray-50"
+                    className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750"
                   >
-                    <td className="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                       {log.created_at
                         ? new Date(log.created_at).toLocaleString()
                         : "—"}
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs">
+                    <td className="px-4 py-2.5 font-mono text-xs dark:text-gray-300">
                       {log.action}
                     </td>
                     <td className="px-4 py-2.5">
@@ -208,13 +209,13 @@ export default function AuditLogPage() {
                         {log.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-gray-500 max-w-[120px] truncate">
-                      {log.user_id || "—"}
+                    <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 max-w-[180px] truncate">
+                      {log.user_email || log.user_id || "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs">
+                    <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 text-xs">
                       {log.ip_address || "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-400 text-xs max-w-[200px] truncate">
+                    <td className="px-4 py-2.5 text-gray-400 dark:text-gray-500 text-xs max-w-[200px] truncate">
                       {log.detail || "—"}
                     </td>
                   </tr>
@@ -226,22 +227,22 @@ export default function AuditLogPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Page {page} of {totalPages}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-1.5 rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-50 cursor-pointer"
+                className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-400"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-1.5 rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-50 cursor-pointer"
+                className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-400"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

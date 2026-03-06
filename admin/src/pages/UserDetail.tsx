@@ -87,7 +87,7 @@ export default function UserDetailPage() {
     <div className="space-y-6 max-w-4xl">
       <button
         onClick={() => navigate("/users")}
-        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+        className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Users
@@ -96,8 +96,8 @@ export default function UserDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{user.name}</h1>
-          <p className="text-gray-500">{user.email}</p>
+          <h1 className="text-2xl font-bold dark:text-white">{user.name}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{user.email}</p>
         </div>
         <div className="flex gap-2">
           <span
@@ -123,15 +123,17 @@ export default function UserDetailPage() {
 
       {/* Status message */}
       {message && (
-        <div className="p-3 bg-indigo-50 text-indigo-700 rounded-lg text-sm">
+        <div className="p-3 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm">
           {message}
         </div>
       )}
 
       {/* Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3">
-          <h2 className="text-lg font-semibold mb-2">Account Info</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-3">
+          <h2 className="text-lg font-semibold mb-2 dark:text-white">
+            Account Info
+          </h2>
           <Row label="User ID" value={user.id} mono />
           <Row label="Auth Provider" value={user.auth_provider || "Email"} />
           {user.auth_provider_id && (
@@ -158,8 +160,8 @@ export default function UserDetailPage() {
           />
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3">
-          <h2 className="text-lg font-semibold mb-2">Usage</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-3">
+          <h2 className="text-lg font-semibold mb-2 dark:text-white">Usage</h2>
           <Row label="Shopping Lists" value={String(user.list_count)} />
           <Row label="Total Items" value={String(user.item_count)} />
           <Row label="Push Tokens" value={String(user.push_token_count)} />
@@ -167,8 +169,10 @@ export default function UserDetailPage() {
       </div>
 
       {/* Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">Admin Actions</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">
+          Admin Actions
+        </h2>
         <div className="flex flex-wrap gap-3">
           {user.is_active ? (
             <ActionBtn
@@ -220,17 +224,19 @@ export default function UserDetailPage() {
       </div>
 
       {/* Audit History */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">
           Recent Activity ({user.recent_audit.length})
         </h2>
         {user.recent_audit.length === 0 ? (
-          <p className="text-gray-400 text-sm">No audit history</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            No audit history
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b">
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
                   <th className="pb-2 font-medium">Action</th>
                   <th className="pb-2 font-medium">Status</th>
                   <th className="pb-2 font-medium">IP</th>
@@ -240,8 +246,13 @@ export default function UserDetailPage() {
               </thead>
               <tbody>
                 {user.recent_audit.map((a: any) => (
-                  <tr key={a.id} className="border-b border-gray-100">
-                    <td className="py-2 font-mono text-xs">{a.action}</td>
+                  <tr
+                    key={a.id}
+                    className="border-b border-gray-100 dark:border-gray-700"
+                  >
+                    <td className="py-2 font-mono text-xs dark:text-gray-300">
+                      {a.action}
+                    </td>
                     <td className="py-2">
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs ${
@@ -255,15 +266,15 @@ export default function UserDetailPage() {
                         {a.status}
                       </span>
                     </td>
-                    <td className="py-2 text-gray-500 text-xs">
+                    <td className="py-2 text-gray-500 dark:text-gray-400 text-xs">
                       {a.ip_address || "—"}
                     </td>
-                    <td className="py-2 text-gray-500 text-xs">
+                    <td className="py-2 text-gray-500 dark:text-gray-400 text-xs">
                       {a.created_at
                         ? new Date(a.created_at).toLocaleString()
                         : "—"}
                     </td>
-                    <td className="py-2 text-gray-400 text-xs max-w-[200px] truncate">
+                    <td className="py-2 text-gray-400 dark:text-gray-500 text-xs max-w-[200px] truncate">
                       {a.detail || "—"}
                     </td>
                   </tr>
@@ -288,9 +299,13 @@ function Row({
 }) {
   return (
     <div className="flex justify-between items-center text-sm">
-      <span className="text-gray-500">{label}</span>
+      <span className="text-gray-500 dark:text-gray-400">{label}</span>
       <span
-        className={mono ? "font-mono text-xs text-gray-700" : "text-gray-900"}
+        className={
+          mono
+            ? "font-mono text-xs text-gray-700 dark:text-gray-300"
+            : "text-gray-900 dark:text-gray-100"
+        }
       >
         {value}
       </span>
@@ -314,10 +329,14 @@ function ActionBtn({
   const base =
     "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer";
   const variants: Record<string, string> = {
-    default: "bg-gray-100 text-gray-700 hover:bg-gray-200",
-    danger: "bg-red-100 text-red-700 hover:bg-red-200",
-    success: "bg-green-100 text-green-700 hover:bg-green-200",
-    warning: "bg-amber-100 text-amber-700 hover:bg-amber-200",
+    default:
+      "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
+    danger:
+      "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900",
+    success:
+      "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-950 dark:text-green-400 dark:hover:bg-green-900",
+    warning:
+      "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900",
   };
 
   return (

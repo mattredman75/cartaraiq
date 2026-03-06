@@ -61,8 +61,8 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Users</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold dark:text-white">Users</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {data ? `${data.total} total users` : "Loading…"}
         </p>
       </div>
@@ -79,7 +79,7 @@ export default function UsersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
         <select
@@ -88,7 +88,7 @@ export default function UsersPage() {
             setFilterActive(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white"
         >
           <option value="">All Status</option>
           <option value="true">Active</option>
@@ -100,7 +100,7 @@ export default function UsersPage() {
             setFilterProvider(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white"
         >
           <option value="">All Providers</option>
           <option value="email">Email</option>
@@ -114,7 +114,7 @@ export default function UsersPage() {
             setFilterRole(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white"
         >
           <option value="">All Roles</option>
           <option value="user">User</option>
@@ -123,11 +123,11 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-left text-gray-500">
+              <tr className="bg-gray-50 dark:bg-gray-750 text-left text-gray-500 dark:text-gray-400">
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Provider</th>
@@ -162,10 +162,14 @@ export default function UsersPage() {
                   <tr
                     key={u.id}
                     onClick={() => navigate(`/users/${u.id}`)}
-                    className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium">{u.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{u.email}</td>
+                    <td className="px-4 py-3 font-medium dark:text-white">
+                      {u.name}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                      {u.email}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
                         {u.auth_provider || "email"}
@@ -193,9 +197,13 @@ export default function UsersPage() {
                         {u.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{u.list_count}</td>
-                    <td className="px-4 py-3 text-gray-500">{u.item_count}</td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {u.list_count}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {u.item_count}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                       {u.created_at
                         ? new Date(u.created_at).toLocaleDateString()
                         : "—"}
@@ -209,22 +217,22 @@ export default function UsersPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Page {page} of {totalPages}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-1.5 rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-50 cursor-pointer"
+                className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-400"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-1.5 rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-50 cursor-pointer"
+                className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:text-gray-400"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

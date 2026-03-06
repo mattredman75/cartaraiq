@@ -61,25 +61,31 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">System configuration</p>
+        <h1 className="text-2xl font-bold dark:text-white">Settings</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          System configuration
+        </p>
       </div>
 
       {feedback && (
-        <div className="p-3 bg-indigo-50 text-indigo-700 rounded-lg text-sm">
+        <div className="p-3 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm">
           {feedback}
         </div>
       )}
 
       {/* Maintenance Mode */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Wrench className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold">Maintenance Mode</h2>
+          <Wrench className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          <h2 className="text-lg font-semibold dark:text-white">
+            Maintenance Mode
+          </h2>
         </div>
 
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-sm text-gray-600">Current status:</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Current status:
+          </span>
           <span
             className={`px-3 py-1 rounded-full text-xs font-medium ${
               status?.maintenance
@@ -103,7 +109,7 @@ export default function SettingsPage() {
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Maintenance Message
             </label>
             <textarea
@@ -111,7 +117,7 @@ export default function SettingsPage() {
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
               placeholder="We're performing scheduled maintenance. We'll be back shortly."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
           </div>
 
@@ -138,9 +144,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Info */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-2">About</h2>
-        <div className="space-y-2 text-sm text-gray-600">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold mb-2 dark:text-white">About</h2>
+        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <p>
             <strong>Application:</strong> CartaraIQ Admin Panel
           </p>
@@ -148,7 +154,7 @@ export default function SettingsPage() {
             <strong>API:</strong>{" "}
             {import.meta.env.VITE_API_URL || "http://localhost:8000"}
           </p>
-          <p className="text-xs text-gray-400 mt-4">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
             All admin actions are recorded in the audit log.
           </p>
         </div>

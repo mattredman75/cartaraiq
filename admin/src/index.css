@@ -24,6 +24,12 @@ body {
   color: var(--color-text);
 }
 
+.dark body,
+body:has(.dark) {
+  background: #111827;
+  color: #f3f4f6;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -33,4 +39,7 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
 }

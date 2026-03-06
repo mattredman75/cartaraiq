@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { useTheme } from "../lib/theme";
 import {
   LayoutDashboard,
   Users,
@@ -7,6 +8,8 @@ import {
   Settings,
   LogOut,
   Shield,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +21,7 @@ const navItems = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -57,10 +61,19 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-indigo-800">
-          <div className="text-xs text-indigo-300 mb-2 truncate">
-            {user?.email}
-          </div>
+        <div className="p-4 border-t border-indigo-800 space-y-3">
+          <button
+            onClick={toggle}
+            className="flex items-center gap-2 text-sm text-indigo-200 hover:text-white transition-colors cursor-pointer w-full"
+          >
+            {theme === "dark" ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          </button>
+          <div className="text-xs text-indigo-300 truncate">{user?.email}</div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-sm text-indigo-200 hover:text-white transition-colors cursor-pointer"
@@ -72,7 +85,7 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 transition-colors">
         <div className="p-8">
           <Outlet />
         </div>
