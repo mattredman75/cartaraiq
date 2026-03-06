@@ -97,13 +97,15 @@ export default function LoginScreen() {
       // Only mark bioReady if biometric is enabled AND credentials exist
       const bioReady = available && bioEnabled && !!credentials;
       setBiometricReady(bioReady);
-      setPinReady(pinEnabledVal && !!credentials);
+      // PIN is only ready if enabled, credentials exist, AND a pinHash was actually set
+      const pinIsReady = pinEnabledVal && !!credentials?.pinHash;
+      setPinReady(pinIsReady);
 
       // Prioritize biometric login if enabled
       if (bioReady && credentials) {
         // Auto-trigger biometric login for better UX
         handleBiometricLoginAuto();
-      } else if (pinEnabledVal && credentials) {
+      } else if (pinIsReady) {
         // PIN is the ONLY fast-login method — show PIN entry straight away
         setShowPINEntry(true);
       }
