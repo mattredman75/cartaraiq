@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from ..auth import create_access_token, get_current_user, hash_password, verify_password
+from ..auth import create_access_token, get_current_user, hash_password, verify_password, generate_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS
 from ..config import settings
 from ..database import get_db
 from ..models.shopping_list import ShoppingList
@@ -48,7 +48,17 @@ class UserOut(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    refresh_token: Optional[str] = None
     user: UserOut
+
+
+def _issue_refresh_token(user: User, db: Session) -> str:
+    """Generate a refresh token, persist it on the user, and return it."""
+    rt = generate_refresh_token()
+    user.refresh_token = rt
+    user.refresh_token_expiry = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    db.commit()
+    return rt
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -71,7 +81,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
 
     token = create_access_token({"sub": user.id, "role": user.role or "user"})
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    rt = _issue_refresh_token(user, db)
+    return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -85,8 +96,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
         token = create_access_token({"sub": user.id, "role": user.role or "user"})
+        rt = _issue_refresh_token(user, db)
         logger.info("[DEBUG] Login successful, token created for user: %s", user.id)
-        return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+        return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
     except Exception as e:
         logger.exception("Error in login for email %s: %s", payload.email, str(e))
         raise
@@ -173,7 +185,44 @@ async def social_login(payload: SocialAuthRequest, db: Session = Depends(get_db)
         logger.info("Created new %s user: %s", provider, user.id)
 
     token = create_access_token({"sub": user.id, "role": user.role or "user"})
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    rt = _issue_refresh_token(user, db)
+    return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
+
+
+# ── Token Refresh ─────────────────────────────────────────────────────────────
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
+    """
+    Exchange a valid refresh token for a new access token + refresh token.
+    The old refresh token is rotated (invalidated) on each use.
+    """
+    user = db.query(User).filter(User.refresh_token == payload.refresh_token).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
+    expiry = user.refresh_token_expiry
+    if not expiry:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expiry:
+        # Expired — clear it and force re-login
+        user.refresh_token = None
+        user.refresh_token_expiry = None
+        db.commit()
+        raise HTTPException(status_code=401, detail="Refresh token expired. Please sign in again.")
+
+    # Issue new access token + rotate refresh token
+    access = create_access_token({"sub": user.id, "role": user.role or "user"})
+    new_rt = _issue_refresh_token(user, db)
+    logger.info("Token refreshed for user %s", user.id)
+    return TokenResponse(access_token=access, refresh_token=new_rt, user=UserOut.model_validate(user))
 
 
 # ── Password Reset ────────────────────────────────────────────────────────────
@@ -269,6 +318,20 @@ def update_me(
     return current_user
 
 
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Invalidate the user's refresh token on sign-out."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if user:
+        user.refresh_token = None
+        user.refresh_token_expiry = None
+        db.commit()
+    return {"message": "Signed out successfully."}
+
+
 @router.post("/forgot-password")
 def forgot_password(
     payload: ForgotPasswordRequest,
@@ -282,6 +345,11 @@ def forgot_password(
         logger.info("[DEBUG] Database query executed, user found: %s", user is not None)
         # Always return the same message to avoid email enumeration
         if user:
+            # Social-only users have no password to reset — skip silently
+            if user.auth_provider and not user.hashed_password:
+                logger.info("[Password Reset] Skipping for social-only user (%s): %s", user.auth_provider, user.email)
+                return {"message": "If that email is registered, a reset code has been sent."}
+
             code = secrets.token_hex(3).upper()  # 6-char hex, e.g. "A3F7B2"
             user.reset_token = hashlib.sha256(code.encode()).hexdigest()
             user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -299,6 +367,13 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not user.reset_token or not user.reset_token_expiry:
         raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
+
+    # Block social-only users from creating a password via reset flow
+    if user.auth_provider and not user.hashed_password:
+        raise HTTPException(
+            status_code=400,
+            detail="This account uses social sign-in. Please log in with your social provider.",
+        )
 
     expiry = user.reset_token_expiry
     if expiry.tzinfo is None:

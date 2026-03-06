@@ -14,7 +14,7 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../lib/store";
-import { updateMe, setupBiometric, disableBiometric } from "../lib/api";
+import { updateMe, setupBiometric, disableBiometric, authLogout } from "../lib/api";
 import { setItem, deleteItem } from "../lib/storage";
 import { useBiometricAuth } from "../hooks/useBiometricAuth";
 import { PINEntry } from "./PINEntry";
@@ -533,7 +533,9 @@ export function SettingsModal({
             <TouchableOpacity
               onPress={async () => {
               onClose();
+              try { await authLogout(); } catch (_) { /* best-effort */ }
               await deleteItem("auth_token");
+              await deleteItem("refresh_token");
               await deleteItem("auth_user");
               clearAuth();
               router.replace("/(auth)/welcome" as any);

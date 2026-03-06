@@ -181,6 +181,20 @@ def _run_mysql(conn) -> None:
         ALTER TABLE users MODIFY COLUMN hashed_password VARCHAR(255) NULL
     """))
 
+    # 11. Refresh token columns on users (persistent sessions)
+    if not _col_exists(conn, "users", "refresh_token"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN refresh_token VARCHAR(255) NULL
+        """))
+        conn.execute(text("""
+            CREATE INDEX ix_users_refresh_token ON users(refresh_token)
+        """))
+
+    if not _col_exists(conn, "users", "refresh_token_expiry"):
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN refresh_token_expiry DATETIME NULL
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -295,6 +309,19 @@ def _run_postgresql(conn) -> None:
     conn.execute(text("""
         ALTER TABLE users
             ALTER COLUMN hashed_password DROP NOT NULL
+    """))
+
+    # 9. Refresh token columns on users (persistent sessions)
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS refresh_token VARCHAR(255) NULL
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_users_refresh_token ON users(refresh_token)
+    """))
+    conn.execute(text("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS refresh_token_expiry TIMESTAMPTZ NULL
     """))
 
     # 7. Convert checked from Boolean to Integer if needed

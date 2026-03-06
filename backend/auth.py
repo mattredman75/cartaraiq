@@ -5,12 +5,16 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import secrets
 from .config import settings
 from .database import get_db
 from .models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+# Refresh token lifetime: 1 year
+REFRESH_TOKEN_EXPIRE_DAYS = 365
 
 
 def hash_password(password: str) -> str:
@@ -26,6 +30,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.jwt_expire_minutes))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def generate_refresh_token() -> str:
+    """Generate a cryptographically secure random refresh token."""
+    return secrets.token_urlsafe(64)
 
 
 async def get_current_user(

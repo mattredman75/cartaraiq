@@ -84,6 +84,19 @@ export default function ForgotPasswordScreen() {
                   registered, you'll receive a 6-character reset code shortly.
                 </Text>
 
+                <Text
+                  style={{
+                    fontFamily: 'Montserrat_400Regular',
+                    fontSize: 13,
+                    color: COLORS.muted,
+                    marginBottom: 24,
+                    lineHeight: 20,
+                    textAlign: 'center',
+                  }}
+                >
+                  Signed up with Apple, Google, or Facebook? No password to reset — just use that method to sign in.
+                </Text>
+
                 <TouchableOpacity
                   onPress={() => router.push(`/(auth)/reset-password?email=${encodeURIComponent(email)}` as any)}
                   activeOpacity={0.85}

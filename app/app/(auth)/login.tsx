@@ -114,8 +114,9 @@ export default function LoginScreen() {
       }
 
       const res = await authLogin(credentials.email, credentials.password);
-      const { access_token, user } = res.data;
+      const { access_token, refresh_token, user } = res.data;
       await setItem("auth_token", access_token);
+      if (refresh_token) await setItem("refresh_token", refresh_token);
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
@@ -141,8 +142,9 @@ export default function LoginScreen() {
     setError("");
     try {
       const res = await authLogin(email, password);
-      const { access_token, user } = res.data;
+      const { access_token, refresh_token, user } = res.data;
       await setItem("auth_token", access_token);
+      if (refresh_token) await setItem("refresh_token", refresh_token);
       await setItem("auth_user", JSON.stringify(user));
 
       setAuth(access_token, user);
@@ -179,8 +181,9 @@ export default function LoginScreen() {
 
       // Use stored credentials to login
       const res = await authLogin(credentials.email, credentials.password);
-      const { access_token, user } = res.data;
+      const { access_token, refresh_token, user } = res.data;
       await setItem("auth_token", access_token);
+      if (refresh_token) await setItem("refresh_token", refresh_token);
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
@@ -223,8 +226,9 @@ export default function LoginScreen() {
 
       // Use stored credentials to login
       const res = await authLogin(credentials.email, credentials.password);
-      const { access_token, user } = res.data;
+      const { access_token, refresh_token, user } = res.data;
       await setItem("auth_token", access_token);
+      if (refresh_token) await setItem("refresh_token", refresh_token);
       await setItem("auth_user", JSON.stringify(user));
       setAuth(access_token, user);
     } catch (e: any) {
@@ -654,7 +658,7 @@ export default function LoginScreen() {
 
       {/* PIN Login Modal */}
       <Modal visible={showPINEntry} transparent animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
+        <SafeAreaView style={{ marginTop: 10, flex: 1, backgroundColor: COLORS.surface }}>
           <PINEntry
             onComplete={(enteredPin) => {
               setShowPINEntry(false);
