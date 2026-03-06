@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   StatusBar,
   Modal,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -29,12 +28,10 @@ export default function LoginScreen() {
     isBiometricAvailable,
     biometricType,
     authenticateWithBiometric,
-    storeBiometricCredentials,
     getBiometricCredentials,
     isBiometricEnabled,
     isPinEnabled,
     verifyPin,
-    hashPin,
     checkBiometricAvailability,
     disableAllQuickLogin,
   } = useBiometricAuth();
@@ -43,31 +40,10 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showBiometricSetup, setShowBiometricSetup] = useState(false);
   const [showPINEntry, setShowPINEntry] = useState(false);
-  const [showPINSetup, setShowPINSetup] = useState(false);
-  const [showPINConfirm, setShowPINConfirm] = useState(false);
-  const [pin, setPin] = useState("");
-  const [firstPin, setFirstPin] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
   const [pinReady, setPinReady] = useState(false);
   const [showCredentialsFailedModal, setShowCredentialsFailedModal] = useState(false);
-
-  // Hold auth credentials until the biometric/PIN setup flow completes,
-  // so AuthGate doesn't navigate away before the modals show.
-  const pendingAuthRef = useRef<{ token: string; user: any } | null>(null);
-
-  /** Commit deferred auth to the global store and navigate to the app. */
-  const commitAuth = () => {
-    const pending = pendingAuthRef.current;
-    if (pending) {
-      setAuth(pending.token, pending.user);
-      pendingAuthRef.current = null;
-    } else {
-      // Fallback: if no pending auth (e.g. biometric/PIN login path), just navigate
-      router.replace("/(app)/list");
-    }
-  };
 
   useEffect(() => {
     console.log("Login component mounted, checking biometric setup...");
@@ -166,31 +142,7 @@ export default function LoginScreen() {
       await setItem("auth_token", access_token);
       await setItem("auth_user", JSON.stringify(user));
 
-      // Defer setting auth in the store so AuthGate doesn't navigate
-      // away before biometric/PIN setup modals can appear.
-      pendingAuthRef.current = { token: access_token, user };
-
-      // Offer to set up biometric login if biometric is available and not already enabled
-      const biometricAvailable = await checkBiometricAvailability();
-      const bioAlreadyEnabled = await isBiometricEnabled();
-      const pinAlreadySet = await isPinEnabled();
-      const existingCreds = await getBiometricCredentials();
-      const hasPinHash = !!existingCreds?.pinHash;
-
-      if (biometricAvailable && !bioAlreadyEnabled) {
-        // Biometric hardware exists but not enabled — offer to set it up
-        setShowBiometricSetup(true);
-      } else if (!pinAlreadySet || !hasPinHash) {
-        // Biometric already enabled (or unavailable) but no PIN — offer PIN setup
-        // Store credentials first so PIN setup can attach the hash
-        if (email && password) {
-          await storeBiometricCredentials(email, password);
-        }
-        setShowPINSetup(true);
-      } else {
-        // Both biometric and PIN already configured — go straight to app
-        commitAuth();
-      }
+      setAuth(access_token, user);
     } catch (e: any) {
       setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
     } finally {
@@ -284,87 +236,6 @@ export default function LoginScreen() {
         setError(e.response?.data?.detail ?? `${e.message} (${e.code})`);
       }
       setLoading(false);
-    }
-  };
-
-  const handleSetUpBiometric = async () => {
-    // Store credentials for biometric
-    await storeBiometricCredentials(email, password);
-
-    // Prompt for biometric permission
-    const success = await authenticateWithBiometric();
-    if (!success) {
-      setError("Biometric setup failed. Proceeding with PIN setup.");
-    }
-
-    setShowBiometricSetup(false);
-
-    // Only ask for PIN setup if no PIN hash exists yet
-    const existingCreds = await getBiometricCredentials();
-    if (!existingCreds?.pinHash) {
-      setShowPINSetup(true);
-    } else {
-      commitAuth();
-    }
-  };
-
-  const handleSetUpPIN = async (enteredPin: string) => {
-    // First PIN entry - store it and move to confirmation
-    setFirstPin(enteredPin);
-    setShowPINSetup(false);
-    setShowPINConfirm(true);
-  };
-
-  const handleConfirmPIN = async (enteredPin: string) => {
-    // Verify the confirmation PIN matches the first PIN
-    if (enteredPin !== firstPin) {
-      Alert.alert(
-        "PINs don't match",
-        "The PINs you entered don't match. Please try again.",
-        [{ text: "OK" }],
-      );
-      setFirstPin("");
-      setShowPINConfirm(false);
-      setShowPINSetup(true);
-      return;
-    }
-
-    try {
-      const pinHash = await hashPin(enteredPin);
-      // Get or create credentials with PIN hash
-      let credentials = await getBiometricCredentials();
-      
-      if (!credentials) {
-        // If no credentials exist yet (user skipped biometric setup),
-        // create a minimal credentials object with just email/password/PIN
-        if (!email || !password) {
-          setError("Missing credentials. Please log in again.");
-          return;
-        }
-        credentials = {
-          email,
-          password,
-          pinHash,
-          biometricType: null,
-        };
-      } else {
-        // Update existing credentials with PIN hash
-        credentials.pinHash = pinHash;
-      }
-      
-      // Store the credentials
-      await setItem("biometric_credentials", JSON.stringify(credentials));
-      // Ensure flags are properly set
-      await setItem("pin_enabled", "true");
-      
-      setShowPINConfirm(false);
-      setFirstPin("");
-      setPin("");
-      setError("");
-      // Navigate to app
-      commitAuth();
-    } catch (e) {
-      setError(`Failed to set PIN: ${e}`);
     }
   };
 
@@ -644,181 +515,6 @@ export default function LoginScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-
-      {/* Biometric Setup Modal */}
-      <Modal visible={showBiometricSetup} transparent animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 16 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowBiometricSetup(false);
-              }}
-              style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center' }}
-            >
-              <Ionicons name="chevron-back" size={30} color={COLORS.tealDark} />
-            </TouchableOpacity>
-
-            <Text
-              style={{
-                fontFamily: "Montserrat_700Bold",
-                fontSize: 32,
-                color: COLORS.ink,
-                lineHeight: 40,
-                marginBottom: 8,
-              }}
-            >
-              {biometricType?.includes("faceId")
-                ? "Enable Face ID"
-                : biometricType?.includes("touchId")
-                  ? "Enable Touch ID"
-                  : "Enable Biometric"}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Montserrat_400Regular",
-                fontSize: 15,
-                color: COLORS.muted,
-                marginBottom: 40,
-              }}
-            >
-              Use {biometricType} to quickly log in next time.
-            </Text>
-
-            <View
-              style={{
-                backgroundColor: COLORS.card,
-                borderRadius: 16,
-                padding: 20,
-                marginBottom: 40,
-                alignItems: "center",
-              }}
-            >
-              <Ionicons
-                name={
-                  biometricType?.includes("faceId") ? "person" : "finger-print"
-                }
-                size={64}
-                color={COLORS.teal}
-                style={{ marginBottom: 16 }}
-              />
-              <Text
-                style={{
-                  fontFamily: "Montserrat_500Medium",
-                  fontSize: 14,
-                  color: COLORS.muted,
-                  textAlign: "center",
-                }}
-              >
-                This keeps your account secure while making login faster.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={handleSetUpBiometric}
-              disabled={loading}
-              activeOpacity={0.85}
-              style={{
-                backgroundColor: COLORS.teal,
-                borderRadius: 16,
-                paddingVertical: 18,
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Montserrat_700Bold",
-                  fontSize: 16,
-                  color: "#fff",
-                  letterSpacing: 0.3,
-                }}
-              >
-                Enable
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={async () => {
-                setShowBiometricSetup(false);
-                // Check if PIN is already set up before prompting
-                const existingCreds = await getBiometricCredentials();
-                if (!existingCreds?.pinHash) {
-                  // No PIN — store credentials and offer PIN setup
-                  if (email && password) {
-                    await storeBiometricCredentials(email, password);
-                  }
-                  setShowPINSetup(true);
-                } else {
-                  commitAuth();
-                }
-              }}
-              activeOpacity={0.85}
-              style={{
-                backgroundColor: COLORS.card,
-                borderRadius: 16,
-                paddingVertical: 18,
-                alignItems: "center",
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Montserrat_700Bold",
-                  fontSize: 16,
-                  color: COLORS.ink,
-                  letterSpacing: 0.3,
-                }}
-              >
-                Skip for now
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-
-      {/* PIN Setup Modal */}
-      <Modal visible={showPINSetup} transparent animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <PINEntry
-            onComplete={handleSetUpPIN}
-            onCancel={async () => {
-              // User skipped PIN setup — still log them in but do NOT mark PIN as enabled
-              setShowPINSetup(false);
-              // Store credentials for biometric (if set up) but ensure PIN stays disabled
-              if (email && password) {
-                const existingCreds = await getBiometricCredentials();
-                if (!existingCreds) {
-                  // No credentials at all yet — store them for biometric only
-                  await storeBiometricCredentials(email, password);
-                }
-              }
-              // Explicitly disable PIN since no hash was created
-              await setItem("pin_enabled", "false");
-              commitAuth();
-            }}
-            title="Set up PIN"
-            subtitle="Create a 4-digit PIN as a backup login method"
-            maxLength={4}
-          />
-        </SafeAreaView>
-      </Modal>
-
-      {/* PIN Confirm Modal */}
-      <Modal visible={showPINConfirm} transparent animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-          <PINEntry
-            onComplete={handleConfirmPIN}
-            onCancel={() => {
-              setShowPINConfirm(false);
-              setFirstPin("");
-              setShowPINSetup(true);
-              setError("");
-            }}
-            title="Confirm your new PIN"
-            subtitle="Enter the same 4-digit PIN again"
-            maxLength={4}
-          />
-        </SafeAreaView>
-      </Modal>
 
       {/* PIN Login Modal */}
       <Modal visible={showPINEntry} transparent animationType="slide">
