@@ -13,3 +13,8 @@ dist/
 credentials.json
 token.json
 logs/*.log
+
+# Coverage output directories
+.coverage
+**/htmlcov/
+**/coverage/
