@@ -1,0 +1,11 @@
+[run]
+source = backend
+omit =
+    backend/tests/*
+    backend/migrate.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__
+    pass

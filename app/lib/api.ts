@@ -36,7 +36,9 @@ function onTokenRefreshed(token: string) {
 api.interceptors.response.use(
   (res) => res,
   async (err: AxiosError) => {
-    const originalRequest = err.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = err.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
     // Only attempt refresh on 401 and not already retrying
     if (err.response?.status !== 401 || originalRequest._retry) {
@@ -51,10 +53,13 @@ api.interceptors.response.use(
         const refreshToken = await getItem("refresh_token");
         if (!refreshToken) {
           // No refresh token — can't recover
+          isRefreshing = false;
           return Promise.reject(err);
         }
 
-        const res = await apiNoAuth.post("/auth/refresh", { refresh_token: refreshToken });
+        const res = await apiNoAuth.post("/auth/refresh", {
+          refresh_token: refreshToken,
+        });
         const { access_token, refresh_token: newRefreshToken, user } = res.data;
 
         // Persist new tokens
@@ -94,8 +99,7 @@ api.interceptors.response.use(
 export default api;
 
 // --- App Status ---
-export const getAppStatus = () =>
-  apiNoAuth.get("/app/status");
+export const getAppStatus = () => apiNoAuth.get("/app/status");
 
 export const reportLifecycle = (state: "foreground" | "background") =>
   api.post("/app/lifecycle", { state });
@@ -120,7 +124,10 @@ export const authResetPassword = (
 
 // --- Biometric ---
 export const setupBiometric = (pinHash: string, biometricType: string) =>
-  api.post("/auth/biometric/setup", { pin_hash: pinHash, biometric_type: biometricType });
+  api.post("/auth/biometric/setup", {
+    pin_hash: pinHash,
+    biometric_type: biometricType,
+  });
 
 export const disableBiometric = () => api.post("/auth/biometric/disable");
 
