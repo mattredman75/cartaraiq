@@ -8,6 +8,7 @@ from backend.models.audit_log import AuditLog
 from backend.tests.conftest import (
     auth_headers,
     make_admin,
+    make_audit_log,
     make_item,
     make_list,
     make_user,
@@ -198,3 +199,40 @@ class TestAdminAuditLogsExtended:
         actions = {l["action"] for l in resp.json()["logs"]}
         assert actions <= {"login", "register"}
         assert "logout" not in actions
+
+
+class TestAdminActiveMinutesFilter:
+    """Tests for the active_minutes correlated EXISTS subquery in /admin/users."""
+
+    def test_active_minutes_includes_recently_active_user(self, client, db):
+        admin = make_admin(db)
+        user = make_user(db, email="active@test.com")
+        # Recent audit log entry — should be included with active_minutes=60
+        make_audit_log(db, user.id, action="login")
+        headers = auth_headers(admin)
+        resp = client.get("/admin/users?active_minutes=60", headers=headers)
+        assert resp.status_code == 200
+        user_ids = [u["id"] for u in resp.json()["users"]]
+        assert user.id in user_ids
+
+    def test_active_minutes_excludes_inactive_user(self, client, db):
+        admin = make_admin(db)
+        user = make_user(db, email="stale@test.com")
+        # Audit log entry from well outside the window
+        old_time = datetime.now(timezone.utc) - timedelta(hours=5)
+        make_audit_log(db, user.id, action="login", created_at=old_time)
+        headers = auth_headers(admin)
+        resp = client.get("/admin/users?active_minutes=60", headers=headers)
+        assert resp.status_code == 200
+        user_ids = [u["id"] for u in resp.json()["users"]]
+        assert user.id not in user_ids
+
+    def test_active_minutes_zero_returns_all_users(self, client, db):
+        admin = make_admin(db)
+        user = make_user(db, email="any@test.com")
+        headers = auth_headers(admin)
+        # Omitting active_minutes entirely should return all users
+        resp = client.get("/admin/users", headers=headers)
+        assert resp.status_code == 200
+        user_ids = [u["id"] for u in resp.json()["users"]]
+        assert user.id in user_ids

@@ -244,6 +244,51 @@ def _run_mysql(conn) -> None:
             )
         """))
 
+    # 15. Performance indexes
+    # list_items: composite (user_id, checked) — covers every list view, suggestion,
+    #             and add-item dedup query that filters on both columns together.
+    if not _index_exists(conn, "list_items", "ix_list_items_user_checked"):
+        conn.execute(text("""
+            CREATE INDEX ix_list_items_user_checked ON list_items(user_id, checked)
+        """))
+
+    # list_items: last_added_at — unblocks co-occurrence hourly rebuild from full scan
+    if not _index_exists(conn, "list_items", "ix_list_items_last_added_at"):
+        conn.execute(text("""
+            CREATE INDEX ix_list_items_last_added_at ON list_items(last_added_at)
+        """))
+
+    # list_items: times_added — used alongside last_added_at in prediction queries
+    if not _index_exists(conn, "list_items", "ix_list_items_times_added"):
+        conn.execute(text("""
+            CREATE INDEX ix_list_items_times_added ON list_items(times_added)
+        """))
+
+    # users: created_at — admin dashboard fires 6+ range scans per load
+    if not _index_exists(conn, "users", "ix_users_created_at"):
+        conn.execute(text("""
+            CREATE INDEX ix_users_created_at ON users(created_at)
+        """))
+
+    # users: is_active — used on most write paths and all dashboard aggregates
+    if not _index_exists(conn, "users", "ix_users_is_active"):
+        conn.execute(text("""
+            CREATE INDEX ix_users_is_active ON users(is_active)
+        """))
+
+    # users: auth_provider — social login compound lookup with auth_provider_id
+    if not _index_exists(conn, "users", "ix_users_auth_provider"):
+        conn.execute(text("""
+            CREATE INDEX ix_users_auth_provider ON users(auth_provider)
+        """))
+
+    # audit_logs: status — security dashboard and audit log browser filter by status;
+    #             audit_logs grows unboundedly so this is performance-critical.
+    if not _index_exists(conn, "audit_logs", "ix_audit_logs_status"):
+        conn.execute(text("""
+            CREATE INDEX ix_audit_logs_status ON audit_logs(status)
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -440,6 +485,32 @@ def _run_postgresql(conn) -> None:
     """))
     conn.execute(text("""
         CREATE INDEX IF NOT EXISTS ix_test_runs_created_at ON test_runs(created_at)
+    """))
+
+    # Performance indexes
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_list_items_user_checked
+            ON list_items(user_id, checked)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_list_items_last_added_at
+            ON list_items(last_added_at)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_list_items_times_added
+            ON list_items(times_added)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_users_created_at ON users(created_at)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_users_is_active ON users(is_active)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_users_auth_provider ON users(auth_provider)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_audit_logs_status ON audit_logs(status)
     """))
 
 

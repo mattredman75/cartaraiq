@@ -178,6 +178,44 @@ def make_item(
     return item
 
 
+def make_push_token(
+    db: Session,
+    user_id: str,
+    *,
+    token: Optional[str] = None,
+) -> PushToken:
+    """Create and persist a push token in the test DB."""
+    if token is None:
+        token = f"ExponentPushToken[test{uuid.uuid4().hex[:8]}]"
+    pt = PushToken(id=str(uuid.uuid4()), user_id=user_id, token=token)
+    db.add(pt)
+    db.commit()
+    db.refresh(pt)
+    return pt
+
+
+def make_audit_log(
+    db: Session,
+    user_id: str,
+    *,
+    action: str = "login",
+    status: str = "success",
+    created_at: Optional[datetime] = None,
+) -> AuditLog:
+    """Create and persist an audit log entry in the test DB."""
+    entry = AuditLog(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        action=action,
+        status=status,
+        created_at=created_at or datetime.now(),  # naive, matching admin.py cutoff
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
 def make_maintenance_record(db: Session, *, value: bool = False, message: str = "") -> AppAdmin:
     """Create the maintenance_mode app_admin record."""
     record = AppAdmin(id=str(uuid.uuid4()), key="maintenance_mode", value=value, message=message)
