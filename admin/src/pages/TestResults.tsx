@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { ReactNode } from "react";
 import api from "../lib/api";
 import {
@@ -16,6 +16,16 @@ import {
   Monitor,
   Loader2,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
@@ -25,7 +35,8 @@ interface FailedTest {
 }
 
 interface SuiteResult {
-  status: "pass" | "fail" | "error" | "pending";
+  id?: string;
+  status: "pass" | "fail" | "error" | "running" | "pending";
   exit_code?: number;
   passed: number;
   failed: number;
@@ -41,6 +52,8 @@ interface SuiteResult {
   suites_failed?: number;
   suites_total?: number;
   failed_tests?: FailedTest[];
+  triggered_by?: string;
+  created_at?: string;
 }
 
 type SuiteName = "backend" | "app" | "admin";
@@ -52,6 +65,18 @@ interface SuiteConfig {
   icon: ReactNode;
   color: string;
   bgColor: string;
+}
+
+interface HistoryPoint {
+  id: string;
+  status: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  total: number;
+  coverage: number | null;
+  duration: number | null;
+  created_at: string;
 }
 
 const SUITES: SuiteConfig[] = [
@@ -81,7 +106,21 @@ const SUITES: SuiteConfig[] = [
   },
 ];
 
+const POLL_INTERVAL = 5_000; // 5 seconds
+
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
+
+function timeAgo(iso: string | undefined): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 function statusBadge(status: string) {
   switch (status) {
@@ -103,10 +142,16 @@ function statusBadge(status: string) {
           <AlertTriangle className="w-3.5 h-3.5" /> Error
         </span>
       );
+    case "running":
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Running
+        </span>
+      );
     default:
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-          <Clock className="w-3.5 h-3.5" /> Pending
+          <Clock className="w-3.5 h-3.5" /> No data
         </span>
       );
   }
@@ -160,6 +205,66 @@ function CoverageRing({ pct }: { pct: number | null }) {
   );
 }
 
+/* ── Trend Chart ──────────────────────────────────────────────────────────── */
+
+function TrendChart({ history }: { history: HistoryPoint[] }) {
+  if (history.length < 2) return null;
+
+  const data = history.map((h, i) => ({
+    run: `#${i + 1}`,
+    Passed: h.passed,
+    Failed: h.failed,
+    Skipped: h.skipped,
+    Coverage: h.coverage ?? 0,
+  }));
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
+        Recent Trend
+      </h4>
+      <ResponsiveContainer width="100%" height={160}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+          <XAxis dataKey="run" tick={{ fontSize: 10 }} />
+          <YAxis tick={{ fontSize: 10 }} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "var(--color-gray-800, #1f2937)",
+              border: "none",
+              borderRadius: "8px",
+              color: "#fff",
+              fontSize: "12px",
+            }}
+          />
+          <Legend wrapperStyle={{ fontSize: "11px" }} />
+          <Line
+            type="monotone"
+            dataKey="Passed"
+            stroke="#22c55e"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="Failed"
+            stroke="#ef4444"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="Skipped"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 /* ── Suite Card ───────────────────────────────────────────────────────────── */
 
 function SuiteCard({
@@ -167,13 +272,18 @@ function SuiteCard({
   result,
   running,
   onRun,
+  history,
 }: {
   config: SuiteConfig;
   result: SuiteResult | null;
   running: boolean;
   onRun: () => void;
+  history: HistoryPoint[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isRunning = running || result?.status === "running";
+  const showStats =
+    result && result.status !== "running" && result.status !== "pending";
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -189,6 +299,11 @@ function SuiteCard({
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {config.description}
+              {result?.created_at && (
+                <span className="ml-2 text-gray-400 dark:text-gray-500">
+                  · {timeAgo(result.created_at)}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -196,23 +311,40 @@ function SuiteCard({
           {result && statusBadge(result.status)}
           <button
             onClick={onRun}
-            disabled={running}
+            disabled={isRunning}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                        bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors cursor-pointer"
           >
-            {running ? (
+            {isRunning ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Play className="w-4 h-4" />
             )}
-            {running ? "Running…" : "Run"}
+            {isRunning ? "Running…" : "Run"}
           </button>
         </div>
       </div>
 
+      {/* Running indicator */}
+      {isRunning && (
+        <div className="px-5 pb-5">
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <div>
+              <p className="text-sm font-medium">
+                Tests running in background…
+              </p>
+              <p className="text-xs mt-0.5 opacity-75">
+                You can leave this page and come back — results will be saved.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
-      {result && result.status !== "pending" && (
+      {showStats && (
         <div className="px-5 pb-5">
           {result.status === "error" ? (
             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400 text-sm">
@@ -292,24 +424,31 @@ function SuiteCard({
                 </div>
               )}
 
-              {/* Expandable output */}
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="mt-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer"
-              >
-                {expanded ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-                {expanded ? "Hide" : "Show"} raw output
-              </button>
+              {/* Trend chart */}
+              <TrendChart history={history} />
 
-              {expanded && (
-                <pre className="mt-2 p-3 rounded-lg bg-gray-100 dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-300 overflow-auto max-h-80 whitespace-pre-wrap break-words">
-                  {result.output || "(no output)"}
-                  {result.stderr ? `\n\nSTDERR:\n${result.stderr}` : ""}
-                </pre>
+              {/* Expandable output */}
+              {result.output && (
+                <>
+                  <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="mt-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer"
+                  >
+                    {expanded ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                    {expanded ? "Hide" : "Show"} raw output
+                  </button>
+
+                  {expanded && (
+                    <pre className="mt-2 p-3 rounded-lg bg-gray-100 dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-300 overflow-auto max-h-80 whitespace-pre-wrap break-words">
+                      {result.output || "(no output)"}
+                      {result.stderr ? `\n\nSTDERR:\n${result.stderr}` : ""}
+                    </pre>
+                  )}
+                </>
               )}
             </>
           )}
@@ -343,7 +482,9 @@ function SummaryBar({
 }: {
   results: Record<string, SuiteResult | null>;
 }) {
-  const suites = Object.values(results).filter(Boolean) as SuiteResult[];
+  const suites = Object.values(results).filter(
+    (r): r is SuiteResult => r !== null && r.status !== "running",
+  );
   if (suites.length === 0) return null;
 
   const totalPassed = suites.reduce((s, r) => s + r.passed, 0);
@@ -417,19 +558,76 @@ export default function TestResultsPage() {
     app: null,
     admin: null,
   });
-  const [running, setRunning] = useState<Record<string, boolean>>({
-    backend: false,
-    app: false,
-    admin: false,
+  const [history, setHistory] = useState<Record<string, HistoryPoint[]>>({
+    backend: [],
+    app: [],
+    admin: [],
   });
-  const [runAllRunning, setRunAllRunning] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Fetch last results + history ──────────────────────────────────────
+  const fetchResults = useCallback(async () => {
+    try {
+      const [resRes, histRes] = await Promise.all([
+        api.get("/admin/tests/results"),
+        api.get("/admin/tests/history"),
+      ]);
+      setResults(resRes.data.suites);
+      setHistory(histRes.data.history);
+    } catch {
+      // ignore — we'll retry on next poll
+    } finally {
+      setInitialLoad(false);
+    }
+  }, []);
+
+  // Load on mount
+  useEffect(() => {
+    fetchResults();
+  }, [fetchResults]);
+
+  // Poll while any suite is "running"
+  const anyRunning = Object.values(results).some(
+    (r) => r?.status === "running",
+  );
+
+  useEffect(() => {
+    if (anyRunning) {
+      pollRef.current = setInterval(fetchResults, POLL_INTERVAL);
+    } else if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [anyRunning, fetchResults]);
+
+  // ── Trigger a run ────────────────────────────────────────────────────
   const runSuite = async (suite: SuiteName) => {
-    setRunning((prev) => ({ ...prev, [suite]: true }));
+    // Optimistically mark as running
+    setResults((prev) => ({
+      ...prev,
+      [suite]: {
+        ...(prev[suite] ?? {}),
+        status: "running",
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        errors: 0,
+        total: 0,
+        coverage: null,
+        duration: null,
+      } as SuiteResult,
+    }));
     try {
       const res = await api.post(`/admin/tests/run?suite=${suite}`);
-      const suiteResult = res.data.suites[suite];
-      setResults((prev) => ({ ...prev, [suite]: suiteResult }));
+      // Backend returns the "running" row — poll will pick up completed state
+      setResults((prev) => ({
+        ...prev,
+        [suite]: res.data.suites[suite],
+      }));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Request failed";
       setResults((prev) => ({
@@ -446,19 +644,45 @@ export default function TestResultsPage() {
           duration: null,
         },
       }));
-    } finally {
-      setRunning((prev) => ({ ...prev, [suite]: false }));
     }
   };
 
   const runAll = async () => {
-    setRunAllRunning(true);
-    // Run sequentially to avoid overwhelming the server
-    for (const suite of ["backend", "app", "admin"] as SuiteName[]) {
-      await runSuite(suite);
+    // Optimistically mark all as running
+    for (const s of ["backend", "app", "admin"] as SuiteName[]) {
+      setResults((prev) => ({
+        ...prev,
+        [s]: {
+          ...(prev[s] ?? {}),
+          status: "running",
+          passed: 0,
+          failed: 0,
+          skipped: 0,
+          errors: 0,
+          total: 0,
+          coverage: null,
+          duration: null,
+        } as SuiteResult,
+      }));
     }
-    setRunAllRunning(false);
+    try {
+      const res = await api.post("/admin/tests/run?suite=all");
+      setResults((prev) => ({
+        ...prev,
+        ...res.data.suites,
+      }));
+    } catch {
+      // individual suite states already set to running — poll will resolve
+    }
   };
+
+  if (initialLoad) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -470,17 +694,18 @@ export default function TestResultsPage() {
             <h1 className="text-2xl font-bold dark:text-white">Test Results</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-10">
-            Run and review test suites across the entire project
+            Run and review test suites — results persist so you can leave and
+            come back
           </p>
         </div>
         <button
           onClick={runAll}
-          disabled={runAllRunning || Object.values(running).some(Boolean)}
+          disabled={anyRunning}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
                      bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
                      transition-colors cursor-pointer"
         >
-          {runAllRunning ? (
+          {anyRunning ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
           ) : (
             <Play className="w-4 h-4" />
@@ -499,8 +724,9 @@ export default function TestResultsPage() {
             key={config.key}
             config={config}
             result={results[config.key]}
-            running={running[config.key]}
+            running={results[config.key]?.status === "running"}
             onRun={() => runSuite(config.key)}
+            history={history[config.key] ?? []}
           />
         ))}
       </div>
