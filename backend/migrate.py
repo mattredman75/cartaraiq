@@ -219,6 +219,31 @@ def _run_mysql(conn) -> None:
             )
         """))
 
+    # 14. Test runs table (persisted test-suite results)
+    if not _table_exists(conn, "test_runs"):
+        conn.execute(text("""
+            CREATE TABLE test_runs (
+                id               VARCHAR(36)  NOT NULL PRIMARY KEY,
+                suite            VARCHAR(20)  NOT NULL,
+                status           VARCHAR(20)  NOT NULL DEFAULT 'running',
+                passed           INT          NOT NULL DEFAULT 0,
+                failed           INT          NOT NULL DEFAULT 0,
+                skipped          INT          NOT NULL DEFAULT 0,
+                errors           INT          NOT NULL DEFAULT 0,
+                total            INT          NOT NULL DEFAULT 0,
+                coverage         DOUBLE       NULL,
+                duration         DOUBLE       NULL,
+                output           LONGTEXT     NULL,
+                stderr           LONGTEXT     NULL,
+                error_message    TEXT         NULL,
+                failed_tests_json TEXT        NULL,
+                triggered_by     VARCHAR(36)  NULL,
+                created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX ix_test_runs_suite (suite),
+                INDEX ix_test_runs_created_at (created_at)
+            )
+        """))
+
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
@@ -387,6 +412,34 @@ def _run_postgresql(conn) -> None:
     """))
     conn.execute(text("""
         CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs(created_at)
+    """))
+
+    # 12. Test runs table (persisted test-suite results)
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS test_runs (
+            id               VARCHAR(36)  NOT NULL PRIMARY KEY,
+            suite            VARCHAR(20)  NOT NULL,
+            status           VARCHAR(20)  NOT NULL DEFAULT 'running',
+            passed           INT          NOT NULL DEFAULT 0,
+            failed           INT          NOT NULL DEFAULT 0,
+            skipped          INT          NOT NULL DEFAULT 0,
+            errors           INT          NOT NULL DEFAULT 0,
+            total            INT          NOT NULL DEFAULT 0,
+            coverage         DOUBLE PRECISION NULL,
+            duration         DOUBLE PRECISION NULL,
+            output           TEXT         NULL,
+            stderr           TEXT         NULL,
+            error_message    TEXT         NULL,
+            failed_tests_json TEXT        NULL,
+            triggered_by     VARCHAR(36)  NULL,
+            created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
+        )
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_test_runs_suite ON test_runs(suite)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS ix_test_runs_created_at ON test_runs(created_at)
     """))
 
 

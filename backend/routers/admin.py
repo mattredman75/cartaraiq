@@ -17,7 +17,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy import func as sa_func, case, distinct
 from sqlalchemy.orm import Session
@@ -29,6 +29,7 @@ from ..models.audit_log import AuditLog
 from ..models.list_item import ListItem
 from ..models.push_token import PushToken
 from ..models.shopping_list import ShoppingList
+from ..models.test_run import TestRun
 from ..models.user import User
 from ..services.audit import log_audit
 
@@ -890,9 +891,9 @@ def _run_suite(suite: str) -> dict:
             env={**os.environ, "CI": "true", "FORCE_COLOR": "0"},
         )
         stats = parser(proc.stdout, proc.stderr) if suite == "backend" else parser(proc.stdout)
-        status = "pass" if proc.returncode == 0 else "fail"
+        run_status = "pass" if proc.returncode == 0 else "fail"
         return {
-            "status": status,
+            "status": run_status,
             "exit_code": proc.returncode,
             **stats,
             "output": (proc.stdout[-3000:] if len(proc.stdout) > 3000 else proc.stdout),
@@ -906,20 +907,144 @@ def _run_suite(suite: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
+def _run_tests_background(run_ids: dict[str, str]):
+    """Background task: run test suites and persist results to DB."""
+    from ..database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        for suite_name, run_id in run_ids.items():
+            result = _run_suite(suite_name)
+            run = db.query(TestRun).filter(TestRun.id == run_id).first()
+            if not run:
+                continue
+            run.status = result.get("status", "error")
+            run.passed = result.get("passed", 0)
+            run.failed = result.get("failed", 0)
+            run.skipped = result.get("skipped", 0)
+            run.errors = result.get("errors", 0)
+            run.total = result.get("total", 0)
+            run.coverage = result.get("coverage")
+            run.duration = result.get("duration")
+            run.output = result.get("output")
+            run.stderr = result.get("stderr")
+            run.error_message = result.get("error")
+            failed_tests = result.get("failed_tests")
+            run.failed_tests_json = json.dumps(failed_tests) if failed_tests else None
+            db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Background test run failed")
+    finally:
+        db.close()
+
+
+def _test_run_to_dict(run: TestRun) -> dict:
+    """Serialize a TestRun row to API response dict."""
+    return {
+        "id": run.id,
+        "suite": run.suite,
+        "status": run.status,
+        "passed": run.passed,
+        "failed": run.failed,
+        "skipped": run.skipped,
+        "errors": run.errors,
+        "total": run.total,
+        "coverage": run.coverage,
+        "duration": run.duration,
+        "output": run.output,
+        "stderr": run.stderr,
+        "error": run.error_message,
+        "failed_tests": json.loads(run.failed_tests_json) if run.failed_tests_json else None,
+        "triggered_by": run.triggered_by,
+        "created_at": run.created_at.isoformat() if run.created_at else None,
+    }
+
+
 @router.post("/tests/run")
 async def run_tests(
+    background_tasks: BackgroundTasks,
     suite: str = Query(..., description="Test suite to run: backend, app, admin, or all"),
     _admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
 ):
-    """Run test suite(s) and return structured results. Admin only."""
+    """Kick off test suite(s) in the background. Returns immediately with run IDs."""
     valid = {"backend", "app", "admin", "all"}
     if suite not in valid:
         raise HTTPException(status_code=400, detail=f"suite must be one of: {', '.join(sorted(valid))}")
 
-    if suite == "all":
-        results = {}
-        for s in ("backend", "app", "admin"):
-            results[s] = _run_suite(s)
-        return {"suites": results}
+    suites_to_run = ["backend", "app", "admin"] if suite == "all" else [suite]
 
-    return {"suites": {suite: _run_suite(suite)}}
+    # Create a TestRun row per suite with status="running"
+    run_ids: dict[str, str] = {}
+    runs_out: dict[str, dict] = {}
+    for s in suites_to_run:
+        run = TestRun(suite=s, status="running", triggered_by=_admin.id)
+        db.add(run)
+        db.flush()  # populate id
+        run_ids[s] = run.id
+        runs_out[s] = _test_run_to_dict(run)
+    db.commit()
+
+    # Fire-and-forget background execution
+    background_tasks.add_task(_run_tests_background, run_ids)
+
+    return {"suites": runs_out}
+
+
+@router.get("/tests/results")
+async def get_test_results(
+    _admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Return the most recent test run for each suite."""
+    from sqlalchemy import desc
+
+    suites_out: dict[str, dict | None] = {}
+    for suite_name in ("backend", "app", "admin"):
+        run = (
+            db.query(TestRun)
+            .filter(TestRun.suite == suite_name)
+            .order_by(desc(TestRun.created_at))
+            .first()
+        )
+        suites_out[suite_name] = _test_run_to_dict(run) if run else None
+
+    return {"suites": suites_out}
+
+
+@router.get("/tests/history")
+async def get_test_history(
+    limit: int = Query(20, ge=1, le=100, description="Max runs per suite"),
+    _admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Return recent test runs per suite for trend charts."""
+    from sqlalchemy import desc
+
+    history: dict[str, list[dict]] = {}
+    for suite_name in ("backend", "app", "admin"):
+        runs = (
+            db.query(TestRun)
+            .filter(TestRun.suite == suite_name, TestRun.status != "running")
+            .order_by(desc(TestRun.created_at))
+            .limit(limit)
+            .all()
+        )
+        # Return oldest-first for charting
+        history[suite_name] = [
+            {
+                "id": r.id,
+                "status": r.status,
+                "passed": r.passed,
+                "failed": r.failed,
+                "skipped": r.skipped,
+                "total": r.total,
+                "coverage": r.coverage,
+                "duration": r.duration,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reversed(runs)
+        ]
+
+    return {"history": history}
