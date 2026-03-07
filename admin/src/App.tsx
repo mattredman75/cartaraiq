@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import UsersPage from "./pages/Users";
 import UserDetailPage from "./pages/UserDetail";
 import AuditLogPage from "./pages/AuditLog";
+import TestResultsPage from "./pages/TestResults";
 import SettingsPage from "./pages/Settings";
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
               <Route path="/users" element={<UsersPage />} />
               <Route path="/users/:userId" element={<UserDetailPage />} />
               <Route path="/audit" element={<AuditLogPage />} />
+              <Route path="/tests" element={<TestResultsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Routes>

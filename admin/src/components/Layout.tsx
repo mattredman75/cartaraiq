@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   ScrollText,
+  FlaskConical,
   Settings,
   LogOut,
   Shield,
@@ -17,6 +18,7 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/users", icon: Users, label: "Users" },
   { to: "/audit", icon: ScrollText, label: "Audit Log" },
+  { to: "/tests", icon: FlaskConical, label: "Test Results" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
