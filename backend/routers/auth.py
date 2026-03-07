@@ -464,10 +464,10 @@ def setup_biometric(
     db: Session = Depends(get_db),
 ):
     """Enable biometric login for the current user."""
-    try:
-        if not payload.pin_hash or not payload.biometric_type:
-            raise HTTPException(status_code=400, detail="PIN hash and biometric type are required.")
+    if not payload.pin_hash or not payload.biometric_type:
+        raise HTTPException(status_code=400, detail="PIN hash and biometric type are required.")
 
+    try:
         user = db.query(User).filter(User.id == current_user.id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
@@ -478,6 +478,8 @@ def setup_biometric(
         db.commit()
         log_audit(db, action="biometric_setup", request=request, user_id=current_user.id, detail={"type": payload.biometric_type})
         return {"message": "Biometric authentication enabled successfully."}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error setting up biometric for user %s: %s", current_user.id, str(e))
         raise HTTPException(status_code=500, detail="Failed to set up biometric authentication.")

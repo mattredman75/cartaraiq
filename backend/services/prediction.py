@@ -82,8 +82,8 @@ def get_frequency_candidates(db: Session, user_id: str, limit: int = 15, list_id
     seen: set[str] = set()
     deduped: list[ListItem] = []
     for item in scored:
-        key = item.name
-        if key.lower() not in seen:
+        key = item.name.lower()
+        if key not in seen:
             seen.add(key)
             deduped.append(item)
 
