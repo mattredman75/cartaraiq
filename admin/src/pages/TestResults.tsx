@@ -232,7 +232,15 @@ function TrendChart({ history }: { history: HistoryPoint[] }) {
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis dataKey="run" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} />
+          <YAxis
+            tick={{ fontSize: 10 }}
+            label={{
+              value: "Tests",
+              angle: -90,
+              position: "insideLeft",
+              style: { fontSize: 10, fill: "#9ca3af" },
+            }}
+          />
           <Tooltip
             contentStyle={{
               backgroundColor: "var(--color-gray-800, #1f2937)",

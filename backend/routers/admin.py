@@ -807,6 +807,18 @@ def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
         result["suites_failed"] = data.get("numFailedTestSuites", 0)
         result["suites_total"] = data.get("numTotalTestSuites", 0)
 
+        # Coverage: Jest --json --coverage puts data in coverageMap
+        coverage_map = data.get("coverageMap", {})
+        if coverage_map:
+            total_stmts = 0
+            covered_stmts = 0
+            for file_cov in coverage_map.values():
+                s_map = file_cov.get("s", {})
+                total_stmts += len(s_map)
+                covered_stmts += sum(1 for v in s_map.values() if v > 0)
+            if total_stmts > 0:
+                result["coverage"] = round(covered_stmts / total_stmts * 100)
+
         # Failed test details
         failed_tests = []
         for suite in data.get("testResults", []):
@@ -822,12 +834,6 @@ def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
     except (ValueError, json.JSONDecodeError, KeyError):
         pass
 
-    # Parse coverage from text table (stderr) — "All files" line
-    combined = stdout + "\n" + stderr
-    cov_match = re.search(r"All files[^|]*\|\s*([\d.]+)", combined)
-    if cov_match:
-        result["coverage"] = round(float(cov_match.group(1)))
-
     return result
 
 
@@ -836,7 +842,10 @@ def _parse_vitest_json(stdout: str, stderr: str = "") -> dict:
     result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
     try:
         idx = stdout.index("{")
-        data = json.loads(stdout[idx:])
+        # Vitest appends coverage text table after JSON when --coverage is used.
+        # json.loads() fails on trailing data, so use raw_decode instead.
+        decoder = json.JSONDecoder()
+        data, _ = decoder.raw_decode(stdout[idx:])
 
         result["passed"] = data.get("numPassedTests", 0)
         result["failed"] = data.get("numFailedTests", 0)
@@ -871,7 +880,7 @@ def _parse_vitest_json(stdout: str, stderr: str = "") -> dict:
     except (ValueError, json.JSONDecodeError, KeyError):
         pass
 
-    # Parse coverage from text table (stderr) — "All files" line
+    # Parse coverage from text table appended after JSON — "All files" line
     combined = stdout + "\n" + stderr
     cov_match = re.search(r"All files[^|]*\|\s*([\d.]+)", combined)
     if cov_match:
