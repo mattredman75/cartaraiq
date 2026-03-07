@@ -905,7 +905,16 @@ def _run_suite(suite: str) -> dict:
             env={**os.environ, "CI": "true", "FORCE_COLOR": "0"},
         )
         stats = parser(proc.stdout, proc.stderr)
-        run_status = "pass" if proc.returncode == 0 else "fail"
+        # Determine status from actual test results, not exit code.
+        # pytest returns non-zero when coverage is below --cov-fail-under
+        # even when all tests pass, so exit code alone is unreliable.
+        if stats.get("failed", 0) > 0 or stats.get("errors", 0) > 0:
+            run_status = "fail"
+        elif stats.get("total", 0) > 0:
+            run_status = "pass"
+        else:
+            # No tests found / parsed — fall back to exit code
+            run_status = "pass" if proc.returncode == 0 else "fail"
         return {
             "status": run_status,
             "exit_code": proc.returncode,
