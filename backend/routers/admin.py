@@ -4,10 +4,14 @@ Every endpoint is gated behind get_admin_user (role == 'admin').
 """
 
 import hashlib
+import json
 import logging
+import os
+import re
 import secrets
 import smtplib
 import ssl
+import subprocess
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -733,3 +737,189 @@ If you did not expect this, please contact support@cartaraiq.app.
         server.starttls(context=ctx)
         server.login(settings.smtp_user, settings.smtp_pass)
         server.sendmail(settings.smtp_from, to_email, msg.as_string())
+
+
+# ── Test Results ─────────────────────────────────────────────────────────────
+
+# Project root is two levels up from this file (backend/routers/admin.py → project root)
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+_SUITE_TIMEOUT = 120  # seconds per test suite
+
+
+def _parse_pytest_output(stdout: str, stderr: str) -> dict:
+    """Parse pytest text output for pass/fail/skip counts and coverage."""
+    combined = stdout + "\n" + stderr
+    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
+
+    # Match summary line like "45 passed, 1 failed, 2 skipped in 12.34s"
+    summary = re.search(r"=+\s*(.*?)\s*in\s+([\d.]+)s\s*=+", combined)
+    if summary:
+        parts_str = summary.group(1)
+        result["duration"] = float(summary.group(2))
+        for part in parts_str.split(","):
+            part = part.strip()
+            m = re.match(r"(\d+)\s+(\w+)", part)
+            if m:
+                count, label = int(m.group(1)), m.group(2).lower()
+                if label in result:
+                    result[label] = count
+    else:
+        # Fallback: short format "45 passed"
+        for label in ("passed", "failed", "skipped", "error"):
+            m = re.search(rf"(\d+)\s+{label}", combined)
+            if m:
+                key = "errors" if label == "error" else label
+                result[key] = int(m.group(1))
+
+    result["total"] = result["passed"] + result["failed"] + result["skipped"] + result["errors"]
+
+    # Parse TOTAL coverage line like "TOTAL    1234   56   95%"
+    cov = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", combined)
+    if cov:
+        result["coverage"] = int(cov.group(1))
+
+    return result
+
+
+def _parse_jest_json(stdout: str) -> dict:
+    """Parse Jest --json output."""
+    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
+    try:
+        # Jest may print warnings before JSON — find the first '{'
+        idx = stdout.index("{")
+        data = json.loads(stdout[idx:])
+        result["passed"] = data.get("numPassedTests", 0)
+        result["failed"] = data.get("numFailedTests", 0)
+        result["skipped"] = data.get("numPendingTests", 0)
+        result["total"] = data.get("numTotalTests", 0)
+
+        # Duration: Jest reports startTime in ms
+        if data.get("testResults"):
+            start = data.get("startTime", 0)
+            end = max(tr.get("endTime", 0) for tr in data["testResults"])
+            if start and end:
+                result["duration"] = round((end - start) / 1000, 2)
+
+        # Test suites info
+        result["suites_passed"] = data.get("numPassedTestSuites", 0)
+        result["suites_failed"] = data.get("numFailedTestSuites", 0)
+        result["suites_total"] = data.get("numTotalTestSuites", 0)
+
+        # Failed test details
+        failed_tests = []
+        for suite in data.get("testResults", []):
+            for assertion in suite.get("assertionResults", []) + suite.get("testResults", []):
+                if assertion.get("status") == "failed":
+                    failed_tests.append({
+                        "name": assertion.get("fullName") or assertion.get("title", ""),
+                        "message": "\n".join(assertion.get("failureMessages", []))[:500],
+                    })
+        if failed_tests:
+            result["failed_tests"] = failed_tests[:20]
+
+    except (ValueError, json.JSONDecodeError, KeyError):
+        pass
+    return result
+
+
+def _parse_vitest_json(stdout: str) -> dict:
+    """Parse Vitest --reporter=json output."""
+    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
+    try:
+        idx = stdout.index("{")
+        data = json.loads(stdout[idx:])
+
+        result["passed"] = data.get("numPassedTests", 0)
+        result["failed"] = data.get("numFailedTests", 0)
+        result["skipped"] = data.get("numPendingTests", 0) + data.get("numTodoTests", 0)
+        result["total"] = data.get("numTotalTests", 0)
+
+        # Duration
+        if data.get("startTime"):
+            start = data["startTime"]
+            # endTime may not exist — estimate from test results
+            ends = [tr.get("endTime", 0) for tr in data.get("testResults", [])]
+            end = max(ends) if ends else 0
+            if start and end:
+                result["duration"] = round((end - start) / 1000, 2)
+
+        result["suites_passed"] = data.get("numPassedTestSuites", 0)
+        result["suites_failed"] = data.get("numFailedTestSuites", 0)
+        result["suites_total"] = data.get("numTotalTestSuites", 0)
+
+        # Failed test details
+        failed_tests = []
+        for suite in data.get("testResults", []):
+            for assertion in suite.get("assertionResults", []):
+                if assertion.get("status") == "failed":
+                    failed_tests.append({
+                        "name": assertion.get("fullName") or assertion.get("title", ""),
+                        "message": "\n".join(assertion.get("failureMessages", []))[:500],
+                    })
+        if failed_tests:
+            result["failed_tests"] = failed_tests[:20]
+
+    except (ValueError, json.JSONDecodeError, KeyError):
+        pass
+    return result
+
+
+def _run_suite(suite: str) -> dict:
+    """Run a single test suite and return structured results."""
+    if suite == "backend":
+        cmd = ["python", "-m", "pytest", "backend/tests", "--tb=short", "-q", "--no-header",
+               "--cov=backend", "--cov-report=term-missing"]
+        cwd = _PROJECT_ROOT
+        parser = _parse_pytest_output
+    elif suite == "app":
+        cmd = ["npx", "jest", "--json", "--no-coverage", "--forceExit"]
+        cwd = os.path.join(_PROJECT_ROOT, "app")
+        parser = _parse_jest_json
+    elif suite == "admin":
+        cmd = ["npx", "vitest", "run", "--reporter=json"]
+        cwd = os.path.join(_PROJECT_ROOT, "admin")
+        parser = _parse_vitest_json
+    else:
+        return {"status": "error", "error": f"Unknown suite: {suite}"}
+
+    try:
+        proc = subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True,
+            timeout=_SUITE_TIMEOUT,
+            env={**os.environ, "CI": "true", "FORCE_COLOR": "0"},
+        )
+        stats = parser(proc.stdout, proc.stderr) if suite == "backend" else parser(proc.stdout)
+        status = "pass" if proc.returncode == 0 else "fail"
+        return {
+            "status": status,
+            "exit_code": proc.returncode,
+            **stats,
+            "output": (proc.stdout[-3000:] if len(proc.stdout) > 3000 else proc.stdout),
+            "stderr": (proc.stderr[-1000:] if len(proc.stderr) > 1000 else proc.stderr),
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "error": f"Test suite timed out after {_SUITE_TIMEOUT}s"}
+    except FileNotFoundError as e:
+        return {"status": "error", "error": f"Command not found: {e}"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@router.post("/tests/run")
+async def run_tests(
+    suite: str = Query(..., description="Test suite to run: backend, app, admin, or all"),
+    _admin: User = Depends(get_admin_user),
+):
+    """Run test suite(s) and return structured results. Admin only."""
+    valid = {"backend", "app", "admin", "all"}
+    if suite not in valid:
+        raise HTTPException(status_code=400, detail=f"suite must be one of: {', '.join(sorted(valid))}")
+
+    if suite == "all":
+        results = {}
+        for s in ("backend", "app", "admin"):
+            results[s] = _run_suite(s)
+        return {"suites": results}
+
+    return {"suites": {suite: _run_suite(suite)}}
