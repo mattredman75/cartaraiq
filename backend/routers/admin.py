@@ -783,7 +783,7 @@ def _parse_pytest_output(stdout: str, stderr: str) -> dict:
     return result
 
 
-def _parse_jest_json(stdout: str) -> dict:
+def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
     """Parse Jest --json output."""
     result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
     try:
@@ -821,10 +821,17 @@ def _parse_jest_json(stdout: str) -> dict:
 
     except (ValueError, json.JSONDecodeError, KeyError):
         pass
+
+    # Parse coverage from text table (stderr) — "All files" line
+    combined = stdout + "\n" + stderr
+    cov_match = re.search(r"All files[^|]*\|\s*([\d.]+)", combined)
+    if cov_match:
+        result["coverage"] = round(float(cov_match.group(1)))
+
     return result
 
 
-def _parse_vitest_json(stdout: str) -> dict:
+def _parse_vitest_json(stdout: str, stderr: str = "") -> dict:
     """Parse Vitest --reporter=json output."""
     result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
     try:
@@ -863,6 +870,13 @@ def _parse_vitest_json(stdout: str) -> dict:
 
     except (ValueError, json.JSONDecodeError, KeyError):
         pass
+
+    # Parse coverage from text table (stderr) — "All files" line
+    combined = stdout + "\n" + stderr
+    cov_match = re.search(r"All files[^|]*\|\s*([\d.]+)", combined)
+    if cov_match:
+        result["coverage"] = round(float(cov_match.group(1)))
+
     return result
 
 
@@ -874,11 +888,11 @@ def _run_suite(suite: str) -> dict:
         cwd = _PROJECT_ROOT
         parser = _parse_pytest_output
     elif suite == "app":
-        cmd = ["npx", "jest", "--json", "--no-coverage", "--forceExit"]
+        cmd = ["npx", "jest", "--json", "--coverage", "--forceExit"]
         cwd = os.path.join(_PROJECT_ROOT, "app")
         parser = _parse_jest_json
     elif suite == "admin":
-        cmd = ["npx", "vitest", "run", "--reporter=json"]
+        cmd = ["npx", "vitest", "run", "--reporter=json", "--coverage"]
         cwd = os.path.join(_PROJECT_ROOT, "admin")
         parser = _parse_vitest_json
     else:
@@ -890,7 +904,7 @@ def _run_suite(suite: str) -> dict:
             timeout=_SUITE_TIMEOUT,
             env={**os.environ, "CI": "true", "FORCE_COLOR": "0"},
         )
-        stats = parser(proc.stdout, proc.stderr) if suite == "backend" else parser(proc.stdout)
+        stats = parser(proc.stdout, proc.stderr)
         run_status = "pass" if proc.returncode == 0 else "fail"
         return {
             "status": run_status,
