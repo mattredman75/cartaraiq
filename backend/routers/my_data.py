@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import List, Optional
 from ..database import get_db
@@ -71,6 +71,7 @@ async def export_data(
     """Export all lists and items for the current user."""
     shopping_lists = (
         db.query(ShoppingList)
+        .options(joinedload(ShoppingList.items))
         .filter(ShoppingList.user_id == user.id)
         .order_by(ShoppingList.created_at)
         .all()

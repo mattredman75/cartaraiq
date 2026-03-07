@@ -178,12 +178,20 @@ def list_users(
     if active_minutes:
         cutoff = datetime.now() - timedelta(minutes=active_minutes)
         _auto = {"token_refresh", "token_refresh_blocked"}
-        active_ids = [
-            uid for (uid,) in db.query(distinct(AuditLog.user_id))
-            .filter(AuditLog.user_id.isnot(None), AuditLog.created_at >= cutoff, AuditLog.action.notin_(_auto))
-            .all()
-        ]
-        query = query.filter(User.id.in_(active_ids)) if active_ids else query.filter(User.id == None)  # noqa: E711
+        # Use a correlated EXISTS subquery instead of materialising the full
+        # active-user ID set into Python memory, which can be very large.
+        active_sq = (
+            db.query(AuditLog.user_id)
+            .filter(
+                AuditLog.user_id == User.id,
+                AuditLog.user_id.isnot(None),
+                AuditLog.created_at >= cutoff,
+                AuditLog.action.notin_(_auto),
+            )
+            .correlate(User)
+            .exists()
+        )
+        query = query.filter(active_sq)
     if registered_after:
         try:
             reg_date = datetime.strptime(registered_after, "%Y-%m-%d")

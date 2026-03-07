@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Backgrou
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models import AppAdmin, PushToken
 from ..auth import get_admin_user, get_current_user
 from ..models.user import User
@@ -11,6 +11,47 @@ from ..services.audit import log_audit
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+async def _broadcast_maintenance_background(maintenance: bool, message: str) -> None:
+    """
+    Background task: pages through push tokens in chunks and broadcasts the
+    maintenance update without loading the full token table into request memory.
+    Each chunk matches Expo's 100-message batch limit so no oversized payloads
+    are ever built in memory.
+    """
+
+    CHUNK = 100
+    db = SessionLocal()
+    try:
+        offset = 0
+        total = 0
+        while True:
+            tokens = [
+                pt.token for pt in db.query(PushToken.token)
+                .order_by(PushToken.id)
+                .offset(offset)
+                .limit(CHUNK)
+                .all()
+            ]
+            if not tokens:
+                break
+            await broadcast_maintenance_update(
+                tokens=tokens,
+                maintenance=maintenance,
+                message=message,
+            )
+            total += len(tokens)
+            if len(tokens) < CHUNK:
+                break
+            offset += CHUNK
+        logger.info(f"Broadcast maintenance={maintenance} to {total} devices")
+    except Exception as e:
+        logger.error(f"Error broadcasting maintenance update: {e}")
+    finally:
+        db.close()
+
+
 router = APIRouter(prefix="/app", tags=["app"])
 
 
@@ -75,16 +116,15 @@ def set_maintenance_mode(
 
     log_audit(db, action="maintenance_toggle", request=request, user_id=_user.id, detail={"maintenance": req.maintenance, "message": req.message})
 
-    # Gather all push tokens and broadcast in the background
-    all_tokens = [pt.token for pt in db.query(PushToken.token).all()]
-    if all_tokens:
-        background_tasks.add_task(
-            broadcast_maintenance_update,
-            tokens=all_tokens,
-            maintenance=req.maintenance,
-            message=req.message,
-        )
-        logger.info(f"Broadcasting maintenance={req.maintenance} to {len(all_tokens)} devices")
+    # Schedule broadcast without loading the entire push_tokens table into
+    # request memory.  The background task opens its own session and pages
+    # through tokens in 100-item chunks matching Expo's batch limit.
+    background_tasks.add_task(
+        _broadcast_maintenance_background,
+        maintenance=req.maintenance,
+        message=req.message,
+    )
+    logger.info(f"Scheduled maintenance broadcast: maintenance={req.maintenance}")
 
     return AppStatusResponse(
         maintenance=record.value,
