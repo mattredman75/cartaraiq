@@ -14,7 +14,7 @@ import { SvgXml } from "react-native-svg";
 import JsBarcode from "jsbarcode";
 import { DOMImplementation, XMLSerializer } from "xmldom";
 import type { StoreCard } from "../lib/types";
-import { LOYALTY_PROGRAMS } from "../lib/loyaltyPrograms";
+import { useLoyaltyPrograms } from "../hooks/useLoyaltyPrograms";
 
 interface BarcodeDisplayModalProps {
   visible: boolean;
@@ -38,11 +38,12 @@ export function BarcodeDisplayModal({
 }: BarcodeDisplayModalProps) {
   const insets = useSafeAreaInsets();
   const [barcodeSvg, setBarcodeSvg] = React.useState<string | null>(null);
+  const { programs } = useLoyaltyPrograms();
   const cardWidth = Dimensions.get("window").width - 40;
   const cardHeight = 225;
 
   const program = card?.programId
-    ? LOYALTY_PROGRAMS.find((p) => p.id === card.programId) ?? null
+    ? programs.find((p) => p.id === card.programId || p.slug === card.programId) ?? null
     : null;
 
   useEffect(() => {
@@ -88,23 +89,18 @@ export function BarcodeDisplayModal({
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={onClose} />
         <View
           style={{
-            flex: 1,
-            justifyContent: "flex-end",
+            backgroundColor: "#fff",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingHorizontal: 20,
+            paddingTop: 40,
+            paddingBottom: 20 + insets.bottom,
+            alignItems: "center",
           }}
         >
-          <View
-            style={{
-              backgroundColor: "#fff",
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              paddingHorizontal: 20,
-              paddingTop: 40,
-              paddingBottom: 20 + insets.bottom,
-              alignItems: "center",
-            }}
-          >
             {/* Close Button */}
             <TouchableOpacity
               onPress={onClose}
@@ -130,6 +126,51 @@ export function BarcodeDisplayModal({
               }}
             >
               {/* Card background */}
+              {program?.logo_url ? (
+                <View
+                  style={{
+                    flex: 1,
+                  backgroundColor: program.logo_background || "transparent",
+                    padding: 16,
+                    gap: 10,
+                    justifyContent: "space-between",
+                  }}
+                >
+                  {/* Logo fills top portion */}
+                  <View style={{ flex: 1, overflow: "hidden" }}>
+                    <Image
+                      source={{ uri: program.logo_url }}
+                      style={{ width: cardWidth, flex: 1 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  {/* Barcode */}
+                  <View
+                    style={{
+                      backgroundColor: "rgba(255,255,255,0.95)",
+                      borderRadius: 12,
+                      paddingVertical: 8,
+                      paddingHorizontal: 8,
+                      alignItems: "center",
+                      zIndex: 1,
+                    }}
+                  >
+                    {barcodeSvg ? (
+                      <>
+                        <SvgXml xml={barcodeSvg} width="100%" height={100} />
+                        <Text style={{ fontSize: 11, color: MUTED, letterSpacing: 2, marginTop: 2, fontWeight: "500" }}>
+                          {card.barcode}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={{ fontSize: 18, fontWeight: "700", color: TEXT, letterSpacing: 2, paddingVertical: 16 }}>
+                        {card.barcode}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ) : (
               <LinearGradient
                 colors={[card.color, card.color + "CC"]}
                 start={{ x: 0, y: 0 }}
@@ -154,7 +195,7 @@ export function BarcodeDisplayModal({
                   }}
                 />
 
-                {/* Card name + logo at top */}
+                {/* Card name at top */}
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", zIndex: 1 }}>
                   <Text
                     style={{
@@ -162,24 +203,11 @@ export function BarcodeDisplayModal({
                       fontWeight: "700",
                       color: "#fff",
                       flex: 1,
-                      marginRight: program?.logo ? 8 : 0,
                     }}
                     numberOfLines={2}
                   >
                     {card.name}
                   </Text>
-                  {program?.logo && (
-                    <Image
-                      source={program.logo}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 8,
-                        backgroundColor: "rgba(255,255,255,0.9)",
-                      }}
-                      resizeMode="contain"
-                    />
-                  )}
                 </View>
 
                 {/* Barcode */}
@@ -223,6 +251,7 @@ export function BarcodeDisplayModal({
                   )}
                 </View>
               </LinearGradient>
+              )}
             </View>
 
             {/* Spacer */}
@@ -230,6 +259,7 @@ export function BarcodeDisplayModal({
 
             {/* Action Buttons */}
             <View style={{ width: "100%", gap: 12 }}>
+              {!program?.logo_url && (
               <TouchableOpacity
                 onPress={onEdit}
                 style={{
@@ -247,6 +277,7 @@ export function BarcodeDisplayModal({
                   Edit Card
                 </Text>
               </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 onPress={onDelete}
@@ -268,7 +299,6 @@ export function BarcodeDisplayModal({
             </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
   );
 }

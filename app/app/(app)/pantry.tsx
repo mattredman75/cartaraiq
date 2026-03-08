@@ -2,12 +2,11 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
   SafeAreaView,
   TouchableOpacity,
   FlatList,
-  Modal,
   Alert,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,16 +16,24 @@ import { StoreCardItem } from "../../components/StoreCardItem";
 import { AddCardModal } from "../../components/AddCardModal";
 import { BarcodeDisplayModal } from "../../components/BarcodeDisplayModal";
 import { EditCardModal } from "../../components/EditCardModal";
+import { useLoyaltyPrograms } from "../../hooks/useLoyaltyPrograms";
 
 const TEAL = "#1B6B7A";
-const TEAL_DARK = "#0D4F5C";
 const TEXT = "#1A1A2E";
 const MUTED = "#64748B";
-const BORDER = "#E8EFF2";
 const BG = "#DDE4E7";
+
+type GridItem = StoreCard | { id: "__add__" };
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const GRID_PADDING = 20;
+const GRID_GAP = 12;
+const CARD_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
+const CARD_HEIGHT = Math.round(CARD_WIDTH * (160 / 280));
 
 export default function PantryScreen() {
   const insets = useSafeAreaInsets();
+  const { programs } = useLoyaltyPrograms();
   const [cards, setCards] = useState<StoreCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -62,9 +69,14 @@ export default function PantryScreen() {
   };
 
   const handleAddCard = (card: StoreCard) => {
+    const duplicate = cards.some((c) => c.barcode === card.barcode);
+    if (duplicate) {
+      Alert.alert("Already added", "You have already added this card.");
+      return;
+    }
     const updatedCards = [...cards, card];
     saveCards(updatedCards);
-    setShowAddModal(false);
+    // Modal close is handled by AddCardModal's resetModal → onClose()
   };
 
   const handleEditCard = (updatedCard: StoreCard) => {
@@ -95,70 +107,81 @@ export default function PantryScreen() {
   };
 
   const handleCardLongPress = (card: StoreCard) => {
+    // Matched/branded cards are not editable
+    const program = card.programId
+      ? programs.find((p) => p.id === card.programId || p.slug === card.programId)
+      : null;
+    if (program?.logo_url) return;
     setSelectedCard(card);
     setShowEditModal(true);
   };
+
+  const gridData: GridItem[] = [...cards, { id: "__add__" }];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["right", "left"]}>
       <View style={{ flex: 1, paddingTop: insets.top }}>
         {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingVertical: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <View style={{ paddingHorizontal: GRID_PADDING, paddingVertical: 16 }}>
           <Text style={{ fontSize: 28, fontWeight: "700", color: TEXT }}>Loyalty Cards</Text>
-          <TouchableOpacity
-            onPress={() => setShowAddModal(true)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: TEAL,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 8,
-              gap: 6,
-            }}
-          >
-            <Ionicons name="add" size={18} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>Add Card</Text>
-          </TouchableOpacity>
         </View>
 
-        {/* Cards Carousel */}
+        {/* Card Grid */}
         {loading ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
             <Text style={{ color: MUTED }}>Loading cards...</Text>
           </View>
-        ) : cards.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
-            <View
-              style={{
-                width: 280,
-                height: 160,
-                borderWidth: 2,
-                borderStyle: "dashed",
-                borderColor: MUTED,
-                borderRadius: 16,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: "600", color: MUTED }}>No Cards</Text>
-              <Text style={{ fontSize: 13, color: MUTED, marginTop: 8 }}>Add your first loyalty card</Text>
-            </View>
-          </View>
         ) : (
-          <FlatList
-            data={cards}
+          <FlatList<GridItem>
+            data={gridData}
             keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 16, gap: 12 }}
-            renderItem={({ item }) => (
-              <StoreCardItem
-                card={item}
-                onPress={() => handleCardPress(item)}
-                onLongPress={() => handleCardLongPress(item)}
-              />
-            )}
+            numColumns={2}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: GRID_PADDING, paddingBottom: 32, gap: GRID_GAP }}
+            columnWrapperStyle={{ gap: GRID_GAP }}
+            renderItem={({ item }) => {
+              if (item.id === "__add__") {
+                return (
+                  <TouchableOpacity
+                    onPress={() => setShowAddModal(true)}
+                    activeOpacity={0.8}
+                    style={{
+                      width: CARD_WIDTH,
+                      height: CARD_HEIGHT,
+                      borderRadius: 16,
+                      backgroundColor: "#E0F5F7",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: TEAL,
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Ionicons name="add" size={24} color="#fff" />
+                    </View>
+                    <Text style={{ color: TEAL, fontWeight: "600", fontSize: 13 }}>Add new card</Text>
+                  </TouchableOpacity>
+                );
+              }
+              const card = item as StoreCard;
+              return (
+                <StoreCardItem
+                  card={card}
+                  cardWidth={CARD_WIDTH}
+                  cardHeight={CARD_HEIGHT}
+                  onPress={() => handleCardPress(card)}
+                  onLongPress={() => handleCardLongPress(card)}
+                />
+              );
+            }}
           />
         )}
       </View>

@@ -18,3 +18,4 @@ logs/*.log
 .coverage
 **/htmlcov/
 **/coverage/
+.env.swp

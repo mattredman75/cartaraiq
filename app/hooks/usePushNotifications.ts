@@ -30,10 +30,13 @@ try {
 interface UsePushNotificationsOptions {
   /** Called when a maintenance update push arrives */
   onMaintenanceUpdate?: (maintenance: boolean, message: string) => void;
+  /** Called when a loyalty_programs_updated silent push arrives */
+  onLoyaltyProgramsUpdated?: () => void;
 }
 
 export function usePushNotifications({
   onMaintenanceUpdate,
+  onLoyaltyProgramsUpdated,
 }: UsePushNotificationsOptions = {}) {
   const tokenRef = useRef<string | null>(null);
   const notificationListener = useRef<any>(null);
@@ -106,6 +109,9 @@ export function usePushNotifications({
           String(data.message ?? ""),
         );
       }
+      if (data?.type === "loyalty_programs_updated" && onLoyaltyProgramsUpdated) {
+        onLoyaltyProgramsUpdated();
+      }
     };
 
     // Fires when a notification is received while app is foregrounded
@@ -128,7 +134,7 @@ export function usePushNotifications({
       }
       responseListener.remove();
     };
-  }, [onMaintenanceUpdate]);
+  }, [onMaintenanceUpdate, onLoyaltyProgramsUpdated]);
 
   return { register, unregister, token: tokenRef };
 }

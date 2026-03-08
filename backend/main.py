@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from .routers import admin, auth, lists, products, app_status, my_data, push
+from .routers import admin, auth, lists, products, app_status, my_data, push, loyalty_programs, recipes
 
 # Write logs to a file next to passenger_wsgi.py so they're easy to find.
 # Falls back to stderr (works fine under local uvicorn).
@@ -70,6 +70,8 @@ app.include_router(products.router)
 app.include_router(app_status.router)
 app.include_router(my_data.router)
 app.include_router(push.router)
+app.include_router(loyalty_programs.router)
+app.include_router(recipes.router)
 
 
 @app.get("/health")
