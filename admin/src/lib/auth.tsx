@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       client: "admin",
     });
-    const { access_token, user: u } = res.data;
+    const { access_token, refresh_token, user: u } = res.data;
 
     if (!access_token || typeof access_token !== "string") {
       throw new Error("Invalid server response");
@@ -76,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Use sessionStorage (not localStorage) — session dies when browser closes
     sessionStorage.setItem("admin_token", access_token);
+    if (refresh_token)
+      sessionStorage.setItem("admin_refresh_token", refresh_token);
     sessionStorage.setItem("admin_user", JSON.stringify(u));
     setToken(access_token);
     setUser(u);
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     sessionStorage.removeItem("admin_token");
+    sessionStorage.removeItem("admin_refresh_token");
     sessionStorage.removeItem("admin_user");
     setToken(null);
     setUser(null);

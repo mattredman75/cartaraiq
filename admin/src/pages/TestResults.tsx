@@ -46,7 +46,6 @@ interface SuiteResult {
   coverage: number | null;
   coverage_statements?: number | null;
   coverage_branches?: number | null;
-  coverage_functions?: number | null;
   coverage_lines?: number | null;
   duration: number | null;
   output?: string;
@@ -81,7 +80,6 @@ interface HistoryPoint {
   coverage: number | null;
   coverage_statements?: number | null;
   coverage_branches?: number | null;
-  coverage_functions?: number | null;
   coverage_lines?: number | null;
   duration: number | null;
   created_at: string;
@@ -340,7 +338,6 @@ function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
     result.coverage !== null ||
     result.coverage_statements !== null ||
     result.coverage_branches !== null ||
-    result.coverage_functions !== null ||
     result.coverage_lines !== null;
 
   if (!hasCoverageData) return null;
@@ -350,14 +347,13 @@ function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
       <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
         Coverage Metrics
       </h4>
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <MetricRing pct={result.coverage} label="Overall" />
         <MetricRing
           pct={result.coverage_statements ?? null}
           label="Statements"
         />
         <MetricRing pct={result.coverage_branches ?? null} label="Branches" />
-        <MetricRing pct={result.coverage_functions ?? null} label="Functions" />
         <MetricRing pct={result.coverage_lines ?? null} label="Lines" />
       </div>
       <div className="mt-6 border-t border-gray-300 dark:border-gray-600" />
