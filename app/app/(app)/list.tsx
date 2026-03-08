@@ -35,7 +35,10 @@ import { SuggestionsStrip } from "../../components/SuggestionsStrip";
 import { ListFooter } from "../../components/ListFooter";
 import { ModalStack } from "../../components/ModalStack";
 import { ItemActionDrawer } from "../../components/ItemActionDrawer";
-import { syncListToWidget, syncAllListsToWidget } from "../../hooks/useWidgetSync";
+import {
+  syncListToWidget,
+  syncAllListsToWidget,
+} from "../../hooks/useWidgetSync";
 
 const TEAL = "#1B6B7A";
 const BG = "#DDE4E7";
@@ -53,7 +56,6 @@ export default function ListScreen() {
   const [inputText, setInputText] = useState("");
   const [showListModal, setShowListModal] = useState(false);
   const [newListName, setNewListName] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [pairingEnabled, setPairingEnabled] = useState(true);
   const [editItem, setEditItem] = useState<ListItem | null>(null);
@@ -396,7 +398,6 @@ export default function ListScreen() {
         currentList={currentList}
         refetchLists={refetchLists}
         onOpenListModal={() => setShowListModal(true)}
-        onOpenSettings={() => setShowSettings(true)}
         firstName={firstName}
         getGreeting={getGreeting}
         unchecked={unchecked}
@@ -489,12 +490,6 @@ export default function ListScreen() {
         setEditName={setEditName}
         onCancelEdit={() => setEditItem(null)}
         onSaveRename={handleSaveRename}
-        showSettings={showSettings}
-        onCloseSettings={() => setShowSettings(false)}
-        aiEnabled={aiEnabled}
-        setAiEnabled={setAiEnabled}
-        pairingEnabled={pairingEnabled}
-        setPairingEnabled={setPairingEnabled}
         showListModal={showListModal}
         onCloseListModal={() => setShowListModal(false)}
         shoppingLists={shoppingLists}
