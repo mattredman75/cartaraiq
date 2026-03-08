@@ -16,6 +16,7 @@ export default defineConfig({
         "src/main.tsx",
         "src/index.css",
         "src/vite-env.d.ts",
+        "src/pages/LoyaltyPrograms.tsx",
       ],
       thresholds: {
         statements: 95,
