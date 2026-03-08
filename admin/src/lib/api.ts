@@ -16,19 +16,62 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401/403 redirect to login (skip for login endpoint itself)
+// Sliding session: on 401/403 attempt token refresh before redirecting to login
+let isRefreshing = false;
+let refreshQueue: Array<(token: string) => void> = [];
+
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
     const url = err.config?.url || "";
-    const isLoginRequest = url.includes("/auth/login");
+    const isAuthRequest =
+      url.includes("/auth/login") || url.includes("/auth/refresh");
+
     if (
-      !isLoginRequest &&
+      !isAuthRequest &&
       (err.response?.status === 401 || err.response?.status === 403)
     ) {
-      sessionStorage.removeItem("admin_token");
-      sessionStorage.removeItem("admin_user");
-      window.location.href = "/login";
+      const refreshToken = sessionStorage.getItem("admin_refresh_token");
+
+      if (!refreshToken) {
+        // No refresh token — clear session and redirect
+        sessionStorage.removeItem("admin_token");
+        sessionStorage.removeItem("admin_user");
+        window.location.href = "/login";
+        return Promise.reject(err);
+      }
+
+      if (isRefreshing) {
+        // Queue the retry behind the in-flight refresh
+        return new Promise((resolve) => {
+          refreshQueue.push((token: string) => {
+            err.config.headers.Authorization = `Bearer ${token}`;
+            resolve(api(err.config));
+          });
+        });
+      }
+
+      isRefreshing = true;
+      try {
+        const res = await api.post("/auth/refresh", {
+          refresh_token: refreshToken,
+        });
+        const { access_token, refresh_token: newRt } = res.data;
+        sessionStorage.setItem("admin_token", access_token);
+        if (newRt) sessionStorage.setItem("admin_refresh_token", newRt);
+        refreshQueue.forEach((cb) => cb(access_token));
+        refreshQueue = [];
+        err.config.headers.Authorization = `Bearer ${access_token}`;
+        return api(err.config);
+      } catch {
+        sessionStorage.removeItem("admin_token");
+        sessionStorage.removeItem("admin_refresh_token");
+        sessionStorage.removeItem("admin_user");
+        window.location.href = "/login";
+        return Promise.reject(err);
+      } finally {
+        isRefreshing = false;
+      }
     }
     return Promise.reject(err);
   },

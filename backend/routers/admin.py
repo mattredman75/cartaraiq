@@ -918,7 +918,8 @@ def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
 
 def _parse_vitest_json(stdout: str, stderr: str = "") -> dict:
     """Parse Vitest --reporter=json output."""
-    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
+    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None,
+                    "coverage_statements": None, "coverage_branches": None, "coverage_functions": None, "coverage_lines": None}
     try:
         idx = stdout.index("{")
         # Vitest appends coverage text table after JSON when --coverage is used.
@@ -961,9 +962,16 @@ def _parse_vitest_json(stdout: str, stderr: str = "") -> dict:
 
     # Parse coverage from text table appended after JSON — "All files" line
     combined = stdout + "\n" + stderr
-    cov_match = re.search(r"All files[^|]*\|\s*([\d.]+)", combined)
-    if cov_match:
-        result["coverage"] = round(float(cov_match.group(1)))
+    coverage_line = re.search(
+        r"All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)",
+        combined,
+    )
+    if coverage_line:
+        result["coverage_statements"] = float(coverage_line.group(1))
+        result["coverage_branches"] = float(coverage_line.group(2))
+        result["coverage_functions"] = float(coverage_line.group(3))
+        result["coverage_lines"] = float(coverage_line.group(4))
+        result["coverage"] = round(float(coverage_line.group(1)))
 
     return result
 
