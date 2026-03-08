@@ -5,6 +5,7 @@ import {
   Modal,
   TouchableOpacity,
   Dimensions,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,6 +14,7 @@ import { SvgXml } from "react-native-svg";
 import JsBarcode from "jsbarcode";
 import { DOMImplementation, XMLSerializer } from "xmldom";
 import type { StoreCard } from "../lib/types";
+import { LOYALTY_PROGRAMS } from "../lib/loyaltyPrograms";
 
 interface BarcodeDisplayModalProps {
   visible: boolean;
@@ -36,8 +38,12 @@ export function BarcodeDisplayModal({
 }: BarcodeDisplayModalProps) {
   const insets = useSafeAreaInsets();
   const [barcodeSvg, setBarcodeSvg] = React.useState<string | null>(null);
-  const cardWidth = Dimensions.get("window").width - 40; // 20px padding each side
-  const cardHeight = 200;
+  const cardWidth = Dimensions.get("window").width - 40;
+  const cardHeight = 225;
+
+  const program = card?.programId
+    ? LOYALTY_PROGRAMS.find((p) => p.id === card.programId) ?? null
+    : null;
 
   useEffect(() => {
     if (visible && card) {
@@ -64,7 +70,7 @@ export function BarcodeDisplayModal({
       JsBarcode(svgNode, card.barcode, {
         format: "CODE128",
         width: 2,
-        height: 70,
+        height: 75,
         margin: 6,
         displayValue: false,
         background: "transparent",
@@ -94,7 +100,7 @@ export function BarcodeDisplayModal({
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               paddingHorizontal: 20,
-              paddingTop: 20,
+              paddingTop: 40,
               paddingBottom: 20 + insets.bottom,
               alignItems: "center",
             }}
@@ -138,27 +144,43 @@ export function BarcodeDisplayModal({
                 <View
                   style={{
                     position: "absolute",
-                    width: cardWidth * 1.5,
-                    height: cardHeight * 2,
+                    width: cardWidth * 1.15,
+                    height: cardHeight * 1.62,
                     borderRadius: 9999,
-                    backgroundColor: "rgba(255,255,255,0.15)",
+                    backgroundColor: "rgba(255,255,255,0.25)",
                     top: -cardHeight * 0.3,
-                    right: -cardWidth * 0.15,
+                    right: -cardWidth * 0.1 + 15,
                     transform: [{ rotate: "-45deg" }],
                   }}
                 />
 
-                {/* Card name at top */}
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "700",
-                    color: "#fff",
-                    zIndex: 1,
-                  }}
-                >
-                  {card.name}
-                </Text>
+                {/* Card name + logo at top */}
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", zIndex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: "700",
+                      color: "#fff",
+                      flex: 1,
+                      marginRight: program?.logo ? 8 : 0,
+                    }}
+                    numberOfLines={2}
+                  >
+                    {card.name}
+                  </Text>
+                  {program?.logo && (
+                    <Image
+                      source={program.logo}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 8,
+                        backgroundColor: "rgba(255,255,255,0.9)",
+                      }}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
 
                 {/* Barcode */}
                 <View
@@ -173,7 +195,7 @@ export function BarcodeDisplayModal({
                 >
                   {barcodeSvg ? (
                     <>
-                      <SvgXml xml={barcodeSvg} width="100%" height={85} />
+                      <SvgXml xml={barcodeSvg} width="100%" height={100} />
                       <Text
                         style={{
                           fontSize: 11,

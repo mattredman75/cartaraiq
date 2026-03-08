@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import type { StoreCard } from "../lib/types";
+import { LOYALTY_PROGRAMS } from "../lib/loyaltyPrograms";
 
 interface StoreCardItemProps {
   card: StoreCard;
@@ -12,6 +13,10 @@ interface StoreCardItemProps {
 export function StoreCardItem({ card, onPress, onLongPress }: StoreCardItemProps) {
   const cardWidth = 280;
   const cardHeight = 160;
+
+  const program = card.programId
+    ? LOYALTY_PROGRAMS.find((p) => p.id === card.programId) ?? null
+    : null;
 
   return (
     <TouchableOpacity
@@ -53,7 +58,7 @@ export function StoreCardItem({ card, onPress, onLongPress }: StoreCardItemProps
           />
 
           {/* Content */}
-          <View style={{ zIndex: 1 }}>
+          <View style={{ zIndex: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <Text
               style={{
                 fontSize: 12,
@@ -65,6 +70,18 @@ export function StoreCardItem({ card, onPress, onLongPress }: StoreCardItemProps
             >
               Loyalty Card
             </Text>
+            {program?.logo && (
+              <Image
+                source={program.logo}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 6,
+                  backgroundColor: "rgba(255,255,255,0.9)",
+                }}
+                resizeMode="contain"
+              />
+            )}
           </View>
 
           <View style={{ zIndex: 1 }}>

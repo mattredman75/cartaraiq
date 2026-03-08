@@ -64,6 +64,7 @@ export function EditCardModal({
                 backgroundColor: "#fff",
                 borderTopLeftRadius: 24,
                 borderTopRightRadius: 24,
+                maxHeight: "80%",
               }}
               contentContainerStyle={{
                 padding: 20,
@@ -74,7 +75,7 @@ export function EditCardModal({
                 onPress={onClose}
                 style={{ marginBottom: 16 }}
               >
-                <Ionicons name="arrow-back" size={24} color={TEXT} />
+                <Ionicons name="chevron-back" size={24} color={TEXT} />
               </TouchableOpacity>
 
               <Text style={{ fontSize: 20, fontWeight: "700", color: TEXT, marginBottom: 8 }}>
