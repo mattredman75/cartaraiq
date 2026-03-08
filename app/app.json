@@ -57,7 +57,12 @@
       "./plugins/withCartaraIQWidget",
       "expo-web-browser",
       "expo-apple-authentication",
-      "expo-barcode-scanner"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow CartaraIQ to use the camera to scan loyalty card barcodes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

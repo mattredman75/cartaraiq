@@ -10,7 +10,7 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
     "\\.(png|jpg|jpeg|gif|svg)$": "<rootDir>/__mocks__/fileMock.js",
     "\\.(css)$": "<rootDir>/__mocks__/cssMock.js",
-    "^expo-barcode-scanner$": "<rootDir>/__mocks__/expo-barcode-scanner.js",
+    "^expo-camera$": "<rootDir>/__mocks__/expo-camera.js",
   },
   collectCoverageFrom: [
     "lib/**/*.{ts,tsx}",
