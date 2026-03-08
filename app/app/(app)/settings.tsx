@@ -149,31 +149,6 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "This action cannot be undone. All your data will be permanently deleted.",
-      [
-        { text: "Cancel" },
-        {
-          text: "Delete",
-          onPress: async () => {
-            try {
-              await setItem("user_purge_requested", "true");
-              clearAuth();
-              await deleteItem("auth_user");
-              await deleteItem("auth_token");
-              router.replace("/(auth)/login");
-            } catch (e) {
-              Alert.alert("Error", `Failed to delete account: ${e}`);
-            }
-          },
-          style: "destructive",
-        },
-      ],
-    );
-  };
-
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: BG }}
@@ -494,33 +469,51 @@ export default function SettingsScreen() {
             </Text>
           </View>
 
-          {/* Logout */}
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: BORDER,
-            }}
-          >
-            <Text style={{ fontSize: 14, color: TEAL, fontWeight: "500" }}>
-              Log Out
-            </Text>
-          </TouchableOpacity>
+          {/* Reset PIN Button */}
+          {pinEnabled && (
+            <TouchableOpacity
+              onPress={() => {
+                setShowResetPINModal(true);
+                setResetPINStep("first");
+                setFirstResetPIN("");
+                setResetPINError("");
+              }}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: TEAL, fontWeight: "500" }}>
+                Reset PIN
+              </Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Delete Account */}
-          <TouchableOpacity
-            onPress={handleDeleteAccount}
+          {/* Logout Button - Red, 80% width, centered */}
+          <View
             style={{
+              paddingVertical: 20,
               paddingHorizontal: 16,
-              paddingVertical: 14,
+              alignItems: "center",
             }}
           >
-            <Text style={{ fontSize: 14, color: "#DC2626", fontWeight: "500" }}>
-              Delete Account
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={{
+                width: "80%",
+                backgroundColor: "#DC2626",
+                paddingVertical: 12,
+                borderRadius: 8,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 16, color: "#fff", fontWeight: "600" }}>
+                Log Out
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={{ height: 40 }} />
