@@ -40,7 +40,7 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-64 bg-[#1e1b4b] text-white flex flex-col">
+      <aside className="w-64 bg-[#0D4F5C] text-white flex flex-col">
         <div className="p-6 flex items-center gap-3 border-b border-teal-800">
           <Shield className="w-7 h-7 text-teal-300" />
           <div>
