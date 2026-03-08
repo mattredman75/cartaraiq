@@ -20,7 +20,7 @@ export default function StatsCard({
 }: Props) {
   const colorMap: Record<string, string> = {
     indigo:
-      "bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400",
+      "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400",
     green: "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
     red: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400",
     amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400",
