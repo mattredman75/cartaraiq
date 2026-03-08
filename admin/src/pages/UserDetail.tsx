@@ -89,7 +89,7 @@ export default function UserDetailPage() {
   if (loading || (!user && !fetchError)) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
       </div>
     );
   }
@@ -114,7 +114,7 @@ export default function UserDetailPage() {
                 setLoading(true);
                 fetchUser();
               }}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors cursor-pointer"
             >
               Retry
             </button>
@@ -157,7 +157,7 @@ export default function UserDetailPage() {
           <span
             className={`px-3 py-1 rounded-full text-xs font-medium ${
               user.role === "admin"
-                ? "bg-purple-100 text-purple-700"
+                ? "bg-teal-100 text-teal-700"
                 : "bg-gray-100 text-gray-600"
             }`}
           >
@@ -168,7 +168,7 @@ export default function UserDetailPage() {
 
       {/* Status message */}
       {message && (
-        <div className="p-3 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm">
+        <div className="p-3 bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400 rounded-lg text-sm">
           {message}
         </div>
       )}

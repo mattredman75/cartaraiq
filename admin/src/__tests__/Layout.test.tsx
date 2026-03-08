@@ -141,7 +141,7 @@ describe("Layout", () => {
   it("shows app branding", () => {
     renderLayout();
     expect(screen.getByText("CartaraIQ")).toBeInTheDocument();
-    expect(screen.getByText("Admin Panel")).toBeInTheDocument();
+    expect(screen.getByText("Admin Portal")).toBeInTheDocument();
   });
 
   it("shows Light Mode toggle when theme is dark", () => {
