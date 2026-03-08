@@ -288,13 +288,7 @@ function TrendChart({ history }: { history: HistoryPoint[] }) {
 
 /* ── Coverage Metrics Rings ───────────────────────────────────────────────── */
 
-function MetricRing({
-  pct,
-  label,
-}: {
-  pct: number | null;
-  label: string;
-}) {
+function MetricRing({ pct, label }: { pct: number | null; label: string }) {
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const filled = pct !== null ? (pct / 100) * circumference : 0;
@@ -358,7 +352,10 @@ function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
       </h4>
       <div className="grid grid-cols-5 gap-4">
         <MetricRing pct={result.coverage} label="Overall" />
-        <MetricRing pct={result.coverage_statements ?? null} label="Statements" />
+        <MetricRing
+          pct={result.coverage_statements ?? null}
+          label="Statements"
+        />
         <MetricRing pct={result.coverage_branches ?? null} label="Branches" />
         <MetricRing pct={result.coverage_functions ?? null} label="Functions" />
         <MetricRing pct={result.coverage_lines ?? null} label="Lines" />
@@ -454,10 +451,10 @@ function SuiteCard({
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-6">
-                {/* Coverage ring */}
-                <CoverageRing pct={result.coverage} />
+              {/* Coverage metrics rings */}
+              <CoverageMetricsRings result={result} />
 
+              <div className="flex items-center gap-6">
                 {/* Test counts */}
                 <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatBlock
@@ -528,9 +525,6 @@ function SuiteCard({
 
               {/* Trend chart */}
               <TrendChart history={history} />
-
-              {/* Coverage metrics rings */}
-              <CoverageMetricsRings result={result} />
 
               {/* Expandable output */}
               {result.output && (
