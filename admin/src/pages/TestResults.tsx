@@ -98,7 +98,7 @@ const SUITES: SuiteConfig[] = [
   },
   {
     key: "admin",
-    label: "Admin Panel",
+    label: "Admin Portal",
     description: "React / Vitest",
     icon: <Monitor className="w-5 h-5" />,
     color: "text-violet-600 dark:text-violet-400",
@@ -144,7 +144,7 @@ function statusBadge(status: string) {
       );
     case "running":
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Running
         </span>
       );
@@ -326,7 +326,7 @@ function SuiteCard({
             onClick={onRun}
             disabled={isRunning}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
-                       bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                       bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors cursor-pointer"
           >
             {isRunning ? (
@@ -342,7 +342,7 @@ function SuiteCard({
       {/* Running indicator */}
       {isRunning && (
         <div className="px-5 pb-5">
-          <div className="flex items-center gap-3 p-4 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300">
             <Loader2 className="w-5 h-5 animate-spin" />
             <div>
               <p className="text-sm font-medium">
@@ -692,7 +692,7 @@ export default function TestResultsPage() {
   if (initialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
       </div>
     );
   }
@@ -703,7 +703,7 @@ export default function TestResultsPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <FlaskConical className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            <FlaskConical className="w-7 h-7 text-teal-600 dark:text-teal-400" />
             <h1 className="text-2xl font-bold dark:text-white">Test Results</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-10">
@@ -715,7 +715,7 @@ export default function TestResultsPage() {
           onClick={runAll}
           disabled={anyRunning}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                     bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                     bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed
                      transition-colors cursor-pointer"
         >
           {anyRunning ? (

@@ -57,7 +57,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
       </div>
     );
   }
@@ -88,7 +88,7 @@ export default function SettingsPage() {
       </div>
 
       {feedback && (
-        <div className="p-3 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 rounded-lg text-sm">
+        <div className="p-3 bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400 rounded-lg text-sm">
           {feedback}
         </div>
       )}
@@ -137,7 +137,7 @@ export default function SettingsPage() {
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
               placeholder="We're performing scheduled maintenance. We'll be back shortly."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
             />
           </div>
 
@@ -168,7 +168,7 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold mb-2 dark:text-white">About</h2>
         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong>Application:</strong> CartaraIQ Admin Panel
+            <strong>Application:</strong> CartaraIQ Admin Portal
           </p>
           <p>
             <strong>API:</strong>{" "}

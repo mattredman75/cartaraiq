@@ -20,7 +20,7 @@ export default function StatsCard({
 }: Props) {
   const colorMap: Record<string, string> = {
     indigo:
-      "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400",
+      "bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400",
     green: "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
     red: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400",
     amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400",
@@ -29,7 +29,7 @@ export default function StatsCard({
 
   const card = (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full ${to ? "hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full ${to ? "hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">

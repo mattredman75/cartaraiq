@@ -149,27 +149,27 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       {hasDrillDown && (
-        <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-4 py-3">
+        <div className="flex items-center justify-between bg-teal-50 dark:bg-teal-950 border border-teal-200 dark:border-teal-800 rounded-lg px-4 py-3">
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate("/")}
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer"
+              className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-200 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+            <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
               Filtered:{" "}
               {urlLabel
                 ? decodeURIComponent(urlLabel.replace(/\+/g, " "))
                 : "Dashboard drill-down"}
             </span>
-            <span className="text-sm text-indigo-500 dark:text-indigo-400">
+            <span className="text-sm text-teal-500 dark:text-teal-400">
               ({data?.total ?? "…"} users)
             </span>
           </div>
           <button
             onClick={clearDrillDown}
-            className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer"
+            className="flex items-center gap-1 text-sm text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-200 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             Clear filter
@@ -196,7 +196,7 @@ export default function UsersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
         <select
@@ -310,7 +310,7 @@ export default function UsersPage() {
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs ${
                           u.role === "admin"
-                            ? "bg-purple-100 text-purple-700"
+                            ? "bg-teal-100 text-teal-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >

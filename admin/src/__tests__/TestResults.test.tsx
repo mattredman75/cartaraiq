@@ -107,7 +107,7 @@ describe("TestResults page", () => {
     await waitFor(() => {
       expect(screen.getByText("Backend API")).toBeInTheDocument();
       expect(screen.getByText("Mobile App")).toBeInTheDocument();
-      expect(screen.getByText("Admin Panel")).toBeInTheDocument();
+      expect(screen.getByText("Admin Portal")).toBeInTheDocument();
     });
   });
 

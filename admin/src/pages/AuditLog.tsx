@@ -129,7 +129,7 @@ export default function AuditLogPage() {
       {drillLabel && (
         <button
           onClick={clearDrillDown}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400 rounded-lg text-sm hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors cursor-pointer"
         >
           <X className="w-3.5 h-3.5" />
           Clear filter — show all events
@@ -176,7 +176,7 @@ export default function AuditLogPage() {
               setUserSearch(e.target.value);
               setPage(1);
             }}
-            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-48"
           />
         </div>
         <div className="relative">
@@ -189,7 +189,7 @@ export default function AuditLogPage() {
               setIpFilter(e.target.value);
               setPage(1);
             }}
-            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44"
+            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-44"
           />
         </div>
       </div>

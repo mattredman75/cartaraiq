@@ -283,7 +283,7 @@ describe("Settings page", () => {
 
     await waitFor(() => {
       expect(screen.getByText("About")).toBeInTheDocument();
-      expect(screen.getByText("CartaraIQ Admin Panel")).toBeInTheDocument();
+      expect(screen.getByText("CartaraIQ Admin Portal")).toBeInTheDocument();
     });
   });
 });
