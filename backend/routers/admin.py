@@ -773,8 +773,9 @@ def _parse_pytest_output(stdout: str, stderr: str) -> dict:
         "duration": None,
     }
 
-    # Match summary line like "45 passed, 1 failed, 2 skipped in 12.34s"
-    summary = re.search(r"=+\s*(.*?)\s*in\s+([\d.]+)s\s*=+", combined)
+    # Match summary line — works with both normal (=== N passed in Xs ===)
+    # and quiet -q mode (N passed in Xs, no borders)
+    summary = re.search(r"=*\s*((?:\d+[^=\n]+?))\s*in\s+([\d.]+)s\s*=*", combined)
     if summary:
         parts_str = summary.group(1)
         result["duration"] = float(summary.group(2))
@@ -795,13 +796,43 @@ def _parse_pytest_output(stdout: str, stderr: str) -> dict:
 
     result["total"] = result["passed"] + result["failed"] + result["skipped"] + result["errors"]
 
-    # Parse TOTAL coverage line like "TOTAL    1234   56   95%"
-    cov = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", combined)
-    if cov:
-        result["coverage"] = int(cov.group(1))
-        # For pytest, we set all 4 metrics to the overall coverage percentage
-        # (pytest doesn't break down by statements/branches/functions/lines by default)
-        result["coverage_statements"] = float(cov.group(1))
+    # Parse TOTAL coverage line.
+    # With --cov-branch: "TOTAL   Stmts   Miss  Branch  BrPart   Cover"
+    #   e.g. "TOTAL    1234    134    200      20    89%"
+    # Without --cov-branch: "TOTAL    1234    134    89%"
+    cov_branch = re.search(
+        r"TOTAL\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)%", combined
+    )
+    cov_simple = re.search(r"TOTAL\s+(\d+)\s+(\d+)\s+(\d+)%", combined)
+
+    if cov_branch:
+        total_stmts = int(cov_branch.group(1))
+        miss_stmts  = int(cov_branch.group(2))
+        total_branch = int(cov_branch.group(3))
+        part_branch  = int(cov_branch.group(4))
+        overall_pct  = int(cov_branch.group(5))
+        result["coverage"] = overall_pct
+        if total_stmts > 0:
+            result["coverage_statements"] = round(
+                (total_stmts - miss_stmts) / total_stmts * 100, 2
+            )
+            # Lines ≈ statements in coverage.py
+            result["coverage_lines"] = result["coverage_statements"]
+        if total_branch > 0:
+            result["coverage_branches"] = round(
+                (total_branch - part_branch) / total_branch * 100, 2
+            )
+        # Functions are not tracked by coverage.py — leave as None
+    elif cov_simple:
+        total_stmts = int(cov_simple.group(1))
+        miss_stmts  = int(cov_simple.group(2))
+        overall_pct = int(cov_simple.group(3))
+        result["coverage"] = overall_pct
+        if total_stmts > 0:
+            result["coverage_statements"] = round(
+                (total_stmts - miss_stmts) / total_stmts * 100, 2
+            )
+            result["coverage_lines"] = result["coverage_statements"]
 
     return result
 
@@ -941,7 +972,7 @@ def _run_suite(suite: str) -> dict:
     """Run a single test suite and return structured results."""
     if suite == "backend":
         cmd = ["python", "-m", "pytest", "backend/tests", "--tb=short", "-q", "--no-header",
-               "--cov=backend", "--cov-report=term-missing"]
+               "--cov=backend", "--cov-report=term-missing", "--cov-branch"]
         cwd = _PROJECT_ROOT
         parser = _parse_pytest_output
     elif suite == "app":
