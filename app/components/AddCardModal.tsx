@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BarCodeScanner } from "expo-barcode-scanner";
+import { CameraView, Camera } from "expo-camera";
 import { ColorSelector } from "./ColorSelector";
 import type { StoreCard } from "../lib/types";
 
@@ -47,14 +47,14 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
   }, [visible, step]);
 
   const requestCameraPermission = async () => {
-    const { status } = await BarCodeScanner.requestPermissionsAsync();
+    const { status } = await Camera.requestCameraPermissionsAsync();
     setHasPermission(status === "granted");
     if (status !== "granted") {
       Alert.alert("Permission Denied", "Camera permission is required to scan barcodes");
     }
   };
 
-  const handleBarcodeScan = ({ data }: { data: string }) => {
+  const handleBarcodeScan = ({ data }: { data: string; type: string }) => {
     if (!scanned) {
       setScanned(true);
       setBarcode(data);
@@ -180,8 +180,11 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                 </View>
               ) : hasPermission ? (
                 <>
-                  <BarCodeScanner
-                    onBarCodeScanned={handleBarcodeScan}
+                  <CameraView
+                    onBarcodeScanned={handleBarcodeScan}
+                    barcodeScannerSettings={{
+                      barcodeTypes: ["ean13", "ean8", "code128", "code39", "upc_a", "upc_e", "qr"],
+                    }}
                     style={{ flex: 1 }}
                   />
                   <View
