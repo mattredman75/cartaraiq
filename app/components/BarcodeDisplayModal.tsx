@@ -42,13 +42,18 @@ export function BarcodeDisplayModal({
   }, [visible, card]);
 
   const generateBarcode = () => {
+    // jsbarcode internally references the global `document`, which doesn't exist
+    // in React Native's Hermes engine. We temporarily polyfill it with an xmldom
+    // document so jsbarcode can do its work, then restore the original value.
+    const xmldomDoc = new DOMImplementation().createDocument(
+      "http://www.w3.org/1999/xhtml",
+      "html",
+      null
+    );
+    const previousDocument = (global as any).document;
+    (global as any).document = xmldomDoc;
     try {
-      const document = new DOMImplementation().createDocument(
-        "http://www.w3.org/1999/xhtml",
-        "html",
-        null
-      );
-      const svgNode = document.createElementNS(
+      const svgNode = xmldomDoc.createElementNS(
         "http://www.w3.org/2000/svg",
         "svg"
       );
@@ -59,7 +64,6 @@ export function BarcodeDisplayModal({
         margin: 10,
         displayValue: true,
         fontSize: 14,
-        fontOptions: "bold",
         background: "#f5f5f5",
       });
       const svgString = new XMLSerializer().serializeToString(svgNode);
@@ -67,6 +71,8 @@ export function BarcodeDisplayModal({
     } catch (e) {
       console.error("Failed to generate barcode:", e);
       setBarcodeSvg(null);
+    } finally {
+      (global as any).document = previousDocument;
     }
   };
 
