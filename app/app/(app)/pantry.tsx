@@ -1,14 +1,14 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const TEAL = '#1B6B7A';
-const BG = '#DDE4E7';
-const MUTED = '#64748B';
+const TEAL = "#1B6B7A";
+const BG = "#DDE4E7";
+const MUTED = "#64748B";
 
 export default function PantryScreen() {
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
+    <SafeAreaView style={styles.container} edges={["right", "left"]}>
       <View style={styles.content}>
         <Text style={styles.icon}>📚</Text>
         <Text style={styles.title}>Pantry</Text>
@@ -28,8 +28,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
   },
   icon: {
@@ -38,20 +38,20 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: "600",
     color: TEAL,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
     color: MUTED,
     marginBottom: 12,
   },
   description: {
     fontSize: 14,
     color: MUTED,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
 });

@@ -1,24 +1,24 @@
-import { Tabs } from 'expo-router';
-import { View, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from "expo-router";
+import { View, Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-const TEAL = '#1B6B7A';
-const MUTED = '#94A3B8';
+const TEAL = "#1B6B7A";
+const MUTED = "#94A3B8";
 
-function TabIcon({ 
-  iconName, 
-  label, 
-  focused 
-}: { 
+function TabIcon({
+  iconName,
+  label,
+  focused,
+}: {
   iconName: string;
   label: string;
   focused: boolean;
 }) {
   return (
-    <View style={{ alignItems: 'center', paddingTop: 6, width: 80 }}>
-      <Ionicons 
+    <View style={{ alignItems: "center", paddingTop: 6, width: 80 }}>
+      <Ionicons
         name={iconName as any}
-        size={24} 
+        size={24}
         color={focused ? TEAL : MUTED}
       />
       <Text
@@ -26,7 +26,7 @@ function TabIcon({
         style={{
           fontSize: 10,
           marginTop: 3,
-          fontWeight: focused ? '600' : '500',
+          fontWeight: focused ? "600" : "500",
           color: focused ? TEAL : MUTED,
         }}
       >
@@ -44,8 +44,8 @@ export default function AppLayout() {
         tabBarActiveTintColor: TEAL,
         tabBarInactiveTintColor: MUTED,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E8EFF2',
+          backgroundColor: "#FFFFFF",
+          borderTopColor: "#E8EFF2",
           borderTopWidth: 1,
           paddingBottom: 8,
           height: 70,
@@ -58,7 +58,7 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon iconName="list" label="Lists" focused={focused} />
           ),
-          title: 'Lists',
+          title: "Lists",
         }}
       />
       <Tabs.Screen
@@ -67,7 +67,7 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon iconName="albums" label="Pantry" focused={focused} />
           ),
-          title: 'Pantry',
+          title: "Pantry",
         }}
       />
       <Tabs.Screen
@@ -76,25 +76,13 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon iconName="settings" label="Settings" focused={focused} />
           ),
-          title: 'Settings',
+          title: "Settings",
         }}
       />
-      <Tabs.Screen
-        name="products/index"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="products/[id]"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="manage-data"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{ href: null }}
-      />
+      <Tabs.Screen name="products/index" options={{ href: null }} />
+      <Tabs.Screen name="products/[id]" options={{ href: null }} />
+      <Tabs.Screen name="manage-data" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

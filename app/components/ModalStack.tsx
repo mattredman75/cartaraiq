@@ -29,27 +29,56 @@ export interface ModalStackProps {
 }
 
 export function ModalStack({
-  editItem, editName, setEditName, onCancelEdit, onSaveRename,
-  showListModal, onCloseListModal, shoppingLists, currentList, onSelectList, onDeleteList,
-  onEditList, createIsPending, newListName, setNewListName, onCreateList,
-  editList, editListName, setEditListName, onCancelEditList, onSaveListName,
+  editItem,
+  editName,
+  setEditName,
+  onCancelEdit,
+  onSaveRename,
+  showListModal,
+  onCloseListModal,
+  shoppingLists,
+  currentList,
+  onSelectList,
+  onDeleteList,
+  onEditList,
+  createIsPending,
+  newListName,
+  setNewListName,
+  onCreateList,
+  editList,
+  editListName,
+  setEditListName,
+  onCancelEditList,
+  onSaveListName,
 }: ModalStackProps) {
   return (
     <>
       <RenameItemModal
-        editItem={editItem} editName={editName} setEditName={setEditName}
-        onCancel={onCancelEdit} onSave={onSaveRename}
+        editItem={editItem}
+        editName={editName}
+        setEditName={setEditName}
+        onCancel={onCancelEdit}
+        onSave={onSaveRename}
       />
       <ListSwitcherModal
-        visible={showListModal} onClose={onCloseListModal}
-        shoppingLists={shoppingLists} currentList={currentList}
-        onSelect={onSelectList} onDelete={onDeleteList} onEditList={onEditList}
-        createIsPending={createIsPending} newListName={newListName}
-        setNewListName={setNewListName} onCreateList={onCreateList}
+        visible={showListModal}
+        onClose={onCloseListModal}
+        shoppingLists={shoppingLists}
+        currentList={currentList}
+        onSelect={onSelectList}
+        onDelete={onDeleteList}
+        onEditList={onEditList}
+        createIsPending={createIsPending}
+        newListName={newListName}
+        setNewListName={setNewListName}
+        onCreateList={onCreateList}
       />
       <EditListNameModal
-        editList={editList} editListName={editListName}
-        setEditListName={setEditListName} onCancel={onCancelEditList} onSave={onSaveListName}
+        editList={editList}
+        editListName={editListName}
+        setEditListName={setEditListName}
+        onCancel={onCancelEditList}
+        onSave={onSaveListName}
       />
     </>
   );

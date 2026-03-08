@@ -101,7 +101,7 @@ describe("SettingsScreen", () => {
 
   it("can edit user name", async () => {
     const { getByText, getByDisplayValue } = render(<SettingsScreen />);
-    
+
     // Find and click the edit button (pencil icon)
     const editButton = getByText("✎");
     fireEvent.press(editButton);

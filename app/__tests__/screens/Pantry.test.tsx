@@ -29,7 +29,9 @@ describe("PantryScreen", () => {
   it("displays description text", () => {
     const { getByText } = render(<PantryScreen />);
     expect(
-      getByText("Track ingredients you have at home and manage your kitchen inventory.")
+      getByText(
+        "Track ingredients you have at home and manage your kitchen inventory.",
+      ),
     ).toBeTruthy();
   });
 });

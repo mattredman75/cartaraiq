@@ -35,7 +35,10 @@ import { SuggestionsStrip } from "../../components/SuggestionsStrip";
 import { ListFooter } from "../../components/ListFooter";
 import { ModalStack } from "../../components/ModalStack";
 import { ItemActionDrawer } from "../../components/ItemActionDrawer";
-import { syncListToWidget, syncAllListsToWidget } from "../../hooks/useWidgetSync";
+import {
+  syncListToWidget,
+  syncAllListsToWidget,
+} from "../../hooks/useWidgetSync";
 
 const TEAL = "#1B6B7A";
 const BG = "#DDE4E7";

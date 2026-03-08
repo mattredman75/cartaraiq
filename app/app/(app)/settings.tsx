@@ -15,7 +15,12 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../../lib/store";
-import { updateMe, setupBiometric, disableBiometric, authLogout } from "../../lib/api";
+import {
+  updateMe,
+  setupBiometric,
+  disableBiometric,
+  authLogout,
+} from "../../lib/api";
 import { setItem, deleteItem, getItem } from "../../lib/storage";
 import { useBiometricAuth } from "../../hooks/useBiometricAuth";
 import { PINEntry } from "../../components/PINEntry";
@@ -51,10 +56,13 @@ export default function SettingsScreen() {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [pinEnabled, setPinEnabledState] = useState(false);
   const [showResetPINModal, setShowResetPINModal] = useState(false);
-  const [resetPINStep, setResetPINStep] = useState<"first" | "confirm">("first");
+  const [resetPINStep, setResetPINStep] = useState<"first" | "confirm">(
+    "first",
+  );
   const [firstResetPIN, setFirstResetPIN] = useState("");
   const [resetPINError, setResetPINError] = useState("");
-  const [showBiometricSuccessModal, setShowBiometricSuccessModal] = useState(false);
+  const [showBiometricSuccessModal, setShowBiometricSuccessModal] =
+    useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [pairingEnabled, setPairingEnabled] = useState(true);
 
@@ -62,7 +70,7 @@ export default function SettingsScreen() {
     checkBiometricAvailability();
     isBiometricEnabled().then(setBiometricEnabled);
     isPinEnabled().then(setPinEnabledState);
-    
+
     // Load feature flags
     getItem("ai_suggestions_enabled").then((v) => {
       if (v !== "0") setAiEnabled(true);
@@ -167,7 +175,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView 
+    <SafeAreaView
       style={{ flex: 1, backgroundColor: BG }}
       edges={["right", "left"]}
     >
@@ -399,7 +407,7 @@ export default function SettingsScreen() {
                       try {
                         await setupBiometric(
                           credentials.pinHash,
-                          biometricType || "faceId"
+                          biometricType || "faceId",
                         );
                         await setItem("biometric_enabled", "true");
                         setBiometricEnabled(true);
