@@ -3,10 +3,10 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
+  TouchableOpacity,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ListItem, ShoppingList } from "../lib/types";
 import { VoiceAddButton } from "./VoiceAddButton";
@@ -16,18 +16,12 @@ const TEAL_DARK = "#0D4F5C";
 const TEXT = "#1A1A2E";
 const MUTED = "#64748B";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
-
 interface ListHeaderProps {
-  shoppingLists: ShoppingList[];
   currentList: ShoppingList | null;
   refetchLists: () => void;
   onOpenListModal: () => void;
-  firstName: string;
-  getGreeting: () => string;
   unchecked: ListItem[];
-  suggestions: { name: string; reason: string }[];
-  allSuggestions: { name: string; reason: string; _type: string }[];
+  checked: ListItem[];
   inputText: string;
   setInputText: (v: string) => void;
   onSubmit: () => void;
@@ -39,15 +33,11 @@ interface ListHeaderProps {
 }
 
 export function ListHeader({
-  shoppingLists,
   currentList,
   refetchLists,
   onOpenListModal,
-  firstName,
-  getGreeting,
   unchecked,
-  suggestions,
-  allSuggestions,
+  checked,
   inputText,
   setInputText,
   onSubmit,
@@ -108,135 +98,38 @@ export function ListHeader({
         }}
       />
 
-      {/* Top row: list switcher */}
+      {/* Stats row: item count + list icon */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 5,
-        }}
-      >
-        {shoppingLists.length > 0 ? (
-          <TouchableOpacity
-            onPress={() => {
-              refetchLists();
-              onOpenListModal();
-            }}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              maxWidth: SCREEN_WIDTH * 0.55,
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderRadius: 10,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: "600",
-                  flexShrink: 1,
-                }}
-              >
-                {currentList?.name ?? "My List"}
-              </Text>
-              <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 11 }}>
-                ▾
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View />
-        )}
-      </View>
-
-      {/* Greeting */}
-      {/*<Text
-        style={{
-          color: "rgba(255,255,255,0.6)",
-          fontSize: 14,
-          marginBottom: 2,
-        }}
-      >
-        {getGreeting()},
-      </Text>*/}
-      <Text
-        style={{
-          color: "#fff",
-          fontSize: 24,
-          fontWeight: "700",
-          marginBottom: 6,
-        }}
-      >
-        {getGreeting()}, {firstName}
-      </Text>
-
-      {/* Stats row */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 16,
           marginBottom: 20,
         }}
       >
-        {unchecked.length > 0 ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: "#F5C842",
-              }}
-            />
-            <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
-              {unchecked.length} item{unchecked.length !== 1 ? "s" : ""} in this
-              list
+        <View style={{ flex: 1, marginRight: 12 }}>
+          {unchecked.length > 0 ? (
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}
+            >
+              {checked.length}/{checked.length + unchecked.length} items in {currentList?.name ?? "My List"}
             </Text>
-          </View>
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: "#22C55E",
-              }}
-            />
+          ) : (
             <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
               All done!
             </Text>
-          </View>
-        )}
-        {allSuggestions.length > 0 && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: "#00C2CB",
-              }}
-            />
-            <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
-              {allSuggestions.length} AI suggestions
-            </Text>
-          </View>
-        )}
+          )}
+        </View>
+        <TouchableOpacity
+          onPress={() => { refetchLists(); onOpenListModal(); }}
+          style={{ padding: 4 }}
+          accessibilityLabel="Switch list"
+          testID="list-icon-button"
+        >
+          <Ionicons name="list" size={22} color="rgba(255,255,255,0.85)" />
+        </TouchableOpacity>
       </View>
 
       {/* Search/add input */}
@@ -253,7 +146,7 @@ export function ListHeader({
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={onSubmit}
-          placeholder="Add to this list"
+          placeholder={`Add items to ${currentList?.name ?? "this list"}`}
           placeholderTextColor={MUTED}
           returnKeyType="done"
           style={{

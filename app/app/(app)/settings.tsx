@@ -454,29 +454,13 @@ export default function SettingsScreen() {
         )}
 
         {/* Utility Section */}
-        <View style={{ marginTop: 12, backgroundColor: "#fff" }}>
-          {/* Version Info */}
-          <View
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: BORDER,
-            }}
-          >
-            <Text style={{ fontSize: 12, color: MUTED }}>
-              App Version {Constants.expoConfig?.version || "1.0.0"}
-            </Text>
-          </View>
-
+        <View style={{ marginTop: 12 }}>
           {/* Reset PIN Button */}
           {pinEnabled && (
             <View
               style={{
                 paddingVertical: 16,
                 paddingHorizontal: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: BORDER,
                 alignItems: "center",
               }}
             >
@@ -525,9 +509,45 @@ export default function SettingsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        <View style={{ height: 40 }} />
+          {/* Version Info - Right aligned, dark grey text */}
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              alignItems: "flex-end",
+            }}
+          >
+            {(() => {
+              const version = Constants.expoConfig?.version ?? "1.0.0";
+              let build: string | null =
+                Constants.expoConfig?.ios?.buildNumber ||
+                (Constants.expoConfig?.android?.versionCode
+                  ? String(Constants.expoConfig?.android?.versionCode)
+                  : null) ||
+                null;
+
+              // try to read generated build-info with git commit
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const info = require("../../build-info.json");
+                if (info && info.gitCommit) {
+                  const hash = String(info.gitCommit).slice(0, 10);
+                  build = build ? `${build}.${hash}` : hash;
+                }
+              } catch (e) {
+                // file may not exist in some environments; ignore
+              }
+
+              return (
+                <Text style={{ fontSize: 12, color: MUTED }}>
+                  App Version {version}
+                  {build ? ` (${build})` : ""}
+                </Text>
+              );
+            })()}
+          </View>
+        </View>
       </ScrollView>
 
       {/* Reset PIN Modal */}

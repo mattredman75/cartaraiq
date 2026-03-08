@@ -201,6 +201,7 @@ export default function ListScreen() {
       typeof itemOrId === "string" ? itemOrId : itemOrId.id,
     );
   };
+
   const handleLongPress = (item: ListItem) => {
     setActionItem(item);
     setShowActionDrawer(true);
@@ -288,14 +289,6 @@ export default function ListScreen() {
     ]);
   };
 
-  const firstName = user?.name?.split(" ")[0] ?? "there";
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return "Morning";
-    if (h < 17) return "Afternoon";
-    return "Evening";
-  };
-
   const renderDraggableItem = ({
     item,
     drag,
@@ -336,15 +329,14 @@ export default function ListScreen() {
           onRefresh={refreshAISuggestions}
           isRefreshing={isRefreshing}
         />
+        <View style={{ height: 16 }} />
         {unchecked.length > 0 && (
           <View
             style={{
-              marginTop: 24,
-              paddingHorizontal: 20,
-              marginBottom: 10,
               flexDirection: "row",
               alignItems: "center",
-              gap: 5,
+              paddingHorizontal: 20,
+              marginBottom: 12,
             }}
           >
             <View
@@ -353,23 +345,29 @@ export default function ListScreen() {
                 height: 6,
                 borderRadius: 3,
                 backgroundColor: "#F5C842",
+                marginRight: 5,
+                flexShrink: 0,
               }}
             />
             <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
               style={{
-                fontSize: 12,
+                flex: 1,
+                color: "#64748B",
+                fontSize: 13,
                 fontWeight: "700",
-                color: MUTED,
                 letterSpacing: 0.8,
+                textTransform: "uppercase",
               }}
             >
-              IN THIS LIST {/*({unchecked.length})*/}
+            {currentList?.name ?? "THIS LIST"}
             </Text>
           </View>
         )}
       </>
     ),
-    [allSuggestions, unchecked.length],
+    [allSuggestions, unchecked.length, currentList],
   );
 
   const ListFooterComponent = useCallback(
@@ -394,15 +392,11 @@ export default function ListScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0D4F5C" }}>
       <ListHeader
-        shoppingLists={shoppingLists}
         currentList={currentList}
         refetchLists={refetchLists}
         onOpenListModal={() => setShowListModal(true)}
-        firstName={firstName}
-        getGreeting={getGreeting}
         unchecked={unchecked}
-        suggestions={suggestions}
-        allSuggestions={allSuggestions}
+        checked={checked}
         inputText={inputText}
         setInputText={setInputText}
         onSubmit={handleAdd}

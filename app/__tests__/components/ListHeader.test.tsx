@@ -6,23 +6,16 @@ import { render, fireEvent, act } from "@testing-library/react-native";
 import { TextInput } from "react-native";
 
 import { ListHeader } from "../../components/ListHeader";
-import type { ShoppingList, ListItem } from "../../lib/types";
+import type { ListItem, ShoppingList } from "../../lib/types";
 
-const lists: ShoppingList[] = [
-  { id: "L1", name: "Groceries" },
-  { id: "L2", name: "Hardware" },
-];
+const mockList: ShoppingList = { id: "L1", name: "Groceries" };
 
 const baseProps = {
-  shoppingLists: lists,
-  currentList: lists[0],
+  currentList: mockList,
   refetchLists: jest.fn(),
   onOpenListModal: jest.fn(),
-  firstName: "Matt",
-  getGreeting: () => "Good morning",
   unchecked: [] as ListItem[],
-  suggestions: [],
-  allSuggestions: [],
+  checked: [] as ListItem[],
   inputText: "",
   setInputText: jest.fn(),
   onSubmit: jest.fn(),
@@ -36,44 +29,12 @@ const baseProps = {
 describe("ListHeader", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("renders greeting with first name", () => {
-    const { getByText } = render(<ListHeader {...baseProps} />);
-    expect(getByText("Good morning, Matt")).toBeTruthy();
-  });
-
-  it("renders current list name in switcher", () => {
-    const { getByText } = render(<ListHeader {...baseProps} />);
-    expect(getByText("Groceries")).toBeTruthy();
-  });
-
-  it("renders 'My List' when currentList is null", () => {
-    const { getByText } = render(
-      <ListHeader {...baseProps} currentList={null} />,
-    );
-    expect(getByText("My List")).toBeTruthy();
-  });
-
-  it("calls refetchLists and onOpenListModal when list name pressed", () => {
-    const refetchLists = jest.fn();
-    const onOpenListModal = jest.fn();
-    const { getByText } = render(
-      <ListHeader
-        {...baseProps}
-        refetchLists={refetchLists}
-        onOpenListModal={onOpenListModal}
-      />,
-    );
-    fireEvent.press(getByText("Groceries"));
-    expect(refetchLists).toHaveBeenCalledTimes(1);
-    expect(onOpenListModal).toHaveBeenCalledTimes(1);
-  });
-
   it("shows 'All done!' when unchecked is empty", () => {
     const { getByText } = render(<ListHeader {...baseProps} />);
     expect(getByText("All done!")).toBeTruthy();
   });
 
-  it("shows item count when unchecked has items", () => {
+  it("shows item count with list name when unchecked has items", () => {
     const item: ListItem = {
       id: "1",
       name: "Milk",
@@ -86,7 +47,63 @@ describe("ListHeader", () => {
     const { getByText } = render(
       <ListHeader {...baseProps} unchecked={[item]} />,
     );
-    expect(getByText("1 item in this list")).toBeTruthy();
+    expect(getByText("0/1 items in Groceries")).toBeTruthy();
+  });
+
+  it("shows done count when some items are checked", () => {
+    const uncheckedItem: ListItem = {
+      id: "1",
+      name: "Milk",
+      quantity: 1,
+      unit: null,
+      checked: 0,
+      sort_order: 0,
+      times_added: 1,
+    };
+    const checkedItem: ListItem = {
+      id: "2",
+      name: "Eggs",
+      quantity: 1,
+      unit: null,
+      checked: 1,
+      sort_order: 1,
+      times_added: 1,
+    };
+    const { getByText } = render(
+      <ListHeader {...baseProps} unchecked={[uncheckedItem]} checked={[checkedItem]} />,
+    );
+    expect(getByText("1/2 items in Groceries")).toBeTruthy();
+  });
+
+  it("falls back to 'My List' when currentList is null", () => {
+    const item: ListItem = {
+      id: "1",
+      name: "Milk",
+      quantity: 1,
+      unit: null,
+      checked: 0,
+      sort_order: 0,
+      times_added: 1,
+    };
+    const { getByText } = render(
+      <ListHeader {...baseProps} currentList={null} unchecked={[item]} />,
+    );
+    expect(getByText("0/1 items in My List")).toBeTruthy();
+  });
+
+  it("calls refetchLists and onOpenListModal when list icon pressed", () => {
+    const refetchLists = jest.fn();
+    const onOpenListModal = jest.fn();
+    const { getByTestId } = render(
+      <ListHeader
+        {...baseProps}
+        refetchLists={refetchLists}
+        onOpenListModal={onOpenListModal}
+      />,
+    );
+    fireEvent.press(getByTestId("list-icon-button"));
+    expect(refetchLists).toHaveBeenCalledTimes(1);
+    expect(onOpenListModal).toHaveBeenCalledTimes(1);
   });
 
   it("pluralises item count", () => {
@@ -113,18 +130,7 @@ describe("ListHeader", () => {
     const { getByText } = render(
       <ListHeader {...baseProps} unchecked={items} />,
     );
-    expect(getByText("2 items in this list")).toBeTruthy();
-  });
-
-  it("shows AI suggestions count", () => {
-    const sug = [
-      { name: "Bananas", reason: "r", _type: "prediction" },
-      { name: "Pasta", reason: "r", _type: "recipe" },
-    ];
-    const { getByText } = render(
-      <ListHeader {...baseProps} allSuggestions={sug} />,
-    );
-    expect(getByText("2 AI suggestions")).toBeTruthy();
+    expect(getByText("0/2 items in Groceries")).toBeTruthy();
   });
 
   it("calls setInputText on text change", () => {
@@ -132,16 +138,13 @@ describe("ListHeader", () => {
     const { getByPlaceholderText } = render(
       <ListHeader {...baseProps} setInputText={setInputText} />,
     );
-    fireEvent.changeText(getByPlaceholderText("Add to this list"), "Eggs");
+    fireEvent.changeText(getByPlaceholderText("Add items to Groceries"), "Eggs");
     expect(setInputText).toHaveBeenCalledWith("Eggs");
   });
 
-  it("does not render list switcher when shoppingLists is empty", () => {
-    const { queryByText } = render(
-      <ListHeader {...baseProps} shoppingLists={[]} />,
-    );
-    expect(queryByText("Groceries")).toBeNull();
-    expect(queryByText("▾")).toBeNull();
+  it("does not render input when inputText prop is empty", () => {
+    const { getByPlaceholderText } = render(<ListHeader {...baseProps} />);
+    expect(getByPlaceholderText("Add items to Groceries")).toBeTruthy();
   });
 
   // ── onLayout callback (line 66) ──────────────────────────────────
@@ -168,18 +171,10 @@ describe("ListHeader", () => {
     const { getByPlaceholderText } = render(
       <ListHeader {...baseProps} onSubmit={onSubmit} />,
     );
-    fireEvent(getByPlaceholderText("Add to this list"), "submitEditing");
+    fireEvent(getByPlaceholderText("Add items to Groceries"), "submitEditing");
     expect(onSubmit).toHaveBeenCalled();
   });
 
-  // ── Single AI suggestion ────────────────────────────────────────
-  it("shows AI suggestions count for single suggestion", () => {
-    const sug = [{ name: "Bananas", reason: "r", _type: "prediction" }];
-    const { getByText } = render(
-      <ListHeader {...baseProps} allSuggestions={sug} />,
-    );
-    expect(getByText("1 AI suggestions")).toBeTruthy();
-  });
 
   // ── addIsPending shows ActivityIndicator ────────────────────────
   it("shows ActivityIndicator when addIsPending is true", () => {

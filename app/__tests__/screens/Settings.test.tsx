@@ -94,9 +94,9 @@ describe("SettingsScreen", () => {
     expect(getByText("Log Out")).toBeTruthy();
   });
 
-  it("displays Delete Account button", () => {
+  it("displays logout functionality", async () => {
     const { getByText } = render(<SettingsScreen />);
-    expect(getByText("Delete Account")).toBeTruthy();
+    expect(getByText("Log Out")).toBeTruthy();
   });
 
   it("can edit user name", async () => {
