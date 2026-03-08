@@ -60,7 +60,7 @@ export function BarcodeDisplayModal({
       JsBarcode(svgNode, card.barcode, {
         format: "CODE128",
         width: 2,
-        height: 70,
+        height: 90,
         margin: 8,
         displayValue: false,
         background: "transparent",
@@ -112,7 +112,7 @@ export function BarcodeDisplayModal({
             <View
               style={{
                 width: "100%",
-                height: 220,
+                height: 260,
                 borderRadius: 20,
                 overflow: "hidden",
                 marginTop: 8,
@@ -150,7 +150,20 @@ export function BarcodeDisplayModal({
                   }}
                 >
                   {barcodeSvg ? (
-                    <SvgXml xml={barcodeSvg} width="100%" height={90} />
+                    <>
+                      <SvgXml xml={barcodeSvg} width="100%" height={110} />
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: MUTED,
+                          letterSpacing: 2,
+                          marginTop: 2,
+                          fontWeight: "500",
+                        }}
+                      >
+                        {card.barcode}
+                      </Text>
+                    </>
                   ) : (
                     <Text
                       style={{
@@ -168,18 +181,8 @@ export function BarcodeDisplayModal({
               </View>
             </View>
 
-            {/* Scan Instruction */}
-            <Text
-              style={{
-                fontSize: 13,
-                color: MUTED,
-                textAlign: "center",
-                marginBottom: 20,
-                fontStyle: "italic",
-              }}
-            >
-              Show this barcode to the cashier
-            </Text>
+            {/* Spacer */}
+            <View style={{ marginBottom: 20 }} />
 
             {/* Action Buttons */}
             <View style={{ width: "100%", gap: 12 }}>
