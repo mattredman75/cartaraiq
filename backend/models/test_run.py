@@ -15,7 +15,11 @@ class TestRun(Base):
     skipped = Column(Integer, nullable=False, default=0)
     errors = Column(Integer, nullable=False, default=0)
     total = Column(Integer, nullable=False, default=0)
-    coverage = Column(Float, nullable=True)
+    coverage = Column(Float, nullable=True)  # Deprecated: use individual metrics
+    coverage_statements = Column(Float, nullable=True)
+    coverage_branches = Column(Float, nullable=True)
+    coverage_functions = Column(Float, nullable=True)
+    coverage_lines = Column(Float, nullable=True)
     duration = Column(Float, nullable=True)
     output = Column(Text, nullable=True)
     stderr = Column(Text, nullable=True)
