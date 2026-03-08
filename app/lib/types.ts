@@ -17,3 +17,11 @@ export interface ShoppingList {
   id: string;
   name: string;
 }
+
+export interface StoreCard {
+  id: string;
+  barcode: string;
+  name: string;
+  color: string; // hex color code
+  createdAt: string; // ISO date string
+}
