@@ -11,6 +11,7 @@ module.exports = {
     "\\.(png|jpg|jpeg|gif|svg)$": "<rootDir>/__mocks__/fileMock.js",
     "\\.(css)$": "<rootDir>/__mocks__/cssMock.js",
     "^expo-camera$": "<rootDir>/__mocks__/expo-camera.js",
+    "^react-native-svg$": "<rootDir>/__mocks__/react-native-svg.js",
   },
   collectCoverageFrom: [
     "lib/**/*.{ts,tsx}",
