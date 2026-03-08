@@ -93,21 +93,14 @@ async def broadcast_maintenance_update(
     message: str = "",
 ) -> dict:
     """
-    Broadcast maintenance mode change to all devices.
+    Broadcast maintenance mode change to all devices via silent data-only push.
 
-    Includes a minimal title/body so iOS delivers it to
-    addNotificationReceivedListener (data-only silent pushes
-    are unreliable on iOS).  The app's setNotificationHandler
-    suppresses the visible alert/banner.
+    The notification is delivered to the app in the background without showing
+    a visual alert. The app's notification handler suppresses any alerts, and
+    the data payload is processed by addNotificationReceivedListener.
     """
-    title = "Maintenance" if maintenance else "Back Online"
-    body = message if message else (
-        "App is under maintenance" if maintenance else "App is back online"
-    )
     return await send_push_notifications(
         tokens=tokens,
-        title=title,
-        body=body,
         data={
             "type": "maintenance_update",
             "maintenance": maintenance,
