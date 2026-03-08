@@ -92,7 +92,7 @@ struct ListHeaderView: View {
                         statDot(color: .amberAccent, text: "\(vm.activeItems.count) item\(vm.activeItems.count == 1 ? "" : "s") in your list")
                     }
                     if !vm.suggestions.isEmpty {
-                        statDot(color: .cyanAccent, text: "\(vm.suggestions.count) AI suggestions")
+                        statDot(color: .cyanAccent, text: "\(vm.suggestions.count) Smart suggestions")
                     }
                 }
                 .padding(.bottom, 20)

@@ -9,7 +9,7 @@ struct SuggestionsStripView: View {
 
         return AnyView(
             VStack(alignment: .leading, spacing: 12) {
-                Text("AI SUGGESTIONS")
+                Text("SMART SUGGESTIONS")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.muted)
                     .padding(.horizontal, 20)

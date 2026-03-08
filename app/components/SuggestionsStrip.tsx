@@ -113,7 +113,7 @@ export function SuggestionsStrip({
               letterSpacing: 0.8,
             }}
           >
-            AI SUGGESTIONS
+            SMART SUGGESTIONS
           </Text>
         </View>
         {onRefresh && (

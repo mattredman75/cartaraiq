@@ -32,7 +32,7 @@ struct SettingsSheet: View {
             VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: "sparkles",
-                    title: "AI Suggestions",
+                    title: "Smart Suggestions",
                     subtitle: "Personalised shopping predictions",
                     isOn: $aiEnabled
                 )

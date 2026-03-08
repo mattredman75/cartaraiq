@@ -130,7 +130,7 @@ export default function ProfileScreen() {
 
           <SettingsCard>
             <SettingRow
-              label="AI Suggestions"
+              label="SMART Suggestions"
               subtitle="Show predictive items on your list"
               value={aiSuggestions}
               onToggle={setAiSuggestions}

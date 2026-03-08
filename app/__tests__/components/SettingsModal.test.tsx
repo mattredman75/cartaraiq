@@ -117,9 +117,9 @@ describe("SettingsModal", () => {
   });
 
   // ── Toggle settings ──────────────────────────────────────────────
-  it("renders AI Suggestions toggle", () => {
+  it("renders Smart Suggestions toggle", () => {
     const { getByText } = render(<SettingsModal {...baseProps} />);
-    expect(getByText("AI Suggestions")).toBeTruthy();
+    expect(getByText("Smart Suggestions")).toBeTruthy();
   });
 
   it("renders Pairing Suggestions toggle", () => {
@@ -127,14 +127,14 @@ describe("SettingsModal", () => {
     expect(getByText("Pairing Suggestions")).toBeTruthy();
   });
 
-  it("calls setAiEnabled and stores preference when AI toggle changes", () => {
+  it("calls setAiEnabled and stores preference when Smart Suggestions toggle changes", () => {
     const setAiEnabled = jest.fn();
     const { getAllByRole } = render(
       <SettingsModal {...baseProps} setAiEnabled={setAiEnabled} />,
     );
     // Switches are rendered as role="switch"
     const switches = getAllByRole("switch");
-    // First switch is AI Suggestions
+    // First switch is Smart Suggestions
     fireEvent(switches[0], "valueChange", false);
     expect(setAiEnabled).toHaveBeenCalledWith(false);
     expect(mockSetItem).toHaveBeenCalledWith("ai_suggestions_enabled", "0");
@@ -917,7 +917,7 @@ describe("SettingsModal", () => {
       <SettingsModal {...baseProps} aiEnabled={false} />,
     );
     expect(getByText("Pairing Suggestions")).toBeTruthy();
-    expect(getByText("AI Suggestions")).toBeTruthy();
+    expect(getByText("Smart Suggestions")).toBeTruthy();
   });
 
   // ── user.name null branch ─────────────────────────────────────────
