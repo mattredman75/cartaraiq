@@ -16,7 +16,7 @@ struct ListFooterView: View {
                     Text("Your list is empty")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.ink)
-                    Text("Add items above or pick from AI suggestions")
+                    Text("Add items above or pick from Smart suggestions")
                         .font(.system(size: 14))
                         .foregroundColor(.muted)
                         .multilineTextAlignment(.center)

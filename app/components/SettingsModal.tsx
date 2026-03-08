@@ -245,7 +245,7 @@ export function SettingsModal({
             }}
           >
             <Text style={{ fontSize: 14, color: TEXT, fontWeight: "500" }}>
-              AI Suggestions
+              Smart Suggestions
             </Text>
             <Switch
               value={aiEnabled}

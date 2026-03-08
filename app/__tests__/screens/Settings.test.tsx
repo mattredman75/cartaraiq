@@ -73,9 +73,9 @@ describe("SettingsScreen", () => {
     expect(getByText("T")).toBeTruthy();
   });
 
-  it("displays AI Suggestions toggle", () => {
+  it("displays Smart Suggestions toggle", () => {
     const { getByText } = render(<SettingsScreen />);
-    expect(getByText("AI Suggestions")).toBeTruthy();
+    expect(getByText("Smart Suggestions")).toBeTruthy();
   });
 
   it("displays Recipe Suggestions toggle", () => {

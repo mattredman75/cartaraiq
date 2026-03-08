@@ -27,9 +27,9 @@ describe("SuggestionsStrip", () => {
     expect(toJSON()).toBeNull();
   });
 
-  it("renders AI SUGGESTIONS label", () => {
+  it("renders SMART SUGGESTIONS label", () => {
     const { getByText } = render(<SuggestionsStrip {...baseProps} />);
-    expect(getByText("AI SUGGESTIONS")).toBeTruthy();
+    expect(getByText("SMART SUGGESTIONS")).toBeTruthy();
   });
 
   it("renders suggestion names", () => {
@@ -104,7 +104,7 @@ describe("SuggestionsStrip", () => {
         isRefreshing={true}
       />,
     );
-    expect(getByText("AI SUGGESTIONS")).toBeTruthy();
+    expect(getByText("SMART SUGGESTIONS")).toBeTruthy();
   });
 
   it("handles isRefreshing toggle from true to false", () => {
@@ -122,6 +122,6 @@ describe("SuggestionsStrip", () => {
         isRefreshing={false}
       />,
     );
-    expect(getByText("AI SUGGESTIONS")).toBeTruthy();
+    expect(getByText("SMART SUGGESTIONS")).toBeTruthy();
   });
 });
