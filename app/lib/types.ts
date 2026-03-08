@@ -24,4 +24,5 @@ export interface StoreCard {
   name: string;
   color: string; // hex color code
   createdAt: string; // ISO date string
+  programId?: string; // matches LoyaltyProgram.id from loyaltyPrograms.ts
 }
