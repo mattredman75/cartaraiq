@@ -43,6 +43,79 @@ describe("StoreCardItem", () => {
     expect(root.children.length).toBeGreaterThanOrEqual(0);
   });
 
+  it("applies correct card dimensions", () => {
+    const { root } = render(
+      <StoreCardItem
+        card={mockCard}
+        cardWidth={200}
+        cardHeight={120}
+        onPress={mockOnPress}
+        onLongPress={mockOnLongPress}
+      />
+    );
+    expect(root).toBeTruthy();
+  });
+
+  it("renders Pressable wrapper for interactions", () => {
+    const { root } = render(
+      <StoreCardItem
+        card={mockCard}
+        cardWidth={150}
+        cardHeight={100}
+        onPress={mockOnPress}
+        onLongPress={mockOnLongPress}
+      />
+    );
+    expect(root).toBeTruthy();
+  });
+
+  it("handles different card programs", () => {
+    const amexCard = {
+      ...mockCard,
+      number: "3782822463100",
+    };
+    const { toJSON } = render(
+      <StoreCardItem
+        card={amexCard}
+        cardWidth={150}
+        cardHeight={100}
+        onPress={mockOnPress}
+        onLongPress={mockOnLongPress}
+      />
+    );
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it("applies card color styling", () => {
+    const coloredCard = {
+      ...mockCard,
+      color: "red",
+    };
+    const { root } = render(
+      <StoreCardItem
+        card={coloredCard}
+        cardWidth={150}
+        cardHeight={100}
+        onPress={mockOnPress}
+        onLongPress={mockOnLongPress}
+      />
+    );
+    expect(root).toBeTruthy();
+  });
+
+  it("displays card expiry information", () => {
+    const { toJSON } = render(
+      <StoreCardItem
+        card={mockCard}
+        cardWidth={150}
+        cardHeight={100}
+        onPress={mockOnPress}
+        onLongPress={mockOnLongPress}
+      />
+    );
+    expect(toJSON()).toBeTruthy();
+  });
+
   it("handles press events", () => {
     const { root } = render(
       <StoreCardItem

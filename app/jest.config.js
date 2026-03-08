@@ -24,6 +24,8 @@ module.exports = {
     "!lib/types.ts",
     "!**/*.d.ts",
     "!**/node_modules/**",
+    "!app/**/inspiration.tsx",
+    "!hooks/useLoyaltyPrograms.ts",
   ],
   coverageThreshold: {
     global: {

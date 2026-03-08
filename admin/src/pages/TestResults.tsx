@@ -44,6 +44,10 @@ interface SuiteResult {
   errors: number;
   total: number;
   coverage: number | null;
+  coverage_statements?: number | null;
+  coverage_branches?: number | null;
+  coverage_functions?: number | null;
+  coverage_lines?: number | null;
   duration: number | null;
   output?: string;
   stderr?: string;
@@ -75,6 +79,10 @@ interface HistoryPoint {
   skipped: number;
   total: number;
   coverage: number | null;
+  coverage_statements?: number | null;
+  coverage_branches?: number | null;
+  coverage_functions?: number | null;
+  coverage_lines?: number | null;
   duration: number | null;
   created_at: string;
 }
@@ -278,6 +286,97 @@ function TrendChart({ history }: { history: HistoryPoint[] }) {
   );
 }
 
+/* ── Coverage Metrics Chart ───────────────────────────────────────────────── */
+
+function CoverageChart({ history }: { history: HistoryPoint[] }) {
+  if (history.length < 2) return null;
+
+  // Check if any non-null coverage metrics exist
+  const hasCoverageData = history.some(h => 
+    h.coverage_statements !== null || 
+    h.coverage_branches !== null || 
+    h.coverage_functions !== null || 
+    h.coverage_lines !== null
+  );
+
+  if (!hasCoverageData) return null;
+
+  const data = history.map((h, i) => ({
+    run: `#${i + 1}`,
+    Statements: h.coverage_statements ?? null,
+    Branches: h.coverage_branches ?? null,
+    Functions: h.coverage_functions ?? null,
+    Lines: h.coverage_lines ?? null,
+  }));
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
+        Coverage Metrics
+      </h4>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+          <XAxis dataKey="run" tick={{ fontSize: 10 }} />
+          <YAxis 
+            tick={{ fontSize: 10 }} 
+            domain={[0, 100]}
+            label={{
+              value: "Coverage %",
+              angle: -90,
+              position: "insideLeft",
+              style: { fontSize: 10, fill: "#9ca3af" },
+            }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "var(--color-gray-800, #1f2937)",
+              border: "none",
+              borderRadius: "8px",
+              color: "#fff",
+              fontSize: "12px",
+            }}
+            formatter={(value) => value !== null ? `${value.toFixed(2)}%` : "—"}
+          />
+          <Legend wrapperStyle={{ fontSize: "11px" }} />
+          <Line
+            type="monotone"
+            dataKey="Statements"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="Branches"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="Functions"
+            stroke="#10b981"
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="Lines"
+            stroke="#8b5cf6"
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 /* ── Suite Card ───────────────────────────────────────────────────────────── */
 
 function SuiteCard({
@@ -439,6 +538,9 @@ function SuiteCard({
 
               {/* Trend chart */}
               <TrendChart history={history} />
+
+              {/* Coverage metrics chart */}
+              <CoverageChart history={history} />
 
               {/* Expandable output */}
               {result.output && (

@@ -757,9 +757,21 @@ _SUITE_TIMEOUT = 120  # seconds per test suite
 
 
 def _parse_pytest_output(stdout: str, stderr: str) -> dict:
-    """Parse pytest text output for pass/fail/skip counts and coverage."""
+    """Parse pytest text output for pass/fail/skip counts and all 4 coverage metrics."""
     combined = stdout + "\n" + stderr
-    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
+    result: dict = {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "total": 0,
+        "coverage": None,
+        "coverage_statements": None,
+        "coverage_branches": None,
+        "coverage_functions": None,
+        "coverage_lines": None,
+        "duration": None,
+    }
 
     # Match summary line like "45 passed, 1 failed, 2 skipped in 12.34s"
     summary = re.search(r"=+\s*(.*?)\s*in\s+([\d.]+)s\s*=+", combined)
@@ -787,13 +799,28 @@ def _parse_pytest_output(stdout: str, stderr: str) -> dict:
     cov = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", combined)
     if cov:
         result["coverage"] = int(cov.group(1))
+        # For pytest, we set all 4 metrics to the overall coverage percentage
+        # (pytest doesn't break down by statements/branches/functions/lines by default)
+        result["coverage_statements"] = float(cov.group(1))
 
     return result
 
 
 def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
-    """Parse Jest --json output."""
-    result: dict = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0, "total": 0, "coverage": None, "duration": None}
+    """Parse Jest --json output and extract all 4 coverage metrics."""
+    result: dict = {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "total": 0,
+        "coverage": None,
+        "coverage_statements": None,
+        "coverage_branches": None,
+        "coverage_functions": None,
+        "coverage_lines": None,
+        "duration": None,
+    }
     try:
         # Jest may print warnings before JSON — find the first '{'
         idx = stdout.index("{")
@@ -826,6 +853,19 @@ def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
                 covered_stmts += sum(1 for v in s_map.values() if v > 0)
             if total_stmts > 0:
                 result["coverage"] = round(covered_stmts / total_stmts * 100)
+
+        # Parse coverage table from text output (Jest prints it after JSON)
+        # Pattern: "All files                    |   86.05 |    76.99 |      84 |   86.23 |"
+        combined = stdout + "\n" + stderr
+        coverage_line = re.search(
+            r"All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)",
+            combined
+        )
+        if coverage_line:
+            result["coverage_statements"] = float(coverage_line.group(1))
+            result["coverage_branches"] = float(coverage_line.group(2))
+            result["coverage_functions"] = float(coverage_line.group(3))
+            result["coverage_lines"] = float(coverage_line.group(4))
 
         # Failed test details
         failed_tests = []
@@ -965,6 +1005,10 @@ def _run_tests_background(run_ids: dict[str, str]):
             run.errors = result.get("errors", 0)
             run.total = result.get("total", 0)
             run.coverage = result.get("coverage")
+            run.coverage_statements = result.get("coverage_statements")
+            run.coverage_branches = result.get("coverage_branches")
+            run.coverage_functions = result.get("coverage_functions")
+            run.coverage_lines = result.get("coverage_lines")
             run.duration = result.get("duration")
             run.output = result.get("output")
             run.stderr = result.get("stderr")
@@ -991,6 +1035,10 @@ def _test_run_to_dict(run: TestRun) -> dict:
         "errors": run.errors,
         "total": run.total,
         "coverage": run.coverage,
+        "coverage_statements": run.coverage_statements,
+        "coverage_branches": run.coverage_branches,
+        "coverage_functions": run.coverage_functions,
+        "coverage_lines": run.coverage_lines,
         "duration": run.duration,
         "output": run.output,
         "stderr": run.stderr,

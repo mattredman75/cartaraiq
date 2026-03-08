@@ -238,6 +238,17 @@ def _run_mysql(conn) -> None:
             )
         """))
 
+    # Test runs table: add coverage metrics columns (if not already present)
+    if _table_exists(conn, "test_runs"):
+        if not _col_exists(conn, "test_runs", "coverage_statements"):
+            conn.execute(text("ALTER TABLE test_runs ADD COLUMN coverage_statements DOUBLE NULL"))
+        if not _col_exists(conn, "test_runs", "coverage_branches"):
+            conn.execute(text("ALTER TABLE test_runs ADD COLUMN coverage_branches DOUBLE NULL"))
+        if not _col_exists(conn, "test_runs", "coverage_functions"):
+            conn.execute(text("ALTER TABLE test_runs ADD COLUMN coverage_functions DOUBLE NULL"))
+        if not _col_exists(conn, "test_runs", "coverage_lines"):
+            conn.execute(text("ALTER TABLE test_runs ADD COLUMN coverage_lines DOUBLE NULL"))
+
     # 15. Performance indexes
     # list_items: composite (user_id, checked) — covers every list view, suggestion,
     #             and add-item dedup query that filters on both columns together.
