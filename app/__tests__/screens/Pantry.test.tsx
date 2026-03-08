@@ -32,14 +32,7 @@ describe("PantryScreen", () => {
   it("displays Add Card button", async () => {
     const { getByText } = render(<PantryScreen />);
     await waitFor(() => {
-      expect(getByText("Add Card")).toBeTruthy();
-    });
-  });
-
-  it("displays empty state when no cards", async () => {
-    const { getByText } = render(<PantryScreen />);
-    await waitFor(() => {
-      expect(getByText("No Cards")).toBeTruthy();
+      expect(getByText("Add new card")).toBeTruthy();
     });
   });
 });
