@@ -286,93 +286,83 @@ function TrendChart({ history }: { history: HistoryPoint[] }) {
   );
 }
 
-/* ── Coverage Metrics Chart ───────────────────────────────────────────────── */
+/* ── Coverage Metrics Rings ───────────────────────────────────────────────── */
 
-function CoverageChart({ history }: { history: HistoryPoint[] }) {
-  if (history.length < 2) return null;
+function MetricRing({
+  pct,
+  label,
+}: {
+  pct: number | null;
+  label: string;
+}) {
+  const radius = 24;
+  const circumference = 2 * Math.PI * radius;
+  const filled = pct !== null ? (pct / 100) * circumference : 0;
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative w-16 h-16 flex items-center justify-center">
+        <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+          <circle
+            cx="32"
+            cy="32"
+            r={radius}
+            fill="none"
+            strokeWidth="4"
+            className="stroke-gray-200 dark:stroke-gray-700"
+          />
+          <circle
+            cx="32"
+            cy="32"
+            r={radius}
+            fill="none"
+            strokeWidth="4"
+            strokeDasharray={`${filled} ${circumference}`}
+            strokeLinecap="round"
+            className={coverageRingColor(pct)}
+          />
+        </svg>
+        <span className={`absolute text-xs font-bold ${coverageColor(pct)}`}>
+          {pct !== null ? `${Math.round(pct)}%` : "—"}
+        </span>
+      </div>
+      <div className="text-center">
+        <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {label}
+        </span>
+        <p className="text-xs font-semibold text-gray-900 dark:text-white mt-1">
+          {pct !== null ? `${pct.toFixed(2)}%` : "—"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
+  if (!result) return null;
 
   // Check if any non-null coverage metrics exist
-  const hasCoverageData = history.some(h => 
-    h.coverage_statements !== null || 
-    h.coverage_branches !== null || 
-    h.coverage_functions !== null || 
-    h.coverage_lines !== null
-  );
+  const hasCoverageData =
+    result.coverage !== null ||
+    result.coverage_statements !== null ||
+    result.coverage_branches !== null ||
+    result.coverage_functions !== null ||
+    result.coverage_lines !== null;
 
   if (!hasCoverageData) return null;
 
-  const data = history.map((h, i) => ({
-    run: `#${i + 1}`,
-    Statements: h.coverage_statements ?? null,
-    Branches: h.coverage_branches ?? null,
-    Functions: h.coverage_functions ?? null,
-    Lines: h.coverage_lines ?? null,
-  }));
-
   return (
     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
+      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
         Coverage Metrics
       </h4>
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-          <XAxis dataKey="run" tick={{ fontSize: 10 }} />
-          <YAxis 
-            tick={{ fontSize: 10 }} 
-            domain={[0, 100]}
-            label={{
-              value: "Coverage %",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 10, fill: "#9ca3af" },
-            }}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "var(--color-gray-800, #1f2937)",
-              border: "none",
-              borderRadius: "8px",
-              color: "#fff",
-              fontSize: "12px",
-            }}
-            formatter={(value) => value !== null ? `${value.toFixed(2)}%` : "—"}
-          />
-          <Legend wrapperStyle={{ fontSize: "11px" }} />
-          <Line
-            type="monotone"
-            dataKey="Statements"
-            stroke="#3b82f6"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-          <Line
-            type="monotone"
-            dataKey="Branches"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-          <Line
-            type="monotone"
-            dataKey="Functions"
-            stroke="#10b981"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-          <Line
-            type="monotone"
-            dataKey="Lines"
-            stroke="#8b5cf6"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <div className="grid grid-cols-5 gap-4">
+        <MetricRing pct={result.coverage} label="Overall" />
+        <MetricRing pct={result.coverage_statements ?? null} label="Statements" />
+        <MetricRing pct={result.coverage_branches ?? null} label="Branches" />
+        <MetricRing pct={result.coverage_functions ?? null} label="Functions" />
+        <MetricRing pct={result.coverage_lines ?? null} label="Lines" />
+      </div>
     </div>
   );
 }
@@ -539,8 +529,8 @@ function SuiteCard({
               {/* Trend chart */}
               <TrendChart history={history} />
 
-              {/* Coverage metrics chart */}
-              <CoverageChart history={history} />
+              {/* Coverage metrics rings */}
+              <CoverageMetricsRings result={result} />
 
               {/* Expandable output */}
               {result.output && (
