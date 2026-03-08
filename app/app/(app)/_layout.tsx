@@ -58,6 +58,7 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon iconName="list" label="Lists" focused={focused} />
           ),
+          tabBarLabel: () => null,
         }}
       />
       <Tabs.Screen
@@ -66,6 +67,7 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon iconName="albums" label="Pantry" focused={focused} />
           ),
+          tabBarLabel: () => null,
         }}
       />
       <Tabs.Screen
@@ -74,6 +76,7 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon iconName="settings" label="Settings" focused={focused} />
           ),
+          tabBarLabel: () => null,
         }}
       />
       <Tabs.Screen name="products/index" options={{ href: null }} />
