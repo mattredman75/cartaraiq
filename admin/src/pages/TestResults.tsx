@@ -294,7 +294,7 @@ function MetricRing({ pct, label }: { pct: number | null; label: string }) {
   const filled = pct !== null ? (pct / 100) * circumference : 0;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 w-full">
       <div className="relative w-16 h-16 flex items-center justify-center">
         <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
           <circle
@@ -320,11 +320,11 @@ function MetricRing({ pct, label }: { pct: number | null; label: string }) {
           {pct !== null ? `${Math.round(pct)}%` : "—"}
         </span>
       </div>
-      <div className="text-center">
+      <div className="text-center w-full">
         <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           {label}
         </span>
-        <p className="text-xs font-semibold text-gray-900 dark:text-white mt-1">
+        <p className="text-xs font-semibold text-gray-900 dark:text-white mt-1 w-full">
           {pct !== null ? `${pct.toFixed(2)}%` : "—"}
         </p>
       </div>
@@ -347,7 +347,7 @@ function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
+      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 pb-4 mb-6 uppercase tracking-wider border-b border-gray-300 dark:border-gray-600">
         Coverage Metrics
       </h4>
       <div className="grid grid-cols-5 gap-4">
