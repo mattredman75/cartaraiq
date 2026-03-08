@@ -1,16 +1,15 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
-  Image,
-  Alert,
-  Share,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SvgXml } from "react-native-svg";
 import JsBarcode from "jsbarcode";
+import { DOMImplementation, XMLSerializer } from "xmldom";
 import type { StoreCard } from "../lib/types";
 
 interface BarcodeDisplayModalProps {
@@ -34,7 +33,6 @@ export function BarcodeDisplayModal({
   onDelete,
 }: BarcodeDisplayModalProps) {
   const insets = useSafeAreaInsets();
-  const svgRef = useRef<View>(null);
   const [barcodeSvg, setBarcodeSvg] = React.useState<string | null>(null);
 
   useEffect(() => {
@@ -45,20 +43,29 @@ export function BarcodeDisplayModal({
 
   const generateBarcode = () => {
     try {
-      // Generate SVG barcode as a data URL
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      JsBarcode(svg, card.barcode, {
+      const document = new DOMImplementation().createDocument(
+        "http://www.w3.org/1999/xhtml",
+        "html",
+        null
+      );
+      const svgNode = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+      );
+      JsBarcode(svgNode, card.barcode, {
         format: "CODE128",
         width: 2,
-        height: 100,
+        height: 80,
         margin: 10,
+        displayValue: true,
+        fontSize: 14,
+        fontOptions: "bold",
+        background: "#f5f5f5",
       });
-      const svgString = new XMLSerializer().serializeToString(svg);
-      const dataUri = `data:image/svg+xml;base64,${btoa(svgString)}`;
-      setBarcodeSvg(dataUri);
+      const svgString = new XMLSerializer().serializeToString(svgNode);
+      setBarcodeSvg(svgString);
     } catch (e) {
       console.error("Failed to generate barcode:", e);
-      // Fallback: just show the barcode number in a large font
       setBarcodeSvg(null);
     }
   };
@@ -151,10 +158,10 @@ export function BarcodeDisplayModal({
               }}
             >
               {barcodeSvg ? (
-                <Image
-                  source={{ uri: barcodeSvg }}
-                  style={{ width: "100%", height: 120 }}
-                  resizeMode="contain"
+                <SvgXml
+                  xml={barcodeSvg}
+                  width="100%"
+                  height={120}
                 />
               ) : (
                 <View style={{ alignItems: "center" }}>
