@@ -67,7 +67,8 @@ describe("AppLayout", () => {
   it("renders correct tab labels for visible tabs", () => {
     const { getAllByText } = render(<AppLayout />);
     expect(getAllByText("Lists").length).toBeGreaterThanOrEqual(1);
-    expect(getAllByText("Pantry").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Cards").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Inspiration").length).toBeGreaterThanOrEqual(1);
     expect(getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
   });
 
