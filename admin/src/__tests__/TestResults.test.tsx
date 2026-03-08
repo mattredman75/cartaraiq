@@ -21,12 +21,16 @@ import TestResultsPage from "../pages/TestResults";
 
 // Mock recharts to avoid SVG rendering issues in jsdom
 vi.mock("recharts", () => ({
-  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="line-chart">{children}</div>,
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
   Line: () => null,
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   CartesianGrid: () => null,
   Legend: () => null,
 }));
@@ -138,7 +142,14 @@ describe("TestResults page", () => {
         return Promise.resolve({
           data: {
             suites: {
-              backend: { ...backendPassResult, status: "running", passed: 0, total: 0, coverage: null, duration: null },
+              backend: {
+                ...backendPassResult,
+                status: "running",
+                passed: 0,
+                total: 0,
+                coverage: null,
+                duration: null,
+              },
               app: null,
               admin: null,
             },
@@ -153,7 +164,9 @@ describe("TestResults page", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Running")).toBeInTheDocument();
-      expect(screen.getByText("Tests running in background…")).toBeInTheDocument();
+      expect(
+        screen.getByText("Tests running in background…"),
+      ).toBeInTheDocument();
       expect(screen.getByText(/You can leave this page/)).toBeInTheDocument();
     });
   });
@@ -163,7 +176,13 @@ describe("TestResults page", () => {
     mockApi.post.mockResolvedValue({
       data: {
         suites: {
-          backend: { ...backendPassResult, status: "running", passed: 0, total: 0, coverage: null },
+          backend: {
+            ...backendPassResult,
+            status: "running",
+            passed: 0,
+            total: 0,
+            coverage: null,
+          },
         },
       },
     });
@@ -231,7 +250,10 @@ describe("TestResults page", () => {
       total: 10,
       coverage: 85,
       failed_tests: [
-        { name: "test_login_fails", message: "AssertionError: expected 200 but got 401" },
+        {
+          name: "test_login_fails",
+          message: "AssertionError: expected 200 but got 401",
+        },
       ],
     };
 
@@ -310,8 +332,28 @@ describe("TestResults page", () => {
 
   it("renders trend chart when history has 2+ points", async () => {
     const historyData = [
-      { id: "r1", status: "pass", passed: 40, failed: 0, skipped: 2, total: 42, coverage: 90, duration: 7, created_at: "2026-03-01T10:00:00Z" },
-      { id: "r2", status: "pass", passed: 42, failed: 0, skipped: 2, total: 44, coverage: 95, duration: 8, created_at: "2026-03-02T10:00:00Z" },
+      {
+        id: "r1",
+        status: "pass",
+        passed: 40,
+        failed: 0,
+        skipped: 2,
+        total: 42,
+        coverage: 90,
+        duration: 7,
+        created_at: "2026-03-01T10:00:00Z",
+      },
+      {
+        id: "r2",
+        status: "pass",
+        passed: 42,
+        failed: 0,
+        skipped: 2,
+        total: 44,
+        coverage: 95,
+        duration: 8,
+        created_at: "2026-03-02T10:00:00Z",
+      },
     ];
 
     mockApi.get.mockImplementation((url: string) => {
@@ -336,7 +378,9 @@ describe("TestResults page", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Recent Trend")).toBeInTheDocument();
-      expect(screen.getByTestId("line-chart")).toBeInTheDocument();
+      // Use getAllByTestId — multiple suite cards may each render a trend chart
+      const charts = screen.getAllByTestId("line-chart");
+      expect(charts.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

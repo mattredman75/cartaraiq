@@ -347,7 +347,7 @@ function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 pb-4 mb-6 uppercase tracking-wider border-b border-gray-300 dark:border-gray-600">
+      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
         Coverage Metrics
       </h4>
       <div className="grid grid-cols-5 gap-4">
@@ -360,6 +360,7 @@ function CoverageMetricsRings({ result }: { result: SuiteResult | null }) {
         <MetricRing pct={result.coverage_functions ?? null} label="Functions" />
         <MetricRing pct={result.coverage_lines ?? null} label="Lines" />
       </div>
+      <div className="mt-6 border-t border-gray-300 dark:border-gray-600" />
     </div>
   );
 }
@@ -454,7 +455,7 @@ function SuiteCard({
               {/* Coverage metrics rings */}
               <CoverageMetricsRings result={result} />
 
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 pt-4">
                 {/* Test counts */}
                 <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatBlock
