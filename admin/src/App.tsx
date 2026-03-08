@@ -10,6 +10,7 @@ import UserDetailPage from "./pages/UserDetail";
 import AuditLogPage from "./pages/AuditLog";
 import TestResultsPage from "./pages/TestResults";
 import SettingsPage from "./pages/Settings";
+import LoyaltyProgramsPage from "./pages/LoyaltyPrograms";
 
 function App() {
   return (
@@ -31,6 +32,10 @@ function App() {
               <Route path="/audit" element={<AuditLogPage />} />
               <Route path="/tests" element={<TestResultsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route
+                path="/loyalty-programs"
+                element={<LoyaltyProgramsPage />}
+              />
             </Route>
           </Routes>
         </BrowserRouter>

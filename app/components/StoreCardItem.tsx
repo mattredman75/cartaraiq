@@ -2,21 +2,50 @@ import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import type { StoreCard } from "../lib/types";
-import { LOYALTY_PROGRAMS } from "../lib/loyaltyPrograms";
+import { useLoyaltyPrograms } from "../hooks/useLoyaltyPrograms";
 
 interface StoreCardItemProps {
   card: StoreCard;
   onPress: () => void;
   onLongPress: () => void;
+  cardWidth?: number;
+  cardHeight?: number;
 }
 
-export function StoreCardItem({ card, onPress, onLongPress }: StoreCardItemProps) {
-  const cardWidth = 280;
-  const cardHeight = 160;
+export function StoreCardItem({ card, onPress, onLongPress, cardWidth = 280, cardHeight = 160 }: StoreCardItemProps) {
+  const { programs } = useLoyaltyPrograms();
 
   const program = card.programId
-    ? LOYALTY_PROGRAMS.find((p) => p.id === card.programId) ?? null
+    ? programs.find((p) => p.id === card.programId || p.slug === card.programId) ?? null
     : null;
+
+  // Branded card — program has a logo, use brand background and fill with logo
+  if (program?.logo_url) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={500}
+        activeOpacity={0.8}
+      >
+        <View
+          style={{
+            width: cardWidth,
+            height: cardHeight,
+            borderRadius: 16,
+            overflow: "hidden",
+            backgroundColor: program.logo_background || "transparent",
+          }}
+        >
+          <Image
+            source={{ uri: program.logo_url }}
+            style={{ width: cardWidth, height: cardHeight }}
+            resizeMode="contain"
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -70,18 +99,6 @@ export function StoreCardItem({ card, onPress, onLongPress }: StoreCardItemProps
             >
               Loyalty Card
             </Text>
-            {program?.logo && (
-              <Image
-                source={program.logo}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 6,
-                  backgroundColor: "rgba(255,255,255,0.9)",
-                }}
-                resizeMode="contain"
-              />
-            )}
           </View>
 
           <View style={{ zIndex: 1 }}>
@@ -104,7 +121,7 @@ export function StoreCardItem({ card, onPress, onLongPress }: StoreCardItemProps
                 fontWeight: "500",
               }}
             >
-              Tap to view barcode
+               Tap to scan
             </Text>
           </View>
         </LinearGradient>

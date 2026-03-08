@@ -18,6 +18,7 @@ import { CameraView, Camera } from "expo-camera";
 import { ColorSelector } from "./ColorSelector";
 import { ProgramPickerModal } from "./ProgramPickerModal";
 import { detectProgram, type LoyaltyProgram } from "../lib/loyaltyPrograms";
+import { useLoyaltyPrograms } from "../hooks/useLoyaltyPrograms";
 import type { StoreCard } from "../lib/types";
 
 interface AddCardModalProps {
@@ -35,6 +36,7 @@ const BORDER = "#E8EFF2";
 const BG = "#DDE4E7";
 
 export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
+  const { programs } = useLoyaltyPrograms();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>("initial");
   const [barcode, setBarcode] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
   const [selectedColor, setSelectedColor] = useState("#FF6B6B");
   const [cardName, setCardName] = useState("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [scanned, setScanned] = useState(false);
+  const scannedRef = useRef(false);
   const [detectedProgram, setDetectedProgram] = useState<LoyaltyProgram | null>(null);
   const [showProgramPicker, setShowProgramPicker] = useState(false);
 
@@ -62,11 +64,29 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
 
   const handleBarcodeDetected = (data: string) => {
     setBarcode(data);
-    const program = detectProgram(data);
+    const program = detectProgram(data, programs);
     if (program) {
       setDetectedProgram(program);
       setCardName(program.name);
-      setStep("program-confirm");
+      if (program.logo_background) setSelectedColor(program.logo_background);
+      if (program.logo_url) {
+        // Fully branded program — skip all confirmation/color/name steps
+        // We need barcode set in state before calling handleSaveCard, so defer one tick
+        setTimeout(() => {
+          const newCard: StoreCard = {
+            id: Date.now().toString(),
+            barcode: data,
+            name: program.name,
+            color: program.logo_background ?? "#F0F4F5",
+            createdAt: new Date().toISOString(),
+            programId: program.id,
+          };
+          onSave(newCard);
+          resetModal();
+        }, 0);
+      } else {
+        setStep("program-confirm");
+      }
     } else {
       // No prefix match — show picker
       setDetectedProgram(null);
@@ -75,8 +95,8 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
   };
 
   const handleBarcodeScan = ({ data }: { data: string; type: string }) => {
-    if (!scanned) {
-      setScanned(true);
+    if (!scannedRef.current) {
+      scannedRef.current = true;
       setTimeout(() => handleBarcodeDetected(data), 300);
     }
   };
@@ -92,8 +112,24 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
   const handleProgramSelected = (program: LoyaltyProgram) => {
     setDetectedProgram(program);
     setCardName(program.name);
+    if (program.logo_background) setSelectedColor(program.logo_background);
     setShowProgramPicker(false);
-    setStep("color");
+    if (program.logo_url) {
+      // Branded program — skip color/name steps entirely, same as auto-matching
+      const savedBarcode = barcode ?? manualBarcode;
+      const newCard: StoreCard = {
+        id: Date.now().toString(),
+        barcode: savedBarcode,
+        name: program.name,
+        color: program.logo_background ?? "#F0F4F5",
+        createdAt: new Date().toISOString(),
+        programId: program.id,
+      };
+      onSave(newCard);
+      resetModal();
+    } else {
+      setStep("color");
+    }
   };
 
   const handleProgramSkipped = () => {
@@ -127,7 +163,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
     setManualBarcode("");
     setSelectedColor("#FF6B6B");
     setCardName("");
-    setScanned(false);
+    scannedRef.current = false;
     setDetectedProgram(null);
     setShowProgramPicker(false);
     onClose();
@@ -139,7 +175,8 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
           {/* Initial Screen */}
           {step === "initial" && (
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>
+            <>
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={resetModal} />
               <View
                 style={{
                   backgroundColor: "#fff",
@@ -166,7 +203,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
 
                 <TouchableOpacity
                   onPress={() => {
-                    setScanned(false);
+                    scannedRef.current = false;
                     setStep("scanner");
                   }}
                   style={{
@@ -201,7 +238,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                   <Text style={{ color: TEAL, fontWeight: "600", fontSize: 16 }}>Enter Manually</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </>
           )}
 
           {/* Scanner Screen */}
@@ -299,7 +336,8 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
 
           {/* Manual Entry Screen */}
           {step === "manual" && (
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>
+            <>
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={resetModal} />
               <View
                 style={{
                   backgroundColor: "#fff",
@@ -352,12 +390,13 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                   <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Next</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </>
           )}
 
           {/* Program Confirmation Screen — shown when a program is auto-detected by prefix */}
           {step === "program-confirm" && detectedProgram && (
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>
+            <>
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={resetModal} />
               <View
                 style={{
                   backgroundColor: "#fff",
@@ -383,10 +422,10 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                 </Text>
 
                 {/* Logo */}
-                {detectedProgram.logo ? (
+                {detectedProgram.logo_url ? (
                   <Image
-                    source={detectedProgram.logo}
-                    style={{ width: 100, height: 100, borderRadius: 16, marginBottom: 16 }}
+                    source={{ uri: detectedProgram.logo_url }}
+                    style={{ width: 100, height: 100, borderRadius: 16, marginBottom: 16, backgroundColor: detectedProgram.logo_background ?? "#F0F4F5" }}
                     resizeMode="contain"
                   />
                 ) : (
@@ -400,7 +439,14 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                 </Text>
 
                 <TouchableOpacity
-                  onPress={() => setStep("color")}
+                  onPress={() => {
+                    if (detectedProgram.logo_url) {
+                      // Branded program — skip color/name, save straight away
+                      handleSaveCard();
+                    } else {
+                      setStep("color");
+                    }
+                  }}
                   style={{
                     backgroundColor: TEAL,
                     paddingVertical: 14,
@@ -426,12 +472,13 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                   <Text style={{ color: TEAL, fontWeight: "600", fontSize: 15 }}>Change program</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </>
           )}
 
           {/* Color Selection Screen */}
           {step === "color" && (
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>
+            <>
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={resetModal} />
               <ScrollView
                 style={{
                   backgroundColor: "#fff",
@@ -472,12 +519,13 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                   <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Next</Text>
                 </TouchableOpacity>
               </ScrollView>
-            </View>
+            </>
           )}
 
           {/* Name Input Screen */}
           {step === "name" && (
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>
+            <>
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={resetModal} />
               <View
                 style={{
                   backgroundColor: "#fff",
@@ -530,7 +578,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
                   <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Save Card</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -538,6 +586,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
       {/* Program Picker — shown when no prefix match, or user wants to change */}
       <ProgramPickerModal
         visible={showProgramPicker}
+        programs={programs}
         onSelect={handleProgramSelected}
         onSkip={handleProgramSkipped}
         onClose={() => {

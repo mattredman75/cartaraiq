@@ -12,6 +12,7 @@ import {
   Shield,
   Sun,
   Moon,
+  CreditCard,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/users", icon: Users, label: "Users" },
   { to: "/audit", icon: ScrollText, label: "Audit Log" },
   { to: "/tests", icon: FlaskConical, label: "Test Results" },
+  { to: "/loyalty-programs", icon: CreditCard, label: "Loyalty Programs" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

@@ -16,6 +16,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../lib/store';
 import { useAppStatus } from '../hooks/useAppStatus';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useLoyaltyPrograms } from '../hooks/useLoyaltyPrograms';
+import { LoyaltyProgramsProvider } from '../contexts/LoyaltyProgramsContext';
 import { MaintenanceScreen } from '../components/MaintenanceScreen';
 
 SplashScreen.preventAutoHideAsync();
@@ -45,8 +47,11 @@ function AuthGate() {
     [applyPushUpdate],
   );
 
+  // Prime loyalty programs cache at startup
+  const { refresh: refreshLoyaltyPrograms } = useLoyaltyPrograms();
+
   const { register: registerPush, unregister: unregisterPush } =
-    usePushNotifications({ onMaintenanceUpdate });
+    usePushNotifications({ onMaintenanceUpdate, onLoyaltyProgramsUpdated: refreshLoyaltyPrograms });
 
   // Initial status check (single request, no polling)
   useEffect(() => {
@@ -125,7 +130,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthGate />
+          <LoyaltyProgramsProvider>
+            <AuthGate />
+          </LoyaltyProgramsProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

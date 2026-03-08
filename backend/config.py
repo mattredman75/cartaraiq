@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     google_web_client_id: str = ""
     facebook_app_id: str = ""
     facebook_app_secret: str = ""
+    fat_secret_client_id: str = ""
+    fat_secret_api_secret: str = ""
 
     class Config:
         env_file = ".env"

@@ -210,6 +210,13 @@ export const unregisterPushToken = (token: string) =>
 export const authSocial = (provider: string, id_token: string, name?: string) =>
   apiNoAuth.post("/auth/social", { provider, id_token, name });
 
+// --- Recipe Inspiration ---
+export const fetchRecipeInspiration = (category: string, page = 0) =>
+  api.get("/recipes/inspiration", { params: { category, page } });
+
+export const fetchRecipeDetail = (recipeId: string) =>
+  api.get(`/recipes/${recipeId}`);
+
 // --- Auth Lifecycle ---
 export const authLogout = () => api.post("/auth/logout");
 

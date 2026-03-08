@@ -3,7 +3,8 @@ import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 const TEAL = "#1B6B7A";
-const MUTED = "#94A3B8";
+const TEAL_MID = "#2A8A9A";
+const INACTIVE = "rgba(255,255,255,0.55)";
 
 function TabIcon({
   iconName,
@@ -15,19 +16,19 @@ function TabIcon({
   focused: boolean;
 }) {
   return (
-    <View style={{ alignItems: "center", paddingTop: 6, width: 80 }}>
+    <View style={{ alignItems: "center", paddingTop: 14, width: 90 }}>
       <Ionicons
         name={iconName as any}
-        size={24}
-        color={focused ? TEAL : MUTED}
+        size={28}
+        color={focused ? "#FFFFFF" : INACTIVE}
       />
       <Text
         numberOfLines={1}
         style={{
-          fontSize: 10,
-          marginTop: 3,
-          fontWeight: focused ? "600" : "500",
-          color: focused ? TEAL : MUTED,
+          fontSize: 12,
+          marginTop: 4,
+          fontWeight: focused ? "700" : "500",
+          color: focused ? "#FFFFFF" : INACTIVE,
         }}
       >
         {label}
@@ -41,14 +42,14 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: TEAL,
-        tabBarInactiveTintColor: MUTED,
+        tabBarActiveTintColor: TEAL_MID,
+        tabBarInactiveTintColor: INACTIVE,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: "#E8EFF2",
+          backgroundColor: TEAL,
+          borderTopColor: "#0D4F5C",
           borderTopWidth: 1,
           paddingBottom: 8,
-          height: 70,
+          height: 75,
         },
       }}
     >
@@ -65,7 +66,16 @@ export default function AppLayout() {
         name="pantry"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="albums" label="Pantry" focused={focused} />
+            <TabIcon iconName="card" label="Cards" focused={focused} />
+          ),
+          tabBarLabel: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="inspiration"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon iconName="sparkles" label="Inspiration" focused={focused} />
           ),
           tabBarLabel: () => null,
         }}

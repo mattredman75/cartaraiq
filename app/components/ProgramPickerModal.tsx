@@ -7,13 +7,16 @@ import {
   TextInput,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LOYALTY_PROGRAMS, type LoyaltyProgram } from "../lib/loyaltyPrograms";
+import type { LoyaltyProgram } from "../lib/loyaltyPrograms";
 
 interface ProgramPickerModalProps {
   visible: boolean;
+  programs: LoyaltyProgram[];
   onSelect: (program: LoyaltyProgram) => void;
   onSkip: () => void;
   onClose: () => void;
@@ -27,6 +30,7 @@ const BG = "#DDE4E7";
 
 export function ProgramPickerModal({
   visible,
+  programs,
   onSelect,
   onSkip,
   onClose,
@@ -36,11 +40,11 @@ export function ProgramPickerModal({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return LOYALTY_PROGRAMS;
-    return LOYALTY_PROGRAMS.filter((p) =>
+    if (!q) return programs;
+    return programs.filter((p) =>
       p.name.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, programs]);
 
   const renderItem = ({ item }: { item: LoyaltyProgram }) => (
     <TouchableOpacity
@@ -58,10 +62,10 @@ export function ProgramPickerModal({
         gap: 12,
       }}
     >
-      {item.logo ? (
+      {item.logo_url ? (
         <Image
-          source={item.logo}
-          style={{ width: 40, height: 40, borderRadius: 8 }}
+          source={{ uri: item.logo_url }}
+          style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: item.logo_background ?? "#F0F4F5" }}
           resizeMode="contain"
         />
       ) : (
@@ -87,8 +91,12 @@ export function ProgramPickerModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
-        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={onClose} />
           <View
             style={{
               backgroundColor: "#fff",
@@ -124,7 +132,7 @@ export function ProgramPickerModal({
               </Text>
               <TouchableOpacity onPress={onSkip} style={{ padding: 4 }}>
                 <Text style={{ fontSize: 14, color: TEAL, fontWeight: "600" }}>
-                  Skip
+                  None of these
                 </Text>
               </TouchableOpacity>
             </View>
@@ -167,21 +175,32 @@ export function ProgramPickerModal({
               renderItem={renderItem}
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
-                <View
-                  style={{
-                    paddingVertical: 40,
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: MUTED, fontSize: 14 }}>
-                    No programs found for "{query}"
+                <View style={{ paddingVertical: 40, alignItems: "center", paddingHorizontal: 24 }}>
+                  <Ionicons name="search-outline" size={36} color={MUTED} />
+                  <Text style={{ color: TEXT, fontSize: 15, fontWeight: "600", marginTop: 12, textAlign: "center" }}>
+                    No programs found
                   </Text>
+                  <Text style={{ color: MUTED, fontSize: 13, marginTop: 6, textAlign: "center" }}>
+                    "{query}" isn't in our list yet.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => { setQuery(""); onSkip(); }}
+                    style={{
+                      marginTop: 20,
+                      backgroundColor: TEAL,
+                      paddingVertical: 12,
+                      paddingHorizontal: 28,
+                      borderRadius: 10,
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>Save card manually</Text>
+                  </TouchableOpacity>
                 </View>
               }
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
