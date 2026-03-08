@@ -2,36 +2,44 @@
  * Tests for Pantry screen
  */
 import React from "react";
-import { render } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import PantryScreen from "../../app/(app)/pantry";
 
+// Mock storage
+jest.mock("../../lib/storage", () => ({
+  setItem: jest.fn().mockResolvedValue(undefined),
+  deleteItem: jest.fn().mockResolvedValue(undefined),
+  getItem: jest.fn().mockResolvedValue(null),
+}));
+
 describe("PantryScreen", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("renders without crashing", () => {
     const { toJSON } = render(<PantryScreen />);
     expect(toJSON()).toBeTruthy();
   });
 
-  it("displays the pantry icon", () => {
+  it("displays Loyalty Cards title", async () => {
     const { getByText } = render(<PantryScreen />);
-    expect(getByText("📚")).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText("Loyalty Cards")).toBeTruthy();
+    });
   });
 
-  it("displays the pantry title", () => {
+  it("displays Add Card button", async () => {
     const { getByText } = render(<PantryScreen />);
-    expect(getByText("Pantry")).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText("Add Card")).toBeTruthy();
+    });
   });
 
-  it("displays coming soon subtitle", () => {
+  it("displays empty state when no cards", async () => {
     const { getByText } = render(<PantryScreen />);
-    expect(getByText("Coming soon")).toBeTruthy();
-  });
-
-  it("displays description text", () => {
-    const { getByText } = render(<PantryScreen />);
-    expect(
-      getByText(
-        "Track ingredients you have at home and manage your kitchen inventory.",
-      ),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText("No Cards")).toBeTruthy();
+    });
   });
 });
