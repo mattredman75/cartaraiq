@@ -60,11 +60,10 @@ export function BarcodeDisplayModal({
       JsBarcode(svgNode, card.barcode, {
         format: "CODE128",
         width: 2,
-        height: 80,
-        margin: 10,
-        displayValue: true,
-        fontSize: 14,
-        background: "#f5f5f5",
+        height: 70,
+        margin: 8,
+        displayValue: false,
+        background: "transparent",
       });
       const svgString = new XMLSerializer().serializeToString(svgNode);
       setBarcodeSvg(svgString);
@@ -109,84 +108,64 @@ export function BarcodeDisplayModal({
               <Ionicons name="close" size={24} color={TEXT} />
             </TouchableOpacity>
 
-            {/* Card Preview */}
+            {/* Card with barcode overlaid */}
             <View
               style={{
                 width: "100%",
-                maxWidth: 300,
-                height: 180,
-                borderRadius: 16,
-                marginBottom: 28,
+                height: 220,
+                borderRadius: 20,
                 overflow: "hidden",
                 marginTop: 8,
+                marginBottom: 20,
               }}
             >
+              {/* Card background */}
               <View
                 style={{
                   flex: 1,
                   backgroundColor: card.color,
+                  padding: 20,
                   justifyContent: "space-between",
-                  padding: 16,
                 }}
               >
+                {/* Card name at top */}
                 <Text
                   style={{
-                    fontSize: 12,
-                    color: "rgba(255,255,255,0.7)",
-                    fontWeight: "600",
+                    fontSize: 18,
+                    fontWeight: "700",
+                    color: "#fff",
                   }}
                 >
-                  LOYALTY CARD
+                  {card.name}
                 </Text>
-                <View>
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: "700",
-                      color: "#fff",
-                    }}
-                  >
-                    {card.name}
-                  </Text>
+
+                {/* Barcode centered on card */}
+                <View
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  {barcodeSvg ? (
+                    <SvgXml xml={barcodeSvg} width="100%" height={90} />
+                  ) : (
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: "700",
+                        color: TEXT,
+                        letterSpacing: 2,
+                        paddingVertical: 20,
+                      }}
+                    >
+                      {card.barcode}
+                    </Text>
+                  )}
                 </View>
               </View>
-            </View>
-
-            {/* Barcode */}
-            <View
-              style={{
-                backgroundColor: "#f5f5f5",
-                padding: 16,
-                borderRadius: 12,
-                marginBottom: 24,
-                width: "100%",
-                alignItems: "center",
-              }}
-            >
-              {barcodeSvg ? (
-                <SvgXml
-                  xml={barcodeSvg}
-                  width="100%"
-                  height={120}
-                />
-              ) : (
-                <View style={{ alignItems: "center" }}>
-                  <Text
-                    style={{
-                      fontSize: 24,
-                      fontWeight: "700",
-                      color: TEXT,
-                      letterSpacing: 2,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {card.barcode}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: MUTED }}>
-                    Barcode #{card.barcode}
-                  </Text>
-                </View>
-              )}
             </View>
 
             {/* Scan Instruction */}
