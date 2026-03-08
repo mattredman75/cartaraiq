@@ -471,24 +471,35 @@ export default function SettingsScreen() {
 
           {/* Reset PIN Button */}
           {pinEnabled && (
-            <TouchableOpacity
-              onPress={() => {
-                setShowResetPINModal(true);
-                setResetPINStep("first");
-                setFirstResetPIN("");
-                setResetPINError("");
-              }}
+            <View
               style={{
+                paddingVertical: 16,
                 paddingHorizontal: 16,
-                paddingVertical: 14,
                 borderBottomWidth: 1,
                 borderBottomColor: BORDER,
+                alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 14, color: TEAL, fontWeight: "500" }}>
-                Reset PIN
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowResetPINModal(true);
+                  setResetPINStep("first");
+                  setFirstResetPIN("");
+                  setResetPINError("");
+                }}
+                style={{
+                  width: "80%",
+                  backgroundColor: TEAL,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 16, color: "#fff", fontWeight: "600" }}>
+                  Reset PIN
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Logout Button - Red, 80% width, centered */}
