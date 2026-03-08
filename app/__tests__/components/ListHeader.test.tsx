@@ -18,7 +18,6 @@ const baseProps = {
   currentList: lists[0],
   refetchLists: jest.fn(),
   onOpenListModal: jest.fn(),
-  onOpenSettings: jest.fn(),
   firstName: "Matt",
   getGreeting: () => "Good morning",
   unchecked: [] as ListItem[],
@@ -52,15 +51,6 @@ describe("ListHeader", () => {
       <ListHeader {...baseProps} currentList={null} />,
     );
     expect(getByText("My List")).toBeTruthy();
-  });
-
-  it("calls onOpenSettings when gear pressed", () => {
-    const onOpenSettings = jest.fn();
-    const { getByText } = render(
-      <ListHeader {...baseProps} onOpenSettings={onOpenSettings} />,
-    );
-    fireEvent.press(getByText("⚙"));
-    expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
   it("calls refetchLists and onOpenListModal when list name pressed", () => {

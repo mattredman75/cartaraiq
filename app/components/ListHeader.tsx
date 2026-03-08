@@ -23,7 +23,6 @@ interface ListHeaderProps {
   currentList: ShoppingList | null;
   refetchLists: () => void;
   onOpenListModal: () => void;
-  onOpenSettings: () => void;
   firstName: string;
   getGreeting: () => string;
   unchecked: ListItem[];
@@ -44,7 +43,6 @@ export function ListHeader({
   currentList,
   refetchLists,
   onOpenListModal,
-  onOpenSettings,
   firstName,
   getGreeting,
   unchecked,
@@ -110,7 +108,7 @@ export function ListHeader({
         }}
       />
 
-      {/* Top row: list switcher + settings gear */}
+      {/* Top row: list switcher */}
       <View
         style={{
           flexDirection: "row",
@@ -162,19 +160,6 @@ export function ListHeader({
         ) : (
           <View />
         )}
-        <TouchableOpacity
-          onPress={onOpenSettings}
-          style={{
-            backgroundColor: "rgba(255,255,255,0.15)",
-            borderRadius: 18,
-            width: 36,
-            height: 36,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontSize: 18, color: "#fff" }}>⚙</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Greeting */}
