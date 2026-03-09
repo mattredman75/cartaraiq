@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   View,
   Text,
@@ -75,14 +76,14 @@ export default function ListScreen() {
     new Animated.Value(-(MAX_PANEL_H + PANEL_OVERLAP)),
   ).current;
 
-  useEffect(() => {
-    getItem("ai_suggestions_enabled").then((val) => {
-      if (val === "0") setAiEnabled(false);
-    });
-    getItem("pairing_suggestions_enabled").then((val) => {
-      if (val === "0") setPairingEnabled(false);
-    });
-  }, []);
+  // Re-read AI flags every time the screen comes into focus so changes
+  // made on the Settings screen take effect immediately.
+  useFocusEffect(
+    useCallback(() => {
+      getItem("ai_suggestions_enabled").then((val) => setAiEnabled(val !== "0"));
+      getItem("pairing_suggestions_enabled").then((val) => setPairingEnabled(val !== "0"));
+    }, []),
+  );
 
   const { dismissedUntil, dismissSuggestion } = useDismissedSuggestions(
     user?.id,
