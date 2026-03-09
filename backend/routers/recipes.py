@@ -726,11 +726,14 @@ def _fetch_roundup_page(url: str) -> list[dict]:
         return []
 
 
-@router.post("/scrape-dinner")
-def scrape_dinner_recipes(db: Session = Depends(get_db)):
+@router.post("/scrape-category")
+def scrape_category_recipes(
+    url: str = Query(default=_DINNER_LISTING_URL, description="Allrecipes category listing URL"),
+    db: Session = Depends(get_db),
+):
     """
-    Two-pass scrape of allrecipes.com dinner category:
-      Pass 1 — collect roundup article URLs from the dinner listing page.
+    Two-pass scrape of any allrecipes.com category listing page:
+      Pass 1 — collect roundup article URLs from the category listing page.
       Pass 2 — parallel-scrape each roundup to extract individual /recipe/ links.
     New records are written to recipes_db; existing slugs are skipped.
     """
@@ -748,7 +751,7 @@ def scrape_dinner_recipes(db: Session = Depends(get_db)):
                 user_agent=_AR_UA,
                 viewport={"width": 1280, "height": 900},
             )
-            page.goto(_DINNER_LISTING_URL, wait_until="domcontentloaded", timeout=20000)
+            page.goto(url, wait_until="domcontentloaded", timeout=20000)
             try:
                 page.wait_for_selector("[data-doc-id]", timeout=8000)
             except _PWTimeout:
