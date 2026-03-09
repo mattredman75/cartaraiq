@@ -1,12 +1,14 @@
 import React from "react";
-import { render } from "@testing-library/react-native";
+import { render, fireEvent } from "@testing-library/react-native";
 import { EditCardModal } from "../../components/EditCardModal";
 
 const mockCard = {
   id: "test-1",
-  number: "5123456789012345",
-  expiry_month: 12,
-  expiry_year: 2025,
+  barcode: "1234567890128",
+  name: "My Loyalty Card",
+  color: "#1B6B7A",
+  createdAt: "2024-01-01T00:00:00.000Z",
+  programId: undefined as string | undefined,
 };
 
 const mockOnClose = jest.fn();
@@ -140,5 +142,39 @@ describe("EditCardModal", () => {
       />
     );
     expect(root).toBeTruthy();
+  });
+
+  it("does not call onSave when card name is empty", () => {
+    const onSaveMock = jest.fn();
+    const { getByDisplayValue, getByText } = render(
+      <EditCardModal
+        visible={true}
+        card={mockCard}
+        onClose={mockOnClose}
+        onSave={onSaveMock}
+      />
+    );
+    const input = getByDisplayValue("My Loyalty Card");
+    fireEvent.changeText(input, "");
+    fireEvent.press(getByText("Save Changes"));
+    expect(onSaveMock).not.toHaveBeenCalled();
+  });
+
+  it("calls onSave when card name is valid", () => {
+    const onSaveMock = jest.fn();
+    const { getByDisplayValue, getByText } = render(
+      <EditCardModal
+        visible={true}
+        card={mockCard}
+        onClose={mockOnClose}
+        onSave={onSaveMock}
+      />
+    );
+    const input = getByDisplayValue("My Loyalty Card");
+    fireEvent.changeText(input, "Updated Name");
+    fireEvent.press(getByText("Save Changes"));
+    expect(onSaveMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Updated Name" })
+    );
   });
 });
