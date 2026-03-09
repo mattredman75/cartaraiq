@@ -21,6 +21,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.recipe_db import RecipeDB
+from ..models.ar_recipe import ARRecipe
+from ..models.ar_ingredient import ARIngredient
+from ..models.ar_step import ARStep
+from ..models.ar_tag import ARTag
+from ..models.ar_recipe_tag import ARRecipeTag
 from pydantic import BaseModel
 from ..config import settings
 
@@ -426,6 +431,7 @@ class ARDetailedRecipe(BaseModel):
     name: str
     url: str
     image_url: Optional[str] = None
+    description: Optional[str] = None
     prep_time: Optional[str] = None
     cook_time: Optional[str] = None
     total_time: Optional[str] = None
@@ -433,15 +439,44 @@ class ARDetailedRecipe(BaseModel):
     ingredients: list[str] = []
     directions: list[str] = []
     nutrition: ARNutrition = ARNutrition()
+    recipe_categories: list[str] = []
+    recipe_cuisines: list[str] = []
 
 
 def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
     """Parse a rendered allrecipes.com recipe page into an ARDetailedRecipe."""
+    import json as _json
     soup = BeautifulSoup(html, "lxml")
 
     # ── Name ──
     h1 = soup.find("h1")
     name = h1.get_text(strip=True) if h1 else ""
+
+    # ── JSON-LD (description, recipeCategory, recipeCuisine) ──
+    description: Optional[str] = None
+    recipe_categories: list[str] = []
+    recipe_cuisines: list[str] = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            raw = script.string or ""
+            data = _json.loads(raw)
+            items = data if isinstance(data, list) else [data]
+            for item in items:
+                t = item.get("@type", "")
+                if t == "Recipe" or (isinstance(t, list) and "Recipe" in t):
+                    if not description and item.get("description"):
+                        description = item["description"]
+                    cats = item.get("recipeCategory", [])
+                    if isinstance(cats, str):
+                        cats = [cats]
+                    recipe_categories = [c for c in cats if c]
+                    cuis = item.get("recipeCuisine", [])
+                    if isinstance(cuis, str):
+                        cuis = [cuis]
+                    recipe_cuisines = [c for c in cuis if c]
+                    break
+        except Exception:
+            pass
 
     # ── Image ──
     image_url: Optional[str] = None
@@ -501,11 +536,15 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
     # Look for an <ol> with multiple substantive <li> items (the step list)
     for ol in soup.find_all("ol"):
         lis = ol.find_all("li", recursive=False) or ol.find_all("li")
-        candidates = [li.get_text(" ", strip=True) for li in lis]
-        # Filter out photo credits and very short strings
         steps = []
-        for text in candidates:
-            # Strip trailing "Dotdash Meredith Food Studios" style photo credits
+        for li in lis:
+            # Remove figcaption and any nested image/media captions before extracting text
+            for figcap in li.find_all("figcaption"):
+                figcap.decompose()
+            for fig in li.find_all("figure"):
+                fig.decompose()
+            text = li.get_text(" ", strip=True)
+            # Strip trailing photo credits
             for credit in ("Dotdash Meredith Food Studios", "Allrecipes"):
                 text = text.replace(credit, "").strip()
             text = text.strip(". ")
@@ -538,6 +577,7 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
         name=name,
         url=url,
         image_url=image_url,
+        description=description,
         prep_time=prep_time,
         cook_time=cook_time,
         total_time=total_time,
@@ -545,6 +585,8 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
         ingredients=ingredients,
         directions=directions,
         nutrition=ARNutrition(calories=calories, fat=fat, carbs=carbs, protein=protein),
+        recipe_categories=recipe_categories,
+        recipe_cuisines=recipe_cuisines,
     )
 
 
@@ -905,6 +947,7 @@ def scrape_category_recipes(
             name=r["name"],
             image_url=None,
             recipe_url=r["recipe_url"],
+            source_category_url=url,
             processed=False,
         ))
         new_count += 1
@@ -917,6 +960,249 @@ def scrape_category_recipes(
         "unique_recipes_found": len(unique_recipes),
         "new_records_added": new_count,
         "already_known": len(unique_recipes) - new_count,
+    }
+
+
+# ── AR Fetch helpers ──────────────────────────────────────────────────────────
+
+def _parse_minutes(s: Optional[str]) -> Optional[int]:
+    """Convert a time string like '1 hr 30 mins' or '45 mins' to integer minutes."""
+    if not s:
+        return None
+    s = s.strip().lower()
+    total = 0
+    hr_match = _re.search(r"(\d+)\s*hr", s)
+    min_match = _re.search(r"(\d+)\s*min", s)
+    if hr_match:
+        total += int(hr_match.group(1)) * 60
+    if min_match:
+        total += int(min_match.group(1))
+    return total if total > 0 else None
+
+
+def _parse_nutrient_float(s: Optional[str]) -> Optional[float]:
+    """Extract a float from a nutrient string like '61g' or '24.5g'."""
+    if not s:
+        return None
+    m = _re.match(r"([\d.]+)", s.strip())
+    return float(m.group(1)) if m else None
+
+
+# Maps path segment keywords → tag_type
+_MEAL_KEYWORDS = {
+    "breakfast", "brunch", "lunch", "dinner", "dessert", "snack", "supper",
+    "appetizer", "side-dish", "side", "salad", "soup", "drinks", "beverage",
+}
+_DIET_KEYWORDS = {
+    "healthy", "vegetarian", "vegan", "gluten", "dairy-free", "low-carb",
+    "low-fat", "low-sodium", "low-calorie", "diabetic", "paleo", "keto",
+    "whole30", "diet",
+}
+
+
+def _tag_type_for_segment(segment: str, is_under_world_cuisine: bool) -> str:
+    seg = segment.lower()
+    if is_under_world_cuisine:
+        return "cuisine"
+    for kw in _MEAL_KEYWORDS:
+        if kw in seg:
+            return "meal"
+    for kw in _DIET_KEYWORDS:
+        if kw in seg:
+            return "diet"
+    return "feature"
+
+
+def _derive_tags_from_url(category_url: str) -> list[tuple[str, str, str]]:
+    """
+    Parse an allrecipes category URL into a list of (slug, name, tag_type) tuples.
+    E.g. https://www.allrecipes.com/recipes/710/world-cuisine/latin-american/caribbean/jamaican/
+    → [('world-cuisine', 'World Cuisine', 'cuisine'),
+       ('latin-american', 'Latin American', 'cuisine'),
+       ('caribbean', 'Caribbean', 'cuisine'),
+       ('jamaican', 'Jamaican', 'cuisine')]
+    """
+    if not category_url:
+        return []
+    try:
+        # Strip domain and leading /recipes/NNN/
+        path = category_url.rstrip("/")
+        # Remove scheme+host
+        path = _re.sub(r"^https?://[^/]+", "", path)
+        # Remove /recipes/NNN prefix
+        path = _re.sub(r"^/recipes/\d*/", "", path)
+        segments = [s for s in path.split("/") if s]
+        if not segments:
+            return []
+        world_cuisine = any("world-cuisine" in s.lower() for s in segments)
+        result = []
+        for seg in segments:
+            name = seg.replace("-", " ").title()
+            tag_type = _tag_type_for_segment(seg, world_cuisine)
+            result.append((seg, name, tag_type))
+        return result
+    except Exception:
+        return []
+
+
+def _get_or_create_tag(db: Session, slug: str, name: str, tag_type: str) -> int:
+    """Return id of existing tag or create one. Returns the integer tag id."""
+    tag = db.query(ARTag).filter(ARTag.slug == slug).first()
+    if tag:
+        return tag.id
+    tag = ARTag(slug=slug, name=name, tag_type=tag_type)
+    db.add(tag)
+    db.flush()
+    return tag.id
+
+
+# ── AR fetch batch endpoint ───────────────────────────────────────────────────
+
+@router.get("/ar-fetch")
+def ar_fetch_batch(
+    batch: int = Query(default=100, ge=1, le=500, description="Number of unprocessed recipes to fetch"),
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch and store a batch of unprocessed allrecipes.com recipes.
+
+    Reads up to `batch` rows from `recipes_db` where processed=False,
+    fetches full recipe detail from allrecipes.com via Playwright,
+    and inserts into the normalized ar_* tables:
+      - ar_recipes
+      - ar_ingredients
+      - ar_steps
+      - ar_tags / ar_recipe_tags  (derived from source_category_url AND JSON-LD categories/cuisines)
+
+    Sets processed=True and updates scraped_at on each processed recipes_db row.
+    Returns a summary of what was inserted/skipped.
+    """
+    if not _SCRAPER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Playwright not available")
+
+    # Select unprocessed batch
+    pending = (
+        db.query(RecipeDB)
+        .filter(RecipeDB.processed == False)  # noqa: E712
+        .limit(batch)
+        .all()
+    )
+    if not pending:
+        return {"message": "No unprocessed recipes found", "processed": 0, "skipped": 0}
+
+    # Parallel fetch all recipe pages
+    recipe_urls = [r.recipe_url for r in pending]
+    results_map: dict[str, Optional[ARDetailedRecipe]] = {}
+    with _futures.ThreadPoolExecutor(max_workers=6) as pool:
+        fut_to_url = {pool.submit(_fetch_single_recipe, url): url for url in recipe_urls}
+        for fut in _futures.as_completed(fut_to_url):
+            url = fut_to_url[fut]
+            results_map[url] = fut.result()
+
+    from datetime import datetime as _dt
+
+    processed_count = 0
+    skipped_count = 0
+
+    for row in pending:
+        recipe_data = results_map.get(row.recipe_url)
+        if recipe_data is None:
+            skipped_count += 1
+            continue
+
+        # Skip if already stored (idempotent)
+        if db.query(ARRecipe).filter(ARRecipe.recipe_db_id == row.id).first():
+            row.processed = True
+            processed_count += 1
+            continue
+
+        ar_id = str(_uuid.uuid4())
+
+        # Parse times and nutrition
+        prep_mins  = _parse_minutes(recipe_data.prep_time)
+        cook_mins  = _parse_minutes(recipe_data.cook_time)
+        total_mins = _parse_minutes(recipe_data.total_time)
+        try:
+            servings_int = int(recipe_data.servings.split()[0]) if recipe_data.servings else None
+        except Exception:
+            servings_int = None
+        try:
+            calories_int = int(recipe_data.nutrition.calories) if recipe_data.nutrition.calories else None
+        except Exception:
+            calories_int = None
+        fat_f   = _parse_nutrient_float(recipe_data.nutrition.fat)
+        carbs_f = _parse_nutrient_float(recipe_data.nutrition.carbs)
+        prot_f  = _parse_nutrient_float(recipe_data.nutrition.protein)
+
+        # Insert ar_recipe
+        ar_recipe = ARRecipe(
+            id=ar_id,
+            recipe_db_id=row.id,
+            name=recipe_data.name,
+            description=recipe_data.description,
+            image_url=recipe_data.image_url,
+            prep_mins=prep_mins,
+            cook_mins=cook_mins,
+            total_mins=total_mins,
+            servings=servings_int,
+            calories=calories_int,
+            fat_g=fat_f,
+            carbs_g=carbs_f,
+            protein_g=prot_f,
+            fetched_at=_dt.utcnow(),
+        )
+        db.add(ar_recipe)
+        db.flush()  # get ar_id into DB so FK inserts work
+
+        # Insert ingredients
+        for i, ing in enumerate(recipe_data.ingredients):
+            db.add(ARIngredient(recipe_id=ar_id, sort_order=i, raw_text=ing[:500]))
+
+        # Insert steps
+        for i, step in enumerate(recipe_data.directions, start=1):
+            db.add(ARStep(recipe_id=ar_id, step_number=i, instruction=step))
+
+        # ── Tags ──────────────────────────────────────────────────────────────
+        tag_tuples: list[tuple[str, str, str]] = []  # (slug, name, tag_type)
+
+        # 1. Tags from source_category_url stored during scraping
+        if row.source_category_url:
+            tag_tuples.extend(_derive_tags_from_url(row.source_category_url))
+
+        # 2. Tags from JSON-LD recipeCategory / recipeCuisine (most reliable)
+        for cat in recipe_data.recipe_categories:
+            slug = cat.lower().replace(" & ", "-and-").replace(" ", "-").replace("/", "-")
+            tag_tuples.append((slug, cat, "meal"))
+        for cuis in recipe_data.recipe_cuisines:
+            slug = cuis.lower().replace(" & ", "-and-").replace(" ", "-").replace("/", "-")
+            tag_tuples.append((slug, cuis, "cuisine"))
+
+        # Deduplicate by slug and upsert tags
+        seen_slugs: set[str] = set()
+        tag_ids_added: set[int] = set()
+        for slug, name, tag_type in tag_tuples:
+            if slug in seen_slugs:
+                continue
+            seen_slugs.add(slug)
+            tag_id = _get_or_create_tag(db, slug, name, tag_type)
+            if tag_id not in tag_ids_added:
+                tag_ids_added.add(tag_id)
+                db.add(ARRecipeTag(recipe_id=ar_id, tag_id=tag_id))
+
+        # Mark processed
+        row.processed = True
+        row.scraped_at = _dt.utcnow()
+        processed_count += 1
+
+        # Commit every 25 recipes to avoid holding a huge transaction
+        if processed_count % 25 == 0:
+            db.commit()
+
+    db.commit()
+    return {
+        "batch_size": len(pending),
+        "processed": processed_count,
+        "skipped": skipped_count,
     }
 
 
