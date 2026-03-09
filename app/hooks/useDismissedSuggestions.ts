@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useFocusEffect } from "expo-router";
 import { getItem, setItem } from "../lib/storage";
 
 const DISMISS_DAYS = 7;
@@ -23,19 +24,24 @@ export function useDismissedSuggestions(userId: string | undefined) {
     {},
   );
 
-  // Load dismissed suggestions on mount, pruning expired ones
-  useEffect(() => {
-    if (userId) {
-      getDismissed(userId).then((map) => {
-        const now = Date.now();
-        const pruned = Object.fromEntries(
-          Object.entries(map).filter(([, until]) => until > now),
-        );
-        setDismissedUntil(pruned);
-        saveDismissed(userId, pruned);
-      });
-    }
-  }, [userId]);
+  // Reload dismissed suggestions every time the screen comes into focus,
+  // so that "Reset dismissed suggestions" in Settings takes effect immediately.
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        getDismissed(userId).then((map) => {
+          const now = Date.now();
+          const pruned = Object.fromEntries(
+            Object.entries(map).filter(([, until]) => until > now),
+          );
+          setDismissedUntil(pruned);
+          saveDismissed(userId, pruned);
+        });
+      } else {
+        setDismissedUntil({});
+      }
+    }, [userId]),
+  );
 
   const dismissSuggestion = async (name: string) => {
     const until = Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000;
