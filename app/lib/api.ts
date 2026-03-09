@@ -5,12 +5,14 @@ import { API_URL } from "./constants";
 const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
+  timeout: 10000,
 });
 
 // Unauthenticated API client for public endpoints (no auth token)
 const apiNoAuth = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
+  timeout: 10000,
 });
 
 api.interceptors.request.use(async (config) => {
