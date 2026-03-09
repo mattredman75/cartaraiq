@@ -107,7 +107,7 @@ def _build_welcome_html(first_name: str) -> str:
                 Welcome, {first_name}!
               </h1>
               <p style="margin:0;font-size:16px;color:#94a3b8;line-height:1.5;">
-                Your smart shopping companion is ready
+                Your smart list companion is ready
               </p>
             </td>
           </tr>
@@ -117,7 +117,7 @@ def _build_welcome_html(first_name: str) -> str:
             <td style="padding:40px 40px 32px;">
 
               <p style="margin:0 0 24px;font-size:16px;color:#334155;line-height:1.7;">
-                Thanks for joining CartaraIQ — the app that turns every shopping trip into a smarter experience. Here's everything you can do right now:
+                Thanks for joining CartaraIQ — the app that turns every list into a smarter experience. Here's everything you can do right now:
               </p>
 
               <!-- Feature 1 -->
@@ -125,7 +125,7 @@ def _build_welcome_html(first_name: str) -> str:
                 <tr>
                   <td width="20" valign="top" style="font-size:16px;color:#334155;padding-top:2px;">&bull;</td>
                   <td valign="top">
-                    <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#0f172a;">Smart Shopping Lists</p>
+                    <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#0f172a;">Smart Lists</p>
                     <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
                       Build and share lists that update in real time. Add items by voice or text.
                     </p>
@@ -196,7 +196,7 @@ def _build_welcome_plain(first_name: str) -> str:
 
 Thanks for joining. Here's what you can do:
 
-• Smart Shopping Lists
+• Smart Lists
 Build and share lists that update in real time. Add items by voice or text.
 
 • Loyalty Card Wallet
