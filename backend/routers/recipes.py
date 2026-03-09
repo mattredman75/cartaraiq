@@ -10,6 +10,7 @@ Endpoint:
 Supported categories: breakfast | lunch | dinner | dessert
 """
 
+import re
 import time
 import base64
 from datetime import datetime
@@ -19,6 +20,8 @@ import logging
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from ..auth import get_current_user, get_admin_user
+from ..models.user import User
 from ..database import get_db
 from ..models.recipe_db import RecipeDB
 from ..models.ar_recipe import ARRecipe
@@ -269,6 +272,7 @@ def get_inspiration(
                     "Omit to auto-detect from server hour.",
     ),
     page: int = Query(default=0, ge=0, description="Page number for randomised results (0-9)."),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Return 10 recipe suggestions for the requested meal category.
@@ -308,7 +312,7 @@ class CarouselRecipe(BaseModel):
 
 
 @router.get("/allrecipes-carousel", response_model=list[CarouselRecipe])
-def get_allrecipes_carousel():
+def get_allrecipes_carousel(current_user: User = Depends(get_current_user)):
     """
     Launches a headless Chromium browser, loads allrecipes.com, waits for the
     'loc carousel-items' section to render, then returns each recipe card's
@@ -443,6 +447,20 @@ class ARDetailedRecipe(BaseModel):
     recipe_cuisines: list[str] = []
 
 
+# Brand name pattern — matches "allrecipes" in any casing, with or without a space
+_BRAND_RE = re.compile(r'(?i)\ball\s*recipes(?:\.com)?\b')
+
+
+def _scrub_brand(text: Optional[str]) -> Optional[str]:
+    """Strip AllRecipes brand-name references from user-visible text."""
+    if not text:
+        return text
+    cleaned = _BRAND_RE.sub("", text)
+    # Collapse any double-spaces left after removal
+    cleaned = re.sub(r" {2,}", " ", cleaned).strip()
+    return cleaned
+
+
 def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
     """Parse a rendered allrecipes.com recipe page into an ARDetailedRecipe."""
     import json as _json
@@ -450,7 +468,7 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
 
     # ── Name ──
     h1 = soup.find("h1")
-    name = h1.get_text(strip=True) if h1 else ""
+    name = _scrub_brand(h1.get_text(strip=True) if h1 else "") or ""
 
     # ── JSON-LD (description, recipeCategory, recipeCuisine) ──
     description: Optional[str] = None
@@ -465,7 +483,7 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
                 t = item.get("@type", "")
                 if t == "Recipe" or (isinstance(t, list) and "Recipe" in t):
                     if not description and item.get("description"):
-                        description = item["description"]
+                        description = _scrub_brand(item["description"])
                     cats = item.get("recipeCategory", [])
                     if isinstance(cats, str):
                         cats = [cats]
@@ -527,7 +545,7 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
     )
     if ing_container:
         for li in ing_container.find_all("li"):
-            text = li.get_text(" ", strip=True)
+            text = _scrub_brand(li.get_text(" ", strip=True)) or ""
             if text:
                 ingredients.append(text)
 
@@ -544,9 +562,10 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
             for fig in li.find_all("figure"):
                 fig.decompose()
             text = li.get_text(" ", strip=True)
-            # Strip trailing photo credits
-            for credit in ("Dotdash Meredith Food Studios", "Allrecipes"):
+            # Strip trailing photo credits and brand references
+            for credit in ("Dotdash Meredith Food Studios",):
                 text = text.replace(credit, "").strip()
+            text = _scrub_brand(text) or ""
             text = text.strip(". ")
             if len(text) > 15:
                 steps.append(text)
@@ -666,6 +685,7 @@ def _get_listing_urls(limit: int) -> list[str]:
 def get_ar_detailed(
     limit: int = Query(default=12, ge=1, le=24, description="Max recipes to return (1-24)."),
     refresh: bool = Query(default=False, description="Force re-scrape even if cache is warm."),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Scrapes the allrecipes.com 30-minute-meals listing page, then fetches each
@@ -833,6 +853,7 @@ def _scrape_category_url(url: str) -> list[dict]:
 def scrape_category_recipes(
     url: str = Query(default=_DINNER_LISTING_URL, description="Allrecipes category listing URL"),
     db: Session = Depends(get_db),
+    _admin: User = Depends(get_admin_user),
 ):
     """
     Scrape any allrecipes.com category or sitemap URL. Auto-detects page type:
@@ -1062,6 +1083,7 @@ def _get_or_create_tag(db: Session, slug: str, name: str, tag_type: str) -> int:
 def ar_fetch_batch(
     batch: int = Query(default=100, ge=1, le=500, description="Number of unprocessed recipes to fetch"),
     db: Session = Depends(get_db),
+    _admin: User = Depends(get_admin_user),
 ):
     """
     Fetch and store a batch of unprocessed allrecipes.com recipes.
@@ -1208,7 +1230,7 @@ def ar_fetch_batch(
 
 # ── Single recipe detail ──────────────────────────────────────────────────────
 @router.get("/{recipe_id}", response_model=RecipeDetail)
-def get_recipe_detail(recipe_id: str):
+def get_recipe_detail(recipe_id: str, current_user: User = Depends(get_current_user)):
     """
     Return full detail for a single recipe including directions,
     prep/cook times, and serving information.
