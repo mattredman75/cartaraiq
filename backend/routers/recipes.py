@@ -713,7 +713,6 @@ def _fetch_roundup_page(url: str) -> list[dict]:
                 continue
             seen.add(href)
             parts = [p for p in href.rstrip("/").split("/") if p]
-            # parts tail: [..., 'recipe', '<id>', '<name-slug>']
             if len(parts) < 2:
                 continue
             id_part = parts[-2]
@@ -726,24 +725,85 @@ def _fetch_roundup_page(url: str) -> list[dict]:
         return []
 
 
+def _scrape_category_url(url: str) -> list[dict]:
+    """
+    Scrape a single allrecipes /recipes/ category URL.
+    Returns a list of {recipe_url, slug, name} dicts.
+    Handles both direct (leaf) and roundup (top-level) pages automatically.
+    """
+    if not _SCRAPER_AVAILABLE:
+        return []
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as _PWTimeout
+        from bs4 import BeautifulSoup as _BS
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent=_AR_UA,
+                viewport={"width": 1280, "height": 900},
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            try:
+                page.wait_for_selector("[data-doc-id]", timeout=8000)
+            except _PWTimeout:
+                pass
+            page.wait_for_timeout(1500)
+            for _ in range(5):
+                page.evaluate("window.scrollBy(0, 1800)")
+                page.wait_for_timeout(400)
+            html = page.content()
+            browser.close()
+
+        soup = _BS(html, "html.parser")
+        direct: list[dict] = []
+        roundup_urls: list[str] = []
+        seen: set[str] = set()
+        for a in soup.find_all("a", attrs={"data-doc-id": True}, href=True):
+            href = a["href"]
+            if href in seen:
+                continue
+            seen.add(href)
+            if _re.match(r"https://www\.allrecipes\.com/recipe/\d+/", href):
+                parts = [p for p in href.rstrip("/").split("/") if p]
+                if len(parts) >= 2:
+                    slug = f"{parts[-2]}-{parts[-1]}"
+                    name = parts[-1].replace("-", " ").title()
+                    direct.append({"recipe_url": href, "slug": slug, "name": name})
+            elif "/recipes/" not in href:
+                roundup_urls.append(href)
+
+        if direct:
+            return direct
+
+        # Roundup mode — parallel fetch
+        results: list[dict] = []
+        with _futures.ThreadPoolExecutor(max_workers=4) as pool:
+            futs = {pool.submit(_fetch_roundup_page, u): u for u in roundup_urls}
+            for fut in _futures.as_completed(futs):
+                results.extend(fut.result())
+        return results
+    except Exception:
+        return []
+
+
 @router.post("/scrape-category")
 def scrape_category_recipes(
     url: str = Query(default=_DINNER_LISTING_URL, description="Allrecipes category listing URL"),
     db: Session = Depends(get_db),
 ):
     """
-    Two-pass scrape of any allrecipes.com category listing page.
-    Auto-detects page type:
-      - Top-level category (e.g. /recipes/17562/dinner/): collects roundup article
-        URLs then parallel-scrapes each for individual /recipe/ links.
-      - Leaf subcategory (e.g. /recipes/710/.../jamaican/): cards link directly to
-        recipes, stored in a single pass.
-    New records are written to recipes_db; existing slugs are skipped.
+    Scrape any allrecipes.com category or sitemap URL. Auto-detects page type:
+      - Leaf subcategory: data-doc-id cards → /recipe/ URLs (single pass)
+      - Top-level category: data-doc-id cards → roundup article URLs (two-pass)
+      - Sitemap (e.g. /recipes-a-z-...): no recipe cards, only /recipes/ links —
+        collects all category URLs then runs each through _scrape_category_url()
+    New records written to recipes_db; existing slugs skipped.
     """
     if not _SCRAPER_AVAILABLE:
         raise HTTPException(status_code=503, detail="Playwright not available")
 
-    # ── Pass 1: get roundup URLs ──────────────────────────────────────────────
+    # ── Load the target page ──────────────────────────────────────────────────
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as _PWTimeout
         from bs4 import BeautifulSoup as _BS
@@ -776,30 +836,56 @@ def scrape_category_recipes(
                 continue
             seen.add(href)
             if _re.match(r"https://www\.allrecipes\.com/recipe/\d+/", href):
-                # Leaf page — cards link directly to recipes
                 parts = [p for p in href.rstrip("/").split("/") if p]
                 if len(parts) >= 2:
                     slug = f"{parts[-2]}-{parts[-1]}"
                     name = parts[-1].replace("-", " ").title()
                     direct_recipes.append({"recipe_url": href, "slug": slug, "name": name})
             elif "/recipes/" not in href:
-                # Top-level page — cards link to roundup articles
                 roundup_urls.append(href)
+
+        # Sitemap detection — no recipe cards, collect /recipes/ category links
+        if not direct_recipes and not roundup_urls:
+            category_urls: list[str] = []
+            seen_cat: set[str] = set()
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if (
+                    href not in seen_cat
+                    and _re.match(r"https://www\.allrecipes\.com/recipes/\d+/", href)
+                ):
+                    seen_cat.add(href)
+                    category_urls.append(href)
+            if not category_urls:
+                raise HTTPException(
+                    status_code=502,
+                    detail="No recipes, roundup articles, or category links found on this page",
+                )
+            # Scrape each category (limited parallelism — each spawns Playwright)
+            all_recipes: list[dict] = []
+            with _futures.ThreadPoolExecutor(max_workers=2) as pool:
+                futs = {pool.submit(_scrape_category_url, u): u for u in category_urls}
+                for fut in _futures.as_completed(futs):
+                    all_recipes.extend(fut.result())
+            mode = "sitemap"
+            categories_scraped = len(category_urls)
+            roundup_count = 0
+        else:
+            mode = "direct" if direct_recipes else "roundup"
+            categories_scraped = 1
+            all_recipes = list(direct_recipes)
+            roundup_count = len(roundup_urls)
+            if roundup_urls:
+                with _futures.ThreadPoolExecutor(max_workers=6) as pool:
+                    futs = {pool.submit(_fetch_roundup_page, u): u for u in roundup_urls}
+                    for fut in _futures.as_completed(futs):
+                        all_recipes.extend(fut.result())
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to load category page: {exc}")
+        raise HTTPException(status_code=502, detail=f"Failed to scrape category page: {exc}")
 
-    if not direct_recipes and not roundup_urls:
-        raise HTTPException(status_code=502, detail="No recipes or roundup articles found on category page")
-
-    # ── Pass 2 (top-level pages only): parallel-scrape roundup articles ───────
-    all_recipes: list[dict] = list(direct_recipes)
-    if roundup_urls:
-        with _futures.ThreadPoolExecutor(max_workers=6) as pool:
-            futures = {pool.submit(_fetch_roundup_page, u): u for u in roundup_urls}
-            for fut in _futures.as_completed(futures):
-                all_recipes.extend(fut.result())
-
-    # Deduplicate by slug
+    # ── Deduplicate by slug ───────────────────────────────────────────────────
     seen_slug: set[str] = set()
     unique_recipes: list[dict] = []
     for r in all_recipes:
@@ -825,8 +911,9 @@ def scrape_category_recipes(
 
     db.commit()
     return {
-        "mode": "direct" if direct_recipes else "roundup",
-        "roundup_pages_scraped": len(roundup_urls),
+        "mode": mode,
+        "categories_scraped": categories_scraped,
+        "roundup_pages_scraped": roundup_count,
         "unique_recipes_found": len(unique_recipes),
         "new_records_added": new_count,
         "already_known": len(unique_recipes) - new_count,
