@@ -1,0 +1,8 @@
+{
+    "servers": {
+      "github-copilot": {
+        "url": "https://api.githubcopilot.com/mcp/",
+        "description": "GitHub API server for authentication and data storage"
+      }
+    }
+}

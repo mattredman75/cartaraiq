@@ -114,7 +114,8 @@ export function ListHeader({
               ellipsizeMode="tail"
               style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}
             >
-              {checked.length}/{checked.length + unchecked.length} items in {currentList?.name ?? "My List"}
+              {checked.length}/{checked.length + unchecked.length} items in{" "}
+              {currentList?.name ?? "My List"}
             </Text>
           ) : (
             <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
@@ -122,14 +123,42 @@ export function ListHeader({
             </Text>
           )}
         </View>
-        <TouchableOpacity
-          onPress={() => { refetchLists(); onOpenListModal(); }}
-          style={{ padding: 4 }}
-          accessibilityLabel="Switch list"
-          testID="list-icon-button"
-        >
-          <Ionicons name="list" size={22} color="rgba(255,255,255,0.85)" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {/* Shared indicator */}
+          {(currentList?.is_shared || (currentList?.share_count ?? 0) > 0) && (
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            >
+              <Ionicons
+                name="people-outline"
+                size={16}
+                color="rgba(255,255,255,0.85)"
+              />
+              {(currentList?.share_count ?? 0) > 0 && (
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.85)",
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {currentList!.share_count}
+                </Text>
+              )}
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={() => {
+              refetchLists();
+              onOpenListModal();
+            }}
+            style={{ padding: 4 }}
+            accessibilityLabel="Switch list"
+            testID="list-icon-button"
+          >
+            <Ionicons name="list" size={22} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search/add input */}

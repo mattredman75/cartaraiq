@@ -319,6 +319,11 @@ export function ItemRow({
                     Added {item.times_added}× before
                   </Text>
                 )}
+                {item.added_by_name && (
+                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
+                    Added by {item.added_by_name}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
 

@@ -222,3 +222,16 @@ export const authLogout = () => api.post("/auth/logout");
 
 export const authRefresh = (refresh_token: string) =>
   apiNoAuth.post("/auth/refresh", { refresh_token });
+
+// --- List Sharing ---
+export const createListInvite = (listId: string) =>
+  api.post(`/lists/groups/${listId}/invite`);
+
+export const fetchListShares = (listId: string) =>
+  api.get(`/lists/groups/${listId}/shares`);
+
+export const removeListShare = (listId: string, shareId: string) =>
+  api.delete(`/lists/groups/${listId}/shares/${shareId}`);
+
+export const acceptListInvite = (token: string) =>
+  api.post(`/lists/share/accept/${token}`);
