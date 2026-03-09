@@ -1150,6 +1150,11 @@ async def run_tests(
     db: Session = Depends(get_db),
 ):
     """Kick off test suite(s) in the background. Returns immediately with run IDs."""
+    if not os.environ.get("ENABLE_TEST_RUNNER", "").lower() == "true":
+        raise HTTPException(
+            status_code=503,
+            detail="Test runner is disabled on this server. Set ENABLE_TEST_RUNNER=true to enable.",
+        )
     valid = {"backend", "app", "admin", "all"}
     if suite not in valid:
         raise HTTPException(status_code=400, detail=f"suite must be one of: {', '.join(sorted(valid))}")
