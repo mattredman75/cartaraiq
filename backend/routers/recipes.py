@@ -380,3 +380,125 @@ def get_recipe_detail(recipe_id: str):
         cook_time_min=r.get("cooking_time_min"),
         servings=r.get("number_of_servings"),
     )
+
+
+# ── Allrecipes carousel scraper ───────────────────────────────────────────────
+
+try:
+    from bs4 import BeautifulSoup
+    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
+    _SCRAPER_AVAILABLE = True
+except ImportError:
+    _SCRAPER_AVAILABLE = False
+
+
+class CarouselRecipe(BaseModel):
+    name: str
+    image_url: Optional[str] = None
+    url: str
+
+
+@router.get("/allrecipes-carousel", response_model=list[CarouselRecipe])
+def get_allrecipes_carousel():
+    """
+    Launches a headless Chromium browser, loads allrecipes.com, waits for the
+    'loc carousel-items' section to render, then returns each recipe card's
+    name, image URL, and URL.
+    """
+    if not _SCRAPER_AVAILABLE:
+        raise HTTPException(
+            status_code=500,
+            detail="playwright or beautifulsoup4 not installed. Run: pip install playwright beautifulsoup4 lxml && python -m playwright install chromium"
+        )
+
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent=(
+                    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                ),
+                viewport={"width": 390, "height": 844},
+            )
+            page.goto("https://www.allrecipes.com", wait_until="domcontentloaded", timeout=20000)
+
+            # Wait for at least one carousel card to appear
+            try:
+                page.wait_for_selector(
+                    "[class*='carousel-items'] a, .loc.carousel-items a",
+                    timeout=12000,
+                )
+            except PWTimeoutError:
+                logger.warning("Allrecipes carousel selector timed out — dumping available classes")
+
+            html = page.content()
+            browser.close()
+    except Exception as exc:
+        logger.error("Playwright error scraping allrecipes: %s", exc)
+        raise HTTPException(status_code=502, detail=f"Scraper error: {exc}")
+
+    soup = BeautifulSoup(html, "lxml")
+
+    # Primary: class list contains both 'loc' and 'carousel-items'
+    carousel = soup.find(
+        lambda tag: tag.name in ("section", "div", "ul", "ol")
+        and "loc" in tag.get("class", [])
+        and "carousel-items" in tag.get("class", [])
+    )
+    # Fallback: any element whose class string contains 'carousel-items'
+    if carousel is None:
+        carousel = soup.find(
+            lambda tag: "carousel-items" in " ".join(tag.get("class", []))
+        )
+
+    if carousel is None:
+        logger.warning("allrecipes carousel element not found after JS render")
+        raise HTTPException(
+            status_code=404,
+            detail="Carousel element not found. allrecipes.com page structure may have changed."
+        )
+
+    results: list[CarouselRecipe] = []
+    seen_urls: set[str] = set()
+
+    # Each card is an <li class="mntl-carousel__item"> with:
+    #   data-tracking-metadata-label  → recipe name
+    #   inner <div href="...">        → recipe URL
+    #   inner <img data-src="...">   → thumbnail
+    for item in carousel.find_all("li", class_=lambda c: c and "mntl-carousel__item" in c):
+        name: str = (item.get("data-tracking-metadata-label") or "").strip()
+        if not name:
+            continue
+
+        # URL: inner card div carries an href attribute (not a real <a>)
+        card_div = item.find("div", href=True)
+        if card_div:
+            href = card_div["href"].strip()
+        else:
+            # Fallback: "View Recipe" <a> link
+            view_a = item.find("a", href=True)
+            href = view_a["href"].strip() if view_a else ""
+        if not href:
+            continue
+        if not href.startswith("http"):
+            href = "https://www.allrecipes.com" + href
+        if href in seen_urls:
+            continue
+        seen_urls.add(href)
+
+        # Image: prefer lazy-load src, skip base64 blobs and SVG placeholders
+        image_url: Optional[str] = None
+        img_tag = item.find("img", class_=lambda c: c and "card__img" in (c if isinstance(c, list) else [c]))
+        if img_tag is None:
+            img_tag = item.find("img")
+        if img_tag:
+            for attr in ("data-src", "data-lazy-src", "data-original", "src"):
+                candidate = img_tag.get(attr, "")
+                if candidate and not candidate.startswith("data:") and not candidate.endswith(".svg"):
+                    image_url = candidate
+                    break
+
+        results.append(CarouselRecipe(name=name, image_url=image_url, url=href))
+
+    return results
