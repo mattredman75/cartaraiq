@@ -45,12 +45,16 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
   const [cardName, setCardName] = useState("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const scannedRef = useRef(false);
+  const [cameraActive, setCameraActive] = useState(false);
   const [detectedProgram, setDetectedProgram] = useState<LoyaltyProgram | null>(null);
   const [showProgramPicker, setShowProgramPicker] = useState(false);
 
   useEffect(() => {
     if (visible && step === "scanner") {
+      setCameraActive(true);
       requestCameraPermission();
+    } else {
+      setCameraActive(false);
     }
   }, [visible, step]);
 
@@ -97,6 +101,9 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
   const handleBarcodeScan = ({ data }: { data: string; type: string }) => {
     if (!scannedRef.current) {
       scannedRef.current = true;
+      // Unmount camera immediately so iOS can cleanly tear down the session
+      // before we do any state transitions (prevents FigXPCUtilities err=-17281)
+      setCameraActive(false);
       setTimeout(() => handleBarcodeDetected(data), 300);
     }
   };
@@ -164,6 +171,7 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
     setSelectedColor("#FF6B6B");
     setCardName("");
     scannedRef.current = false;
+    setCameraActive(false);
     setDetectedProgram(null);
     setShowProgramPicker(false);
     onClose();
@@ -266,13 +274,13 @@ export function AddCardModal({ visible, onClose, onSave }: AddCardModalProps) {
 
                   {/* Camera + viewfinder — fills remaining space */}
                   <View style={{ flex: 1 }}>
-                    <CameraView
+                    {cameraActive && <CameraView
                       onBarcodeScanned={handleBarcodeScan}
                       barcodeScannerSettings={{
                         barcodeTypes: ["ean13", "ean8", "code128", "code39", "upc_a", "upc_e", "qr"],
                       }}
                       style={{ flex: 1 }}
-                    />
+                    />}
 
                     {/* Viewfinder overlay */}
                     <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
