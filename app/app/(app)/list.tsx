@@ -111,6 +111,12 @@ export default function ListScreen() {
   });
 
   const isRefreshing = suggestionsFetching || recipeSuggestionsFetching;
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsPullRefreshing(true);
+    await refetch();
+    setIsPullRefreshing(false);
+  }, [refetch]);
 
   useEffect(() => {
     if (!currentList && shoppingLists.length > 0)
@@ -361,7 +367,7 @@ export default function ListScreen() {
                 textTransform: "uppercase",
               }}
             >
-            {currentList?.name ?? "THIS LIST"}
+              {currentList?.name ?? "THIS LIST"}
             </Text>
           </View>
         )}
@@ -440,8 +446,8 @@ export default function ListScreen() {
                 renderPlaceholder={() => <DragPlaceholder />}
                 refreshControl={
                   <RefreshControl
-                    refreshing={isLoading}
-                    onRefresh={refetch}
+                    refreshing={isPullRefreshing}
+                    onRefresh={handleRefresh}
                     tintColor={TEAL}
                   />
                 }
