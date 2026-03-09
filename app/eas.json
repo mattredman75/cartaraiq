@@ -17,7 +17,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.25.126:8000"
+        "EXPO_PUBLIC_API_URL": "https://api.cartaraiq.app"
       }
     },
     "production": {
