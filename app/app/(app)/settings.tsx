@@ -197,13 +197,11 @@ export default function SettingsScreen() {
     isBiometricEnabled().then(setBiometricEnabled);
     isPinEnabled().then(setPinEnabledState);
 
-    // Load feature flags
-    getItem("ai_suggestions_enabled").then((v) => {
-      if (v !== "0") setAiEnabled(true);
-    });
-    getItem("pairing_suggestions_enabled").then((v) => {
-      if (v !== "0") setPairingEnabled(true);
-    });
+    // Load feature flags — explicitly set both true and false so toggle renders correctly
+    getItem("ai_suggestions_enabled").then((v) => setAiEnabled(v !== "0"));
+    getItem("pairing_suggestions_enabled").then((v) =>
+      setPairingEnabled(v !== "0"),
+    );
 
     // Load sharing data
     loadSharingData();
@@ -886,7 +884,7 @@ export default function SettingsScreen() {
           {/* Logout Button - Red, 80% width, centered */}
           <View
             style={{
-              paddingVertical: 20,
+              paddingVertical: 0,
               paddingHorizontal: 16,
               alignItems: "center",
             }}
