@@ -732,9 +732,12 @@ def scrape_category_recipes(
     db: Session = Depends(get_db),
 ):
     """
-    Two-pass scrape of any allrecipes.com category listing page:
-      Pass 1 — collect roundup article URLs from the category listing page.
-      Pass 2 — parallel-scrape each roundup to extract individual /recipe/ links.
+    Two-pass scrape of any allrecipes.com category listing page.
+    Auto-detects page type:
+      - Top-level category (e.g. /recipes/17562/dinner/): collects roundup article
+        URLs then parallel-scrapes each for individual /recipe/ links.
+      - Leaf subcategory (e.g. /recipes/710/.../jamaican/): cards link directly to
+        recipes, stored in a single pass.
     New records are written to recipes_db; existing slugs are skipped.
     """
     if not _SCRAPER_AVAILABLE:
@@ -764,29 +767,37 @@ def scrape_category_recipes(
             browser.close()
 
         soup = _BS(html, "html.parser")
+        direct_recipes: list[dict] = []
         roundup_urls: list[str] = []
-        seen_roundup: set[str] = set()
+        seen: set[str] = set()
         for a in soup.find_all("a", attrs={"data-doc-id": True}, href=True):
             href = a["href"]
-            if href in seen_roundup:
+            if href in seen:
                 continue
-            # Skip individual recipe pages and sub-category listing pages
-            if "/recipe/" in href or "/recipes/" in href:
-                continue
-            seen_roundup.add(href)
-            roundup_urls.append(href)
+            seen.add(href)
+            if _re.match(r"https://www\.allrecipes\.com/recipe/\d+/", href):
+                # Leaf page — cards link directly to recipes
+                parts = [p for p in href.rstrip("/").split("/") if p]
+                if len(parts) >= 2:
+                    slug = f"{parts[-2]}-{parts[-1]}"
+                    name = parts[-1].replace("-", " ").title()
+                    direct_recipes.append({"recipe_url": href, "slug": slug, "name": name})
+            elif "/recipes/" not in href:
+                # Top-level page — cards link to roundup articles
+                roundup_urls.append(href)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to load dinner page: {exc}")
+        raise HTTPException(status_code=502, detail=f"Failed to load category page: {exc}")
 
-    if not roundup_urls:
-        raise HTTPException(status_code=502, detail="No roundup articles found on dinner page")
+    if not direct_recipes and not roundup_urls:
+        raise HTTPException(status_code=502, detail="No recipes or roundup articles found on category page")
 
-    # ── Pass 2: parallel-scrape roundup pages ─────────────────────────────────
-    all_recipes: list[dict] = []
-    with _futures.ThreadPoolExecutor(max_workers=6) as pool:
-        futures = {pool.submit(_fetch_roundup_page, url): url for url in roundup_urls}
-        for fut in _futures.as_completed(futures):
-            all_recipes.extend(fut.result())
+    # ── Pass 2 (top-level pages only): parallel-scrape roundup articles ───────
+    all_recipes: list[dict] = list(direct_recipes)
+    if roundup_urls:
+        with _futures.ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(_fetch_roundup_page, u): u for u in roundup_urls}
+            for fut in _futures.as_completed(futures):
+                all_recipes.extend(fut.result())
 
     # Deduplicate by slug
     seen_slug: set[str] = set()
@@ -814,6 +825,7 @@ def scrape_category_recipes(
 
     db.commit()
     return {
+        "mode": "direct" if direct_recipes else "roundup",
         "roundup_pages_scraped": len(roundup_urls),
         "unique_recipes_found": len(unique_recipes),
         "new_records_added": new_count,
