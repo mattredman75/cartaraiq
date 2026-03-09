@@ -405,6 +405,271 @@ def get_allrecipes_carousel():
     return results
 
 
+# ── Allrecipes detailed scraper ───────────────────────────────────────────────
+_AR_30MIN_URL = (
+    "https://www.allrecipes.com/recipes/455/everyday-cooking/"
+    "more-meal-ideas/30-minute-meals/"
+)
+
+
+class ARNutrition(BaseModel):
+    calories: Optional[str] = None
+    fat: Optional[str] = None
+    carbs: Optional[str] = None
+    protein: Optional[str] = None
+
+
+class ARDetailedRecipe(BaseModel):
+    name: str
+    url: str
+    image_url: Optional[str] = None
+    prep_time: Optional[str] = None
+    cook_time: Optional[str] = None
+    total_time: Optional[str] = None
+    servings: Optional[str] = None
+    ingredients: list[str] = []
+    directions: list[str] = []
+    nutrition: ARNutrition = ARNutrition()
+
+
+def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
+    """Parse a rendered allrecipes.com recipe page into an ARDetailedRecipe."""
+    soup = BeautifulSoup(html, "lxml")
+
+    # ── Name ──
+    h1 = soup.find("h1")
+    name = h1.get_text(strip=True) if h1 else ""
+
+    # ── Image ──
+    image_url: Optional[str] = None
+    # Try data-src first (lazy-load attr set before JS fires), then src.
+    # Also check <noscript> fallback img which always carries the real URL.
+    for img in soup.find_all("img", class_=lambda c: c and "universal-image__image" in " ".join(c) if c else False):
+        for attr in ("data-src", "src"):
+            candidate = img.get(attr, "")
+            if candidate and not candidate.startswith("data:") and "placeholder" not in candidate:
+                image_url = candidate
+                break
+        if image_url:
+            break
+    # Fallback: <noscript> img (always has the real full-res src)
+    if not image_url:
+        for noscript in soup.find_all("noscript"):
+            ns_soup = BeautifulSoup(noscript.decode_contents(), "lxml")
+            ns_img = ns_soup.find("img", src=True)
+            if ns_img:
+                candidate = ns_img["src"]
+                if not candidate.startswith("data:") and "placeholder" not in candidate:
+                    image_url = candidate
+                    break
+
+    # ── Prep / Cook / Total / Servings ──
+    prep_time = cook_time = total_time = servings = None
+    for item in soup.find_all(class_="mm-recipes-details__item"):
+        label_el = item.find(class_="mm-recipes-details__label")
+        value_el = item.find(class_="mm-recipes-details__value")
+        if not label_el or not value_el:
+            continue
+        label = label_el.get_text(strip=True).rstrip(":").lower()
+        value = value_el.get_text(strip=True)
+        if "prep" in label:
+            prep_time = value
+        elif "cook" in label:
+            cook_time = value
+        elif "total" in label:
+            total_time = value
+        elif "serving" in label:
+            servings = value
+
+    # ── Ingredients ──
+    ingredients: list[str] = []
+    ing_container = (
+        soup.find(id=lambda i: i and "mm-recipes-structured-ingredients" in (i or ""))
+        or soup.find(class_=lambda c: c and "mm-recipes-structured-ingredients" in " ".join(c) if c else False)
+    )
+    if ing_container:
+        for li in ing_container.find_all("li"):
+            text = li.get_text(" ", strip=True)
+            if text:
+                ingredients.append(text)
+
+    # ── Directions ──
+    directions: list[str] = []
+    # Look for an <ol> with multiple substantive <li> items (the step list)
+    for ol in soup.find_all("ol"):
+        lis = ol.find_all("li", recursive=False) or ol.find_all("li")
+        candidates = [li.get_text(" ", strip=True) for li in lis]
+        # Filter out photo credits and very short strings
+        steps = []
+        for text in candidates:
+            # Strip trailing "Dotdash Meredith Food Studios" style photo credits
+            for credit in ("Dotdash Meredith Food Studios", "Allrecipes"):
+                text = text.replace(credit, "").strip()
+            text = text.strip(". ")
+            if len(text) > 15:
+                steps.append(text)
+        if len(steps) >= 2:
+            directions = steps
+            break
+
+    # ── Nutrition ──
+    calories = fat = carbs = protein = None
+    nut_label = soup.find(class_="mm-recipes-nutrition-facts-label")
+    if nut_label:
+        for row in nut_label.find_all("tr"):
+            text = row.get_text(" ", strip=True)
+            # Calories row: "Calories 964"
+            if text.startswith("Calories"):
+                parts = text.split()
+                if len(parts) >= 2:
+                    calories = parts[1]
+            # Nutrient rows: "Total Fat 61g 78%", "Total Carbohydrate 84g ...", "Protein 24g ..."
+            elif "Total Fat" in text:
+                fat = _extract_nutrient_value(text, "Total Fat")
+            elif "Total Carbohydrate" in text:
+                carbs = _extract_nutrient_value(text, "Total Carbohydrate")
+            elif text.strip().startswith("Protein"):
+                protein = _extract_nutrient_value(text, "Protein")
+
+    return ARDetailedRecipe(
+        name=name,
+        url=url,
+        image_url=image_url,
+        prep_time=prep_time,
+        cook_time=cook_time,
+        total_time=total_time,
+        servings=servings,
+        ingredients=ingredients,
+        directions=directions,
+        nutrition=ARNutrition(calories=calories, fat=fat, carbs=carbs, protein=protein),
+    )
+
+
+def _extract_nutrient_value(row_text: str, label: str) -> Optional[str]:
+    """Pull the amount (e.g. '61g') immediately following a nutrient label."""
+    after = row_text.replace(label, "").strip()
+    parts = after.split()
+    return parts[0] if parts else None
+
+
+# ── In-memory result cache (keyed by limit, TTL = 1 hour) ────────────────────
+import time as _time
+import concurrent.futures as _futures
+
+_AR_CACHE: dict[int, tuple[float, list]] = {}   # limit -> (fetched_at, results)
+_AR_CACHE_TTL = 3600  # seconds
+
+_AR_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+def _fetch_single_recipe(url: str) -> Optional[ARDetailedRecipe]:
+    """
+    Runs in a thread-pool worker. Each worker owns its own Playwright instance
+    so there is no cross-thread sharing of browser objects.
+    Waits for the details block selector instead of a fixed sleep.
+    """
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent=_AR_UA,
+                viewport={"width": 1280, "height": 900},
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            try:
+                page.wait_for_selector(".mm-recipes-details__item", timeout=8000)
+            except PWTimeoutError:
+                pass
+            html = page.content()
+            browser.close()
+        return _parse_ar_recipe_page(html, url)
+    except Exception as exc:
+        logger.warning("Skipping %s — %s", url, exc)
+        return None
+
+
+def _get_listing_urls(limit: int) -> list[str]:
+    """Load the 30-minute-meals listing page and return up to `limit` recipe URLs."""
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        page = browser.new_page(user_agent=_AR_UA, viewport={"width": 1280, "height": 900})
+        page.goto(_AR_30MIN_URL, wait_until="domcontentloaded", timeout=20000)
+        try:
+            page.wait_for_selector("a[href*='/recipe/']", timeout=8000)
+        except PWTimeoutError:
+            pass
+        html = page.content()
+        browser.close()
+
+    soup = BeautifulSoup(html, "lxml")
+    urls: list[str] = []
+    seen: set[str] = set()
+    for a in soup.find_all("a", href=True):
+        href: str = a["href"]
+        if href.startswith("https://www.allrecipes.com/recipe/") and href not in seen:
+            seen.add(href)
+            urls.append(href)
+            if len(urls) >= limit:
+                break
+    return urls
+
+
+@router.get("/ar-detailed", response_model=list[ARDetailedRecipe])
+def get_ar_detailed(
+    limit: int = Query(default=12, ge=1, le=24, description="Max recipes to return (1-24)."),
+    refresh: bool = Query(default=False, description="Force re-scrape even if cache is warm."),
+):
+    """
+    Scrapes the allrecipes.com 30-minute-meals listing page, then fetches each
+    recipe in parallel (up to 6 concurrent Chromium tabs).
+
+    Results are cached for 1 hour — first call ~15 s, cached calls ~instant.
+    Pass ?refresh=true to bypass the cache.
+    """
+    if not _SCRAPER_AVAILABLE:
+        raise HTTPException(status_code=500, detail="playwright or beautifulsoup4 not installed.")
+
+    # ── Serve from cache if available and fresh ──
+    now = _time.time()
+    cached = _AR_CACHE.get(limit)
+    if cached and not refresh and (now - cached[0]) < _AR_CACHE_TTL:
+        return cached[1]
+
+    try:
+        # ── Step 1: listing page (single browser, fast) ──
+        recipe_urls = _get_listing_urls(limit)
+        if not recipe_urls:
+            raise HTTPException(status_code=404, detail="No recipe links found on listing page.")
+
+        # ── Step 2: parallel recipe fetching ──
+        # Each worker spawns its own Chromium process; keep workers ≤ 6 to
+        # avoid saturating CPU/RAM on the server.
+        results: list[ARDetailedRecipe] = []
+        with _futures.ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(_fetch_single_recipe, url): url for url in recipe_urls}
+            for future in _futures.as_completed(futures):
+                recipe = future.result()
+                if recipe is not None:
+                    results.append(recipe)
+
+        # Restore original listing-page order
+        url_order = {url: i for i, url in enumerate(recipe_urls)}
+        results.sort(key=lambda r: url_order.get(r.url, 999))
+
+        _AR_CACHE[limit] = (_time.time(), results)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("ar-detailed scraper error: %s", exc)
+        raise HTTPException(status_code=502, detail=f"Scraper error: {exc}")
+
+    return results
+
+
 # ── Single recipe detail ──────────────────────────────────────────────────────
 @router.get("/{recipe_id}", response_model=RecipeDetail)
 def get_recipe_detail(recipe_id: str):
