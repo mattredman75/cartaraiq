@@ -438,6 +438,28 @@ export default function SettingsScreen() {
               thumbColor="#fff"
             />
           </View>
+
+          {/* Reset dismissed suggestions */}
+          <TouchableOpacity
+            onPress={() => {
+              if (!user?.id) return;
+              deleteItem(`dismissed_${user.id}`);
+              Alert.alert("Done", "Dismissed suggestions have been reset. They'll reappear on the list screen.");
+            }}
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              borderTopWidth: 1,
+              borderTopColor: BORDER,
+            }}
+          >
+            <Text style={{ fontSize: 14, color: TEAL, fontWeight: "500" }}>
+              Reset Dismissed Suggestions
+            </Text>
+            <Text style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
+              Items you've swiped away will reappear
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Biometric and PIN Section */}
