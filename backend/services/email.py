@@ -64,7 +64,7 @@ def _send(to_email: str, subject: str, html: str, plain: str) -> None:
 def send_welcome_email(to_email: str, name: str) -> None:
     """Send the welcome / onboarding email to a newly registered user."""
     first_name = (name or "").split()[0] if name else "there"
-    subject = "Welcome to CartaraIQ 🎉"
+    subject = "Welcome to CartaraIQ"
     html = _build_welcome_html(first_name)
     plain = _build_welcome_plain(first_name)
     _send(to_email, subject, html, plain)
