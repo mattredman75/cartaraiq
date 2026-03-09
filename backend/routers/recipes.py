@@ -82,6 +82,26 @@ class InspirationResponse(BaseModel):
     recipes: list[Recipe]
 
 
+# ── AR recipe search models ───────────────────────────────────────────────────
+class ARRecipeSummary(BaseModel):
+    """Summary shape that mirrors the FatSecret Recipe model for drop-in compatibility."""
+    id: str
+    name: str
+    description: str
+    image_url: Optional[str] = None
+    recipe_types: list[str] = []
+    ingredients: list[RecipeIngredient] = []
+    nutrition: Optional[RecipeNutrition] = None
+    total_mins: Optional[int] = None
+    servings: Optional[int] = None
+
+
+class ARSearchResponse(BaseModel):
+    category: str
+    total: int
+    recipes: list[ARRecipeSummary]
+
+
 class RecipeDetail(Recipe):
     directions: list[str] = []
     prep_time_min: Optional[str] = None
@@ -1226,6 +1246,104 @@ def ar_fetch_batch(
         "processed": processed_count,
         "skipped": skipped_count,
     }
+
+
+# ── Single recipe detail ──────────────────────────────────────────────────────
+# ── AR recipe search ─────────────────────────────────────────────────────────
+@router.get("/search", response_model=ARSearchResponse)
+def search_ar_recipes(
+    category: str = Query(
+        default="",
+        description="Filter by category or cuisine tag (e.g. dinner, breakfast, italian). "
+                    "Case-insensitive. Omit to return all.",
+    ),
+    q: str = Query(
+        default="",
+        description="Optional keyword to match against recipe name.",
+    ),
+    limit: int = Query(default=10, ge=1, le=100, description="Number of results (1–100)."),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Search ar_recipes (our normalized scraped recipe DB).
+    Returns summary data in the same shape as the FatSecret /inspiration endpoint
+    so the front-end can use a single Recipe card component for both sources.
+    """
+    from sqlalchemy import func as sa_func
+
+    query = db.query(ARRecipe)
+
+    # ── Category / cuisine tag filter ──
+    category = category.strip().lower()
+    if category:
+        query = (
+            query
+            .join(ARRecipeTag, ARRecipeTag.recipe_id == ARRecipe.id)
+            .join(ARTag, ARTag.id == ARRecipeTag.tag_id)
+            .filter(sa_func.lower(ARTag.slug).contains(category))
+        )
+
+    # ── Keyword filter on name ──
+    q = q.strip()
+    if q:
+        query = query.filter(ARRecipe.name.ilike(f"%{q}%"))
+
+    # Only return rows that actually have an image
+    query = query.filter(ARRecipe.image_url.isnot(None))
+
+    total = query.count()
+
+    rows = query.order_by(sa_func.random()).limit(limit).all()
+
+    # Bulk-fetch ingredients for all returned recipe ids
+    recipe_ids = [r.id for r in rows]
+    ingredient_rows = (
+        db.query(ARIngredient)
+        .filter(ARIngredient.recipe_id.in_(recipe_ids))
+        .order_by(ARIngredient.recipe_id, ARIngredient.sort_order)
+        .all()
+    ) if recipe_ids else []
+
+    ingredients_by_recipe: dict[str, list[RecipeIngredient]] = {}
+    for ing in ingredient_rows:
+        ingredients_by_recipe.setdefault(ing.recipe_id, []).append(
+            RecipeIngredient(name=ing.raw_text)
+        )
+
+    # Bulk-fetch tags to populate recipe_types
+    tag_rows = (
+        db.query(ARRecipeTag, ARTag)
+        .join(ARTag, ARTag.id == ARRecipeTag.tag_id)
+        .filter(ARRecipeTag.recipe_id.in_(recipe_ids))
+        .all()
+    ) if recipe_ids else []
+
+    tags_by_recipe: dict[str, list[str]] = {}
+    for rt, tag in tag_rows:
+        tags_by_recipe.setdefault(rt.recipe_id, []).append(tag.name)
+
+    summaries = [
+        ARRecipeSummary(
+            id=r.id,
+            name=r.name,
+            description=r.description or "",
+            image_url=r.image_url,
+            recipe_types=tags_by_recipe.get(r.id, []),
+            ingredients=ingredients_by_recipe.get(r.id, []),
+            nutrition=RecipeNutrition(
+                calories=str(r.calories) if r.calories is not None else None,
+                fat=str(r.fat_g) if r.fat_g is not None else None,
+                carbohydrate=str(r.carbs_g) if r.carbs_g is not None else None,
+                protein=str(r.protein_g) if r.protein_g is not None else None,
+            ) if any(v is not None for v in (r.calories, r.fat_g, r.carbs_g, r.protein_g)) else None,
+            total_mins=r.total_mins,
+            servings=r.servings,
+        )
+        for r in rows
+    ]
+
+    return ARSearchResponse(category=category or "all", total=total, recipes=summaries)
 
 
 # ── Single recipe detail ──────────────────────────────────────────────────────
