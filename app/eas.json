@@ -21,7 +21,13 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.cartaraiq.app",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "439468927034-64rs6sd4l8ug3d1sj1nv2no3qfuc4gcq.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "439468927034-qkq7rpfk6fk9f256udtt2qav70ee2obm.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": "25641582168857435"
+      }
     }
   },
   "submit": {
