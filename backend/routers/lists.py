@@ -185,6 +185,22 @@ def _add_single_item(
         .first()
     )
 
+    if not existing:
+        # Also check for a soft-deleted item on this list added by another user
+        # (collaborator zombie rows). Reclaim it rather than creating a duplicate.
+        existing = (
+            db.query(ListItem)
+            .filter(
+                ListItem.list_id == list_id,
+                ListItem.name.ilike(name),
+                ListItem.checked == 2,
+                ListItem.user_id != user_id,
+            )
+            .first()
+        )
+        if existing:
+            existing.user_id = user_id  # transfer ownership for frequency tracking
+
     # Compute min across ALL items in the list (not just this user's) so new
     # items always land at the top even on shared lists.
     min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
@@ -807,9 +823,9 @@ def get_suggestions(
     # Get all candidates
     candidates = get_frequency_candidates(db, current_user.id)
     
-    # Get items already on the list (unchecked)
+    # Get items already on the list (unchecked) — list-wide, not filtered by
+    # user_id so that collaborator-added items are correctly excluded too
     on_list = db.query(ListItem).filter(
-        ListItem.user_id == current_user.id,
         ListItem.list_id == list_id,
         ListItem.checked == 0,
     ).all()
@@ -834,11 +850,11 @@ def get_recipe_suggestions_endpoint(
         default = get_or_create_default_list(db, current_user.id)
         list_id = default.id
 
-    # Get active (unchecked) items on the list
+    # Get active (unchecked) items on the list — list-wide so pairing uses
+    # the full picture including items added by collaborators
     active_items = (
         db.query(ListItem)
         .filter(
-            ListItem.user_id == current_user.id,
             ListItem.list_id == list_id,
             ListItem.checked == 0,
         )
