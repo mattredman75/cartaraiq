@@ -80,8 +80,12 @@ export default function ListScreen() {
   // made on the Settings screen take effect immediately.
   useFocusEffect(
     useCallback(() => {
-      getItem("ai_suggestions_enabled").then((val) => setAiEnabled(val !== "0"));
-      getItem("pairing_suggestions_enabled").then((val) => setPairingEnabled(val !== "0"));
+      getItem("ai_suggestions_enabled").then((val) =>
+        setAiEnabled(val !== "0"),
+      );
+      getItem("pairing_suggestions_enabled").then((val) =>
+        setPairingEnabled(val !== "0"),
+      );
     }, []),
   );
 
@@ -201,9 +205,6 @@ export default function ListScreen() {
     } else {
       item = itemOrId;
     }
-    if (item && item.checked === 1) {
-      dismissSuggestion(item.name);
-    }
     deleteMutation.mutate(
       typeof itemOrId === "string" ? itemOrId : itemOrId.id,
     );
@@ -306,10 +307,6 @@ export default function ListScreen() {
       onToggle={() => {
         const next = item.checked === 0 ? 1 : 0;
         toggleMutation.mutate({ id: item.id, checked: next });
-        // if marking done, temporarily dismiss so it won't reappear right away
-        if (next === 1) {
-          dismissSuggestion(item.name);
-        }
       }}
       onDelete={() => handleDelete(item)}
       onLongPress={() => handleLongPress(item)}
