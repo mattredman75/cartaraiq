@@ -15,3 +15,4 @@ class ShoppingList(Base):
 
     user = relationship("User", back_populates="shopping_lists")
     items = relationship("ListItem", back_populates="shopping_list", cascade="all, delete-orphan")
+    shares = relationship("ListShare", back_populates="shopping_list", cascade="all, delete-orphan")

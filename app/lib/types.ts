@@ -6,6 +6,7 @@ export interface ListItem {
   checked: number; // 0=active, 1=done, 2=soft-deleted
   sort_order: number | null;
   times_added: number;
+  added_by_name?: string | null;
 }
 
 export interface Suggestion {
@@ -16,6 +17,9 @@ export interface Suggestion {
 export interface ShoppingList {
   id: string;
   name: string;
+  is_shared?: boolean;
+  owner_name?: string | null;
+  share_count?: number;
 }
 
 export interface StoreCard {

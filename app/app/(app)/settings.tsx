@@ -9,6 +9,8 @@ import {
   SafeAreaView,
   ScrollView,
   Modal,
+  Share,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
@@ -20,10 +22,24 @@ import {
   setupBiometric,
   disableBiometric,
   authLogout,
+  fetchShoppingLists,
+  createListInvite,
+  fetchListShares,
+  removeListShare,
 } from "../../lib/api";
 import { setItem, deleteItem, getItem } from "../../lib/storage";
 import { useBiometricAuth } from "../../hooks/useBiometricAuth";
 import { PINEntry } from "../../components/PINEntry";
+import type { ShoppingList } from "../../lib/types";
+
+interface ShareEntry {
+  id: number;
+  shared_with_id: number | null;
+  shared_with_name: string | null;
+  shared_with_email: string | null;
+  status: "pending" | "accepted";
+  created_at: string;
+}
 
 const TEAL = "#1B6B7A";
 const TEAL_DARK = "#0D4F5C";
@@ -66,6 +82,77 @@ export default function SettingsScreen() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [pairingEnabled, setPairingEnabled] = useState(true);
 
+  // Sharing state
+  const [sharingLists, setSharingLists] = useState<ShoppingList[]>([]);
+  const [shareDetails, setShareDetails] = useState<
+    Record<number, ShareEntry[]>
+  >({});
+  const [sharingLoadingId, setSharingLoadingId] = useState<number | null>(null);
+  const [expandedListId, setExpandedListId] = useState<number | null>(null);
+
+  const loadSharingData = async () => {
+    try {
+      const res = await fetchShoppingLists();
+      const lists: ShoppingList[] = res.data ?? [];
+      setSharingLists(lists);
+      // Load shares for any already-expanded list
+      if (expandedListId) {
+        const sharesRes = await fetchListShares(expandedListId);
+        setShareDetails((prev) => ({
+          ...prev,
+          [expandedListId]: sharesRes.data ?? [],
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleShareList = async (list: ShoppingList) => {
+    setSharingLoadingId(list.id);
+    try {
+      const res = await createListInvite(list.id);
+      const inviteUrl: string = res.data?.invite_url ?? "";
+      await Share.share({
+        message: `Join my "${list.name}" shopping list on CartaraIQ!\n${inviteUrl}`,
+        url: inviteUrl,
+      });
+    } catch {
+      // user cancelled or error
+    } finally {
+      setSharingLoadingId(null);
+    }
+  };
+
+  const handleExpandList = async (listId: number) => {
+    if (expandedListId === listId) {
+      setExpandedListId(null);
+      return;
+    }
+    setExpandedListId(listId);
+    try {
+      const res = await fetchListShares(listId);
+      setShareDetails((prev) => ({ ...prev, [listId]: res.data ?? [] }));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRemoveShare = async (listId: number, shareId: number) => {
+    try {
+      await removeListShare(listId, shareId);
+      setShareDetails((prev) => ({
+        ...prev,
+        [listId]: (prev[listId] ?? []).filter((s) => s.id !== shareId),
+      }));
+      // Refresh list to update share_count
+      const res = await fetchShoppingLists();
+      setSharingLists(res.data ?? []);
+    } catch {
+      Alert.alert("Error", "Could not remove collaborator. Please try again.");
+    }
+  };
+
   useEffect(() => {
     checkBiometricAvailability();
     isBiometricEnabled().then(setBiometricEnabled);
@@ -78,6 +165,9 @@ export default function SettingsScreen() {
     getItem("pairing_suggestions_enabled").then((v) => {
       if (v !== "0") setPairingEnabled(true);
     });
+
+    // Load sharing data
+    loadSharingData();
   }, [checkBiometricAvailability, isBiometricEnabled, isPinEnabled]);
 
   const handleFirstResetPIN = async (pin: string) => {
@@ -454,6 +544,222 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {/* List Sharing Section */}
+        <View style={{ marginTop: 12, backgroundColor: "#fff" }}>
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: BORDER,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "600",
+                color: MUTED,
+                textTransform: "uppercase",
+                letterSpacing: 0.6,
+              }}
+            >
+              Shared Lists
+            </Text>
+          </View>
+          {sharingLists.length === 0 ? (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
+              <Text style={{ fontSize: 14, color: MUTED }}>No lists yet.</Text>
+            </View>
+          ) : (
+            sharingLists.map((list, idx) => (
+              <View key={list.id}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderBottomWidth:
+                      idx < sharingLists.length - 1 ||
+                      expandedListId === list.id
+                        ? 1
+                        : 0,
+                    borderBottomColor: BORDER,
+                  }}
+                >
+                  {/* List name + collaborator count */}
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                    onPress={() => handleExpandList(list.id)}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: TEXT,
+                        flex: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {list.name}
+                    </Text>
+                    {(list.share_count ?? 0) > 0 && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Ionicons
+                          name="people-outline"
+                          size={14}
+                          color={TEAL}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: TEAL,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {list.share_count}
+                        </Text>
+                      </View>
+                    )}
+                    <Ionicons
+                      name={
+                        expandedListId === list.id
+                          ? "chevron-up"
+                          : "chevron-down"
+                      }
+                      size={16}
+                      color={MUTED}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Share button */}
+                  <TouchableOpacity
+                    onPress={() => handleShareList(list)}
+                    disabled={sharingLoadingId === list.id}
+                    style={{
+                      marginLeft: 12,
+                      backgroundColor: TEAL,
+                      paddingHorizontal: 14,
+                      paddingVertical: 7,
+                      borderRadius: 8,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    {sharingLoadingId === list.id ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="share-outline" size={14} color="#fff" />
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: "#fff",
+                            fontWeight: "600",
+                          }}
+                        >
+                          Share
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Expanded collaborators list */}
+                {expandedListId === list.id && (
+                  <View style={{ backgroundColor: "#F8FAFB" }}>
+                    {(shareDetails[list.id] ?? []).length === 0 ? (
+                      <View
+                        style={{ paddingHorizontal: 24, paddingVertical: 12 }}
+                      >
+                        <Text style={{ fontSize: 13, color: MUTED }}>
+                          No active shares yet. Tap Share to invite someone.
+                        </Text>
+                      </View>
+                    ) : (
+                      (shareDetails[list.id] ?? []).map((share) => (
+                        <View
+                          key={share.id}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            paddingHorizontal: 24,
+                            paddingVertical: 10,
+                            borderTopWidth: 1,
+                            borderTopColor: BORDER,
+                          }}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                color: TEXT,
+                                fontWeight: "500",
+                              }}
+                            >
+                              {share.shared_with_name ??
+                                share.shared_with_email ??
+                                "Pending invite"}
+                            </Text>
+                            {share.status === "pending" && (
+                              <Text style={{ fontSize: 12, color: MUTED }}>
+                                Invite pending
+                              </Text>
+                            )}
+                          </View>
+                          <TouchableOpacity
+                            onPress={() =>
+                              Alert.alert(
+                                share.status === "pending"
+                                  ? "Revoke Invite"
+                                  : "Remove Collaborator",
+                                share.status === "pending"
+                                  ? "This will invalidate the invite link."
+                                  : `Remove ${share.shared_with_name ?? "this person"} from this list?`,
+                                [
+                                  { text: "Cancel", style: "cancel" },
+                                  {
+                                    text:
+                                      share.status === "pending"
+                                        ? "Revoke"
+                                        : "Remove",
+                                    style: "destructive",
+                                    onPress: () =>
+                                      handleRemoveShare(list.id, share.id),
+                                  },
+                                ],
+                              )
+                            }
+                            style={{ padding: 6 }}
+                          >
+                            <Ionicons
+                              name="close-circle-outline"
+                              size={20}
+                              color="#EF4444"
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+
         {/* Utility Section */}
         <View style={{ marginTop: 12 }}>
           {/* Reset PIN Button */}
@@ -480,7 +786,9 @@ export default function SettingsScreen() {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 16, color: "#fff", fontWeight: "600" }}>
+                <Text
+                  style={{ fontSize: 16, color: "#fff", fontWeight: "600" }}
+                >
                   Reset PIN
                 </Text>
               </TouchableOpacity>

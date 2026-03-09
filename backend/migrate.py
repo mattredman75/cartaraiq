@@ -46,6 +46,7 @@ def run() -> None:
         _run_mysql(conn)
         _run_mysql_ingredient_pairings(conn)
         _run_mysql_loyalty_programs(conn)
+        _run_mysql_list_shares(conn)
         conn.commit()
 
     print("Migration complete.")
@@ -450,6 +451,29 @@ def _run_mysql_ingredient_pairings(conn) -> None:
             CREATE INDEX ix_ingredient_pairings_base
                 ON ingredient_pairings(base_ingredient, fetched_at)
         """))
+
+
+def _run_mysql_list_shares(conn) -> None:
+    if not _table_exists(conn, "list_shares"):
+        conn.execute(text("""
+            CREATE TABLE list_shares (
+                id             VARCHAR(36)  NOT NULL PRIMARY KEY,
+                list_id        VARCHAR(36)  NOT NULL,
+                owner_id       VARCHAR(36)  NOT NULL,
+                shared_with_id VARCHAR(36)  NULL,
+                invite_token   VARCHAR(36)  NOT NULL UNIQUE,
+                status         VARCHAR(16)  NOT NULL DEFAULT 'pending',
+                created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (list_id)        REFERENCES shopping_lists(id) ON DELETE CASCADE,
+                FOREIGN KEY (owner_id)       REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (shared_with_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+    if not _index_exists(conn, "list_shares", "ix_list_shares_list_id"):
+        conn.execute(text("CREATE INDEX ix_list_shares_list_id ON list_shares(list_id)"))
+    if not _index_exists(conn, "list_shares", "ix_list_shares_shared_with_id"):
+        conn.execute(text("CREATE INDEX ix_list_shares_shared_with_id ON list_shares(shared_with_id)"))
 
 
 if __name__ == "__main__":

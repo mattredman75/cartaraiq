@@ -1,0 +1,22 @@
+{
+    "servers": {
+      "github": {
+        "url": "https://api.githubcopilot.com/mcp/"
+      },
+      "cartaraiq-server": {
+        "type": "stdio",
+        "command": "npx",
+        "args": [
+          "-y",
+          "ssh-mcp",
+          "--",
+          "--host=tradecommand.ai",
+          "--port=1988",
+          "--user=tradecom",
+          "--key=${env:HOME}/.ssh/id_ed25519",
+          "--disableSudo",
+          "--maxChars=0"
+        ]
+      }
+    }
+}
