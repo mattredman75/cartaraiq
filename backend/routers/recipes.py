@@ -283,105 +283,6 @@ def get_inspiration(
     return InspirationResponse(category=category, recipes=recipes)
 
 
-# ── Single recipe detail ──────────────────────────────────────────────────────
-@router.get("/{recipe_id}", response_model=RecipeDetail)
-def get_recipe_detail(recipe_id: str):
-    """
-    Return full detail for a single recipe including directions,
-    prep/cook times, and serving information.
-    """
-    token = _get_access_token()
-
-    try:
-        resp = httpx.get(
-            FS_RECIPE_URL,
-            headers={"Authorization": f"Bearer {token}"},
-            params={"format": "json", "recipe_id": recipe_id},
-            timeout=15,
-        )
-        resp.raise_for_status()
-    except httpx.HTTPError as exc:
-        logger.error("FatSecret recipe detail failed for %s: %s", recipe_id, exc)
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to fetch recipe detail.",
-        )
-
-    data = resp.json()
-    r = data.get("recipe", {})
-    if not r:
-        raise HTTPException(status_code=404, detail="Recipe not found.")
-
-    # ── Image ──────────────────────────────────────────────────────────────────
-    images_block = r.get("recipe_images", {})
-    raw_images = images_block.get("recipe_image", []) if images_block else []
-    if isinstance(raw_images, str):
-        raw_images = [raw_images]
-    image_url = raw_images[0] if raw_images else r.get("recipe_image") or None
-
-    # ── Ingredients (v2 uses "ingredients.ingredient[].ingredient_description") ─
-    ingredients: list[RecipeIngredient] = []
-    ing_block = r.get("ingredients", {})
-    if ing_block:
-        raw_ings = ing_block.get("ingredient", [])
-        if isinstance(raw_ings, dict):
-            raw_ings = [raw_ings]
-        if isinstance(raw_ings, list):
-            for ing in raw_ings:
-                desc = (
-                    ing.get("ingredient_description")
-                    or ing.get("food_name")
-                    or ""
-                ).strip()
-                if desc:
-                    ingredients.append(RecipeIngredient(name=desc))
-
-    # ── Directions (v2 uses "directions.direction") ────────────────────────────
-    directions: list[str] = []
-    dir_block = r.get("directions", {})
-    if dir_block:
-        raw_dirs = dir_block.get("direction", [])
-        if isinstance(raw_dirs, dict):
-            raw_dirs = [raw_dirs]
-        if isinstance(raw_dirs, list):
-            steps = sorted(raw_dirs, key=lambda d: int(d.get("direction_number", 0)))
-            directions = [
-                s.get("direction_description", "").strip()
-                for s in steps
-                if s.get("direction_description")
-            ]
-
-    # ── Nutrition (v2 uses "serving_sizes.serving") ───────────────────────────
-    nutrition: Optional[RecipeNutrition] = None
-    serving_block = r.get("serving_sizes", {})
-    if serving_block:
-        srv = serving_block.get("serving", {})
-        if srv and isinstance(srv, dict):
-            nutrition = RecipeNutrition(
-                calories=srv.get("calories"),
-                protein=srv.get("protein"),
-                fat=srv.get("fat"),
-                carbohydrate=srv.get("carbohydrate"),
-            )
-
-    # ── Recipe types ───────────────────────────────────────────────────────────
-    recipe_types = _parse_recipe_types(r)
-
-    return RecipeDetail(
-        id=str(r.get("recipe_id", recipe_id)),
-        name=r.get("recipe_name", "Untitled Recipe"),
-        description=r.get("recipe_description", ""),
-        image_url=image_url,
-        recipe_types=recipe_types,
-        ingredients=ingredients,
-        nutrition=nutrition,
-        directions=directions,
-        prep_time_min=r.get("preparation_time_min"),
-        cook_time_min=r.get("cooking_time_min"),
-        servings=r.get("number_of_servings"),
-    )
-
-
 # ── Allrecipes carousel scraper ───────────────────────────────────────────────
 
 try:
@@ -502,3 +403,104 @@ def get_allrecipes_carousel():
         results.append(CarouselRecipe(name=name, image_url=image_url, url=href))
 
     return results
+
+
+# ── Single recipe detail ──────────────────────────────────────────────────────
+@router.get("/{recipe_id}", response_model=RecipeDetail)
+def get_recipe_detail(recipe_id: str):
+    """
+    Return full detail for a single recipe including directions,
+    prep/cook times, and serving information.
+    """
+    token = _get_access_token()
+
+    try:
+        resp = httpx.get(
+            FS_RECIPE_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            params={"format": "json", "recipe_id": recipe_id},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        logger.error("FatSecret recipe detail failed for %s: %s", recipe_id, exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to fetch recipe detail.",
+        )
+
+    data = resp.json()
+    r = data.get("recipe", {})
+    if not r:
+        raise HTTPException(status_code=404, detail="Recipe not found.")
+
+    # ── Image ──────────────────────────────────────────────────────────────────
+    images_block = r.get("recipe_images", {})
+    raw_images = images_block.get("recipe_image", []) if images_block else []
+    if isinstance(raw_images, str):
+        raw_images = [raw_images]
+    image_url = raw_images[0] if raw_images else r.get("recipe_image") or None
+
+    # ── Ingredients (v2 uses "ingredients.ingredient[].ingredient_description") ─
+    ingredients: list[RecipeIngredient] = []
+    ing_block = r.get("ingredients", {})
+    if ing_block:
+        raw_ings = ing_block.get("ingredient", [])
+        if isinstance(raw_ings, dict):
+            raw_ings = [raw_ings]
+        if isinstance(raw_ings, list):
+            for ing in raw_ings:
+                desc = (
+                    ing.get("ingredient_description")
+                    or ing.get("food_name")
+                    or ""
+                ).strip()
+                if desc:
+                    ingredients.append(RecipeIngredient(name=desc))
+
+    # ── Directions (v2 uses "directions.direction") ────────────────────────────
+    directions: list[str] = []
+    dir_block = r.get("directions", {})
+    if dir_block:
+        raw_dirs = dir_block.get("direction", [])
+        if isinstance(raw_dirs, dict):
+            raw_dirs = [raw_dirs]
+        if isinstance(raw_dirs, list):
+            steps = sorted(raw_dirs, key=lambda d: int(d.get("direction_number", 0)))
+            directions = [
+                s.get("direction_description", "").strip()
+                for s in steps
+                if s.get("direction_description")
+            ]
+
+    # ── Nutrition (v2 uses "serving_sizes.serving") ───────────────────────────
+    nutrition: Optional[RecipeNutrition] = None
+    serving_block = r.get("serving_sizes", {})
+    if serving_block:
+        srv = serving_block.get("serving", {})
+        if srv and isinstance(srv, dict):
+            nutrition = RecipeNutrition(
+                calories=srv.get("calories"),
+                protein=srv.get("protein"),
+                fat=srv.get("fat"),
+                carbohydrate=srv.get("carbohydrate"),
+            )
+
+    # ── Recipe types ───────────────────────────────────────────────────────────
+    recipe_types = _parse_recipe_types(r)
+
+    return RecipeDetail(
+        id=str(r.get("recipe_id", recipe_id)),
+        name=r.get("recipe_name", "Untitled Recipe"),
+        description=r.get("recipe_description", ""),
+        image_url=image_url,
+        recipe_types=recipe_types,
+        ingredients=ingredients,
+        nutrition=nutrition,
+        directions=directions,
+        prep_time_min=r.get("preparation_time_min"),
+        cook_time_min=r.get("cooking_time_min"),
+        servings=r.get("number_of_servings"),
+    )
+
+
