@@ -104,7 +104,7 @@ def _build_welcome_html(first_name: str) -> str:
                 </tr>
               </table>
               <h1 style="margin:0 0 8px;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
-                Welcome, {first_name}! 🎉
+                Welcome, {first_name}!
               </h1>
               <p style="margin:0;font-size:16px;color:#94a3b8;line-height:1.5;">
                 Your smart shopping companion is ready
@@ -123,13 +123,11 @@ def _build_welcome_html(first_name: str) -> str:
               <!-- Feature 1 -->
               <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:16px;">
                 <tr>
-                  <td width="56" valign="top">
-                    <div style="width:44px;height:44px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;text-align:center;line-height:44px;font-size:22px;">🛒</div>
-                  </td>
-                  <td valign="top" style="padding-left:16px;">
+                  <td width="20" valign="top" style="font-size:16px;color:#334155;padding-top:2px;">&bull;</td>
+                  <td valign="top">
                     <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#0f172a;">Smart Shopping Lists</p>
                     <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
-                      Build and share lists that update in real time. Add items by voice, text or barcode scan.
+                      Build and share lists that update in real time. Add items by voice or text.
                     </p>
                   </td>
                 </tr>
@@ -138,10 +136,8 @@ def _build_welcome_html(first_name: str) -> str:
               <!-- Feature 2 -->
               <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:16px;">
                 <tr>
-                  <td width="56" valign="top">
-                    <div style="width:44px;height:44px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;text-align:center;line-height:44px;font-size:22px;">💳</div>
-                  </td>
-                  <td valign="top" style="padding-left:16px;">
+                  <td width="20" valign="top" style="font-size:16px;color:#334155;padding-top:2px;">&bull;</td>
+                  <td valign="top">
                     <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#0f172a;">Loyalty Card Wallet</p>
                     <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
                       Store all your loyalty and rewards cards in one place. Scan barcodes instantly at checkout.
@@ -151,43 +147,14 @@ def _build_welcome_html(first_name: str) -> str:
               </table>
 
               <!-- Feature 3 -->
-              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:16px;">
-                <tr>
-                  <td width="56" valign="top">
-                    <div style="width:44px;height:44px;background:linear-gradient(135deg,#fdf4ff,#fae8ff);border-radius:12px;text-align:center;line-height:44px;font-size:22px;">🥦</div>
-                  </td>
-                  <td valign="top" style="padding-left:16px;">
-                    <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#0f172a;">Pantry Tracker</p>
-                    <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
-                      Track what you have at home so you never over-buy. Items move automatically from your list to your pantry.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Feature 4 -->
               <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:32px;">
                 <tr>
-                  <td width="56" valign="top">
-                    <div style="width:44px;height:44px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border-radius:12px;text-align:center;line-height:44px;font-size:22px;">👨‍🍳</div>
-                  </td>
-                  <td valign="top" style="padding-left:16px;">
+                  <td width="20" valign="top" style="font-size:16px;color:#334155;padding-top:2px;">&bull;</td>
+                  <td valign="top">
                     <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#0f172a;">Recipe Suggestions</p>
                     <p style="margin:0;font-size:14px;color:#64748b;line-height:1.6;">
                       Get personalised recipe ideas based on what's already in your pantry.
                     </p>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- CTA -->
-              <table cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr>
-                  <td align="center">
-                    <a href="https://cartaraiq.app"
-                       style="display:inline-block;background:linear-gradient(135deg,#14b8a6,#0d9488);color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;padding:16px 40px;border-radius:12px;letter-spacing:0.2px;">
-                      Open CartaraIQ →
-                    </a>
                   </td>
                 </tr>
               </table>
@@ -229,19 +196,14 @@ def _build_welcome_plain(first_name: str) -> str:
 
 Thanks for joining. Here's what you can do:
 
-🛒 Smart Shopping Lists
-Build and share lists that update in real time.
+• Smart Shopping Lists
+Build and share lists that update in real time. Add items by voice or text.
 
-💳 Loyalty Card Wallet
+• Loyalty Card Wallet
 Store all your loyalty cards in one place and scan them at checkout.
 
-🥦 Pantry Tracker
-Track what you have at home so you never over-buy.
-
-👨‍🍳 Recipe Suggestions
+• Recipe Suggestions
 Get personalised recipe ideas based on what's in your pantry.
-
-Open the app: https://cartaraiq.app
 
 Questions? Email us at support@cartaraiq.app
 
