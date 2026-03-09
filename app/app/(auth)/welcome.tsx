@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,36 +7,36 @@ import {
   Dimensions,
   Image,
   StatusBar,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '../../lib/constants';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { COLORS } from "../../lib/constants";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const SLIDES = [
   {
-    id: '1',
-    title: 'Your Lists,\nAI Enhanced',
+    id: "1",
+    title: "Your Lists,\nAI Enhanced",
     subtitle:
-      'CartaraIQ learns what you buy and when — so your list is ready before you even open the app.',
-    image: require('../../assets/cartara_step-1.png'),
+      "CartaraIQ learns what you buy and when — so your list is ready before you even open the app.",
+    image: require("../../assets/cartara_step-1.png"),
     accent: COLORS.cyan,
   },
   {
-    id: '2',
-    title: 'Predictive Lists\nFrom Your Habits',
+    id: "2",
+    title: "Predictive Lists\nFrom Your Habits",
     subtitle:
       "Running low on milk? We already know. AI tracks your patterns and surfaces the right items at the right time.",
-    image: require('../../assets/cartara_step-2.png'),
+    image: require("../../assets/cartara_step-2.png"),
     accent: COLORS.amber,
   },
   {
-    id: '3',
-    title: 'Discover What\nYou\'ll Love',
+    id: "3",
+    title: "Discover What\nYou'll Love",
     subtitle:
-      'Get AI-powered product recommendations tailored to your tastes, budget, and shopping habits.',
-    image: require('../../assets/cartara_step-3.png'),
+      "Get AI-powered product recommendations tailored to your tastes, budget, and shopping habits.",
+    image: require("../../assets/cartara_step-3.png"),
     accent: COLORS.tealLight,
   },
 ];
@@ -51,7 +51,7 @@ export default function WelcomeScreen() {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
       setCurrentIndex((i) => i + 1);
     } else {
-      router.push('/(auth)/signup');
+      router.push("/(auth)/signup");
     }
   };
 
@@ -63,9 +63,9 @@ export default function WelcomeScreen() {
         <View style={{ paddingHorizontal: 28, paddingTop: 16 }}>
           <Text
             style={{
-              fontFamily: 'Montserrat_700Bold',
+              fontFamily: "Montserrat_700Bold",
               fontSize: 22,
-              color: '#FFFFFF',
+              color: "#FFFFFF",
               letterSpacing: -0.5,
             }}
           >
@@ -91,8 +91,8 @@ export default function WelcomeScreen() {
               style={{
                 width,
                 paddingHorizontal: 28,
-                justifyContent: 'center',
-                alignItems: 'center',
+                justifyContent: "center",
+                alignItems: "center",
                 paddingTop: 40,
               }}
             >
@@ -105,12 +105,12 @@ export default function WelcomeScreen() {
 
               <Text
                 style={{
-                  fontFamily: 'Montserrat_700Bold',
+                  fontFamily: "Montserrat_700Bold",
                   fontSize: 36,
-                  color: '#FFFFFF',
+                  color: "#FFFFFF",
                   lineHeight: 44,
                   marginBottom: 20,
-                  textAlign: 'center',
+                  textAlign: "center",
                 }}
               >
                 {item.title}
@@ -118,11 +118,11 @@ export default function WelcomeScreen() {
 
               <Text
                 style={{
-                  fontFamily: 'Montserrat_400Regular',
+                  fontFamily: "Montserrat_400Regular",
                   fontSize: 16,
-                  color: 'rgba(255,255,255,0.7)',
+                  color: "rgba(255,255,255,0.7)",
                   lineHeight: 26,
-                  textAlign: 'center',
+                  textAlign: "center",
                 }}
               >
                 {item.subtitle}
@@ -139,7 +139,7 @@ export default function WelcomeScreen() {
           }}
         >
           {/* Dots */}
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 32 }}>
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 32 }}>
             {SLIDES.map((_, i) => (
               <View
                 key={i}
@@ -148,7 +148,7 @@ export default function WelcomeScreen() {
                   width: i === currentIndex ? 28 : 8,
                   borderRadius: 3,
                   backgroundColor:
-                    i === currentIndex ? COLORS.cyan : 'rgba(255,255,255,0.3)',
+                    i === currentIndex ? COLORS.cyan : "rgba(255,255,255,0.3)",
                 }}
               />
             ))}
@@ -162,36 +162,41 @@ export default function WelcomeScreen() {
               backgroundColor: COLORS.cyan,
               borderRadius: 16,
               paddingVertical: 18,
-              alignItems: 'center',
-              marginBottom: 16,
+              alignItems: "center",
+              marginBottom: 12,
             }}
           >
             <Text
               style={{
-                fontFamily: 'Montserrat_700Bold',
+                fontFamily: "Montserrat_700Bold",
                 fontSize: 16,
                 color: COLORS.tealDark,
                 letterSpacing: 0.3,
               }}
             >
-              {currentIndex < SLIDES.length - 1 ? 'Continue' : 'Get Started'}
+              {currentIndex < SLIDES.length - 1 ? "Continue" : "Get Started"}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push('/(auth)/login')}
-            activeOpacity={0.7}
-            style={{ alignItems: 'center' }}
+            onPress={() => router.push("/(auth)/login")}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: COLORS.amber,
+              borderRadius: 16,
+              paddingVertical: 18,
+              alignItems: "center",
+            }}
           >
             <Text
               style={{
-                fontFamily: 'Montserrat_500Medium',
-                fontSize: 14,
-                color: 'rgba(255,255,255,0.6)',
+                fontFamily: "Montserrat_700Bold",
+                fontSize: 16,
+                color: COLORS.tealDark,
+                letterSpacing: 0.3,
               }}
             >
-              Already have an account?{' '}
-              <Text style={{ color: COLORS.cyan }}>Sign in</Text>
+              Sign In
             </Text>
           </TouchableOpacity>
         </View>
