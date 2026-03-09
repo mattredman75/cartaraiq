@@ -547,13 +547,12 @@ export default function LoginScreen() {
                       activeOpacity={0.85}
                       style={{
                         backgroundColor: "#000",
-                        borderRadius: 14,
-                        height: 52,
+                        borderRadius: 16,
+                        paddingVertical: 18,
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 10,
-                        paddingHorizontal: 20,
                       }}
                     >
                       {socialLoading === "apple" ? (
@@ -581,13 +580,12 @@ export default function LoginScreen() {
                       activeOpacity={0.85}
                       style={{
                         backgroundColor: COLORS.card,
-                        borderRadius: 14,
-                        height: 52,
+                        borderRadius: 16,
+                        paddingVertical: 18,
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 10,
-                        paddingHorizontal: 20,
                         borderWidth: 1.5,
                         borderColor: COLORS.border,
                       }}
@@ -620,13 +618,12 @@ export default function LoginScreen() {
                       activeOpacity={0.85}
                       style={{
                         backgroundColor: "#1877F2",
-                        borderRadius: 14,
-                        height: 52,
+                        borderRadius: 16,
+                        paddingVertical: 18,
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 10,
-                        paddingHorizontal: 20,
                       }}
                     >
                       {socialLoading === "facebook" ? (
