@@ -1022,7 +1022,7 @@ def _run_suite(suite: str) -> dict:
     """Run a single test suite and return structured results."""
     if suite == "backend":
         cmd = ["python", "-m", "pytest", "backend/tests", "--tb=short", "-q", "--no-header",
-               "--cov=backend", "--cov-report=term-missing", "--cov-branch"]
+               "--color=no", "--cov=backend", "--cov-report=term-missing", "--cov-branch"]
         cwd = _PROJECT_ROOT
         parser = _parse_pytest_output
     elif suite == "app":
