@@ -877,30 +877,68 @@ def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
         result["suites_failed"] = data.get("numFailedTestSuites", 0)
         result["suites_total"] = data.get("numTotalTestSuites", 0)
 
-        # Coverage: Jest --json --coverage puts data in coverageMap
+        # Coverage: Jest --json --coverage puts data in coverageMap.
+        # Compute all 4 metrics directly from coverageMap so we don't depend
+        # on the text coverage table (which may go to stderr, be suppressed in
+        # CI mode, or simply not be present when --json is used).
         coverage_map = data.get("coverageMap", {})
         if coverage_map:
-            total_stmts = 0
-            covered_stmts = 0
+            total_stmts = covered_stmts = 0
+            total_branches = covered_branches = 0
+            total_funcs = covered_funcs = 0
+            total_lines = covered_lines = 0
             for file_cov in coverage_map.values():
+                # Statements
                 s_map = file_cov.get("s", {})
                 total_stmts += len(s_map)
                 covered_stmts += sum(1 for v in s_map.values() if v > 0)
-            if total_stmts > 0:
-                result["coverage"] = round(covered_stmts / total_stmts * 100)
+                # Branches: each entry is a list of hit counts per branch arm
+                b_map = file_cov.get("b", {})
+                for arms in b_map.values():
+                    total_branches += len(arms)
+                    covered_branches += sum(1 for c in arms if c > 0)
+                # Functions
+                f_map = file_cov.get("f", {})
+                total_funcs += len(f_map)
+                covered_funcs += sum(1 for v in f_map.values() if v > 0)
+                # Lines: derive from statementMap — count unique line numbers
+                stmt_locs = file_cov.get("statementMap", {})
+                stmt_counts = file_cov.get("s", {})
+                line_hit: dict = {}
+                for sid, loc in stmt_locs.items():
+                    ln = loc.get("start", {}).get("line")
+                    if ln is None:
+                        continue
+                    if ln not in line_hit:
+                        line_hit[ln] = 0
+                    line_hit[ln] = max(line_hit[ln], stmt_counts.get(sid, 0))
+                total_lines += len(line_hit)
+                covered_lines += sum(1 for c in line_hit.values() if c > 0)
 
-        # Parse coverage table from text output (Jest prints it after JSON)
-        # Pattern: "All files                    |   86.05 |    76.99 |      84 |   86.23 |"
-        combined = stdout + "\n" + stderr
-        coverage_line = re.search(
-            r"All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)",
-            combined
-        )
-        if coverage_line:
-            result["coverage_statements"] = float(coverage_line.group(1))
-            result["coverage_branches"] = float(coverage_line.group(2))
-            result["coverage_functions"] = float(coverage_line.group(3))
-            result["coverage_lines"] = float(coverage_line.group(4))
+            if total_stmts > 0:
+                result["coverage"] = round(covered_stmts / total_stmts * 100, 2)
+                result["coverage_statements"] = round(covered_stmts / total_stmts * 100, 2)
+            if total_branches > 0:
+                result["coverage_branches"] = round(covered_branches / total_branches * 100, 2)
+            if total_funcs > 0:
+                result["coverage_functions"] = round(covered_funcs / total_funcs * 100, 2)
+            if total_lines > 0:
+                result["coverage_lines"] = round(covered_lines / total_lines * 100, 2)
+
+        # Also try the text coverage table as a fallback (Jest may print it to
+        # stderr when --json is used without --coverageReporters override).
+        # Only use it if we didn't already get values from coverageMap.
+        if result["coverage_statements"] is None:
+            combined = stdout + "\n" + stderr
+            coverage_line = re.search(
+                r"All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)",
+                combined
+            )
+            if coverage_line:
+                result["coverage_statements"] = float(coverage_line.group(1))
+                result["coverage_branches"] = float(coverage_line.group(2))
+                result["coverage_functions"] = float(coverage_line.group(3))
+                result["coverage_lines"] = float(coverage_line.group(4))
 
         # Failed test details
         failed_tests = []
