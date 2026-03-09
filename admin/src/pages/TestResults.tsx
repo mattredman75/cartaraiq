@@ -46,6 +46,7 @@ interface SuiteResult {
   coverage: number | null;
   coverage_statements?: number | null;
   coverage_branches?: number | null;
+  coverage_functions?: number | null;
   coverage_lines?: number | null;
   duration: number | null;
   output?: string;
@@ -80,6 +81,7 @@ interface HistoryPoint {
   coverage: number | null;
   coverage_statements?: number | null;
   coverage_branches?: number | null;
+  coverage_functions?: number | null;
   coverage_lines?: number | null;
   duration: number | null;
   created_at: string;
