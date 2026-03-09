@@ -80,6 +80,8 @@ export default function SettingsScreen() {
   const [resetPINError, setResetPINError] = useState("");
   const [showBiometricSuccessModal, setShowBiometricSuccessModal] =
     useState(false);
+  const [showPinSuccessModal, setShowPinSuccessModal] = useState(false);
+  const [showPinMismatchModal, setShowPinMismatchModal] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [pairingEnabled, setPairingEnabled] = useState(true);
 
@@ -221,11 +223,7 @@ export default function SettingsScreen() {
 
   const handleConfirmResetPIN = async (pin: string) => {
     if (pin !== firstResetPIN) {
-      Alert.alert(
-        "PINs don't match",
-        "The PINs you entered don't match. Please try again.",
-        [{ text: "OK" }],
-      );
+      setShowPinMismatchModal(true);
       setFirstResetPIN("");
       setResetPINStep("first");
       return;
@@ -240,7 +238,7 @@ export default function SettingsScreen() {
         setFirstResetPIN("");
         setResetPINError("");
         setPinEnabledState(true);
-        Alert.alert("Success", "Your PIN has been set successfully.");
+        setShowPinSuccessModal(true);
       } else {
         setResetPINError("Could not set PIN. Please try again.");
       }
@@ -973,6 +971,164 @@ export default function SettingsScreen() {
             }}
           />
         </SafeAreaView>
+      </Modal>
+
+      {/* PIN Mismatch Modal */}
+      <Modal
+        visible={showPinMismatchModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPinMismatchModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              margin: 20,
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 12,
+            }}
+          >
+            <Ionicons
+              name="alert-circle"
+              size={48}
+              color="#E53E3E"
+              style={{ marginBottom: 16 }}
+            />
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                color: TEXT,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              PINs Don't Match
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: MUTED,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              The PINs you entered don't match. Please try again.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowPinMismatchModal(false)}
+              style={{
+                backgroundColor: TEAL,
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Try Again
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PIN Success Modal */}
+      <Modal
+        visible={showPinSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPinSuccessModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              margin: 20,
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 12,
+            }}
+          >
+            <Ionicons
+              name="keypad"
+              size={48}
+              color={TEAL}
+              style={{ marginBottom: 16 }}
+            />
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "600",
+                color: TEXT,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              PIN Enabled
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: MUTED,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              You can now use your PIN to log in quickly.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowPinSuccessModal(false)}
+              style={{
+                backgroundColor: TEAL,
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Got it
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {/* Biometric Success Modal */}
