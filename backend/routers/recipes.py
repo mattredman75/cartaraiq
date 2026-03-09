@@ -102,6 +102,13 @@ class ARSearchResponse(BaseModel):
     recipes: list[ARRecipeSummary]
 
 
+class ARRecipeDetail(ARRecipeSummary):
+    """Full recipe detail from our normalized ar_* tables."""
+    prep_mins: Optional[int] = None
+    cook_mins: Optional[int] = None
+    directions: list[str] = []
+
+
 class RecipeDetail(Recipe):
     directions: list[str] = []
     prep_time_min: Optional[str] = None
@@ -1346,7 +1353,69 @@ def search_ar_recipes(
     return ARSearchResponse(category=category or "all", total=total, recipes=summaries)
 
 
-# ── Single recipe detail ──────────────────────────────────────────────────────
+# ── AR recipe detail by ID ─────────────────────────────────────────────────────
+@router.get("/ar/{ar_recipe_id}", response_model=ARRecipeDetail)
+def get_ar_recipe_detail(
+    ar_recipe_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return the full recipe from the ar_recipes DB by its UUID,
+    including all ingredients, step-by-step directions, tags, and nutrition.
+    """
+    recipe = db.query(ARRecipe).filter(ARRecipe.id == ar_recipe_id).first()
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found.")
+
+    ingredients = [
+        RecipeIngredient(name=ing.raw_text)
+        for ing in db.query(ARIngredient)
+            .filter(ARIngredient.recipe_id == ar_recipe_id)
+            .order_by(ARIngredient.sort_order)
+            .all()
+    ]
+
+    directions = [
+        step.instruction
+        for step in db.query(ARStep)
+            .filter(ARStep.recipe_id == ar_recipe_id)
+            .order_by(ARStep.step_number)
+            .all()
+    ]
+
+    tag_rows = (
+        db.query(ARTag)
+        .join(ARRecipeTag, ARRecipeTag.tag_id == ARTag.id)
+        .filter(ARRecipeTag.recipe_id == ar_recipe_id)
+        .all()
+    )
+    recipe_types = [t.name for t in tag_rows]
+
+    nutrition = RecipeNutrition(
+        calories=str(recipe.calories) if recipe.calories is not None else None,
+        fat=str(recipe.fat_g) if recipe.fat_g is not None else None,
+        carbohydrate=str(recipe.carbs_g) if recipe.carbs_g is not None else None,
+        protein=str(recipe.protein_g) if recipe.protein_g is not None else None,
+    ) if any(v is not None for v in (recipe.calories, recipe.fat_g, recipe.carbs_g, recipe.protein_g)) else None
+
+    return ARRecipeDetail(
+        id=recipe.id,
+        name=recipe.name,
+        description=recipe.description or "",
+        image_url=recipe.image_url,
+        recipe_types=recipe_types,
+        ingredients=ingredients,
+        nutrition=nutrition,
+        total_mins=recipe.total_mins,
+        prep_mins=recipe.prep_mins,
+        cook_mins=recipe.cook_mins,
+        servings=recipe.servings,
+        directions=directions,
+    )
+
+
+# ── Single recipe detail (FatSecret) ───────────────────────────────────────────
 @router.get("/{recipe_id}", response_model=RecipeDetail)
 def get_recipe_detail(recipe_id: str, current_user: User = Depends(get_current_user)):
     """
