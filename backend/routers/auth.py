@@ -20,6 +20,7 @@ from ..database import get_db
 from ..models.shopping_list import ShoppingList
 from ..models.user import User
 from ..services.audit import log_audit
+from ..services.email import send_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ def _issue_refresh_token(user: User, db: Session) -> str:
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-def register(request: Request, payload: RegisterRequest, db: Session = Depends(get_db)):
+def register(request: Request, payload: RegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         log_audit(db, action="register_duplicate", request=request, detail={"email": payload.email}, status="failure")
@@ -93,6 +94,8 @@ def register(request: Request, payload: RegisterRequest, db: Session = Depends(g
     token = create_access_token({"sub": user.id, "role": user.role or "user"})
     rt = _issue_refresh_token(user, db)
     log_audit(db, action="register", request=request, user_id=user.id)
+    background_tasks.add_task(send_welcome_email, user.email, user.name)
+    log_audit(db, action="welcome_email_sent", request=request, user_id=user.id, detail={"email": user.email})
     return TokenResponse(access_token=token, refresh_token=rt, user=UserOut.model_validate(user))
 
 
@@ -138,7 +141,7 @@ class SocialAuthRequest(BaseModel):
 
 @router.post("/social", response_model=TokenResponse)
 @limiter.limit("10/minute")
-async def social_login(request: Request, payload: SocialAuthRequest, db: Session = Depends(get_db)):
+async def social_login(request: Request, payload: SocialAuthRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Authenticate via social provider (Apple, Google, Facebook).
     Verifies the provider token, creates or finds the user, and returns a JWT.
@@ -209,6 +212,8 @@ async def social_login(request: Request, payload: SocialAuthRequest, db: Session
         db.add(default_list)
         db.commit()
         logger.info("Created new %s user: %s", provider, user.id)
+        background_tasks.add_task(send_welcome_email, user.email, user.name)
+        log_audit(db, action="welcome_email_sent", request=request, user_id=user.id, detail={"email": user.email, "provider": provider})
 
     if not getattr(user, "is_active", True):
         logger.warning("Blocked social login for deactivated user: %s", user.id)
