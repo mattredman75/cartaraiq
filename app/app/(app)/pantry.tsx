@@ -17,6 +17,7 @@ import { AddCardModal } from "../../components/AddCardModal";
 import { BarcodeDisplayModal } from "../../components/BarcodeDisplayModal";
 import { EditCardModal } from "../../components/EditCardModal";
 import { useLoyaltyPrograms } from "../../hooks/useLoyaltyPrograms";
+import { useAuthStore } from "../../lib/store";
 
 const TEAL = "#1B6B7A";
 const TEXT = "#1A1A2E";
@@ -34,6 +35,8 @@ const CARD_HEIGHT = Math.round(CARD_WIDTH * (160 / 280));
 export default function PantryScreen() {
   const insets = useSafeAreaInsets();
   const { programs } = useLoyaltyPrograms();
+  const user = useAuthStore((s) => s.user);
+  const cardsKey = user ? `store_cards_${user.id}` : "store_cards";
   const [cards, setCards] = useState<StoreCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -43,13 +46,15 @@ export default function PantryScreen() {
 
   useEffect(() => {
     loadCards();
-  }, []);
+  }, [cardsKey]);
 
   const loadCards = async () => {
     try {
-      const stored = await getItem("store_cards");
+      const stored = await getItem(cardsKey);
       if (stored) {
         setCards(JSON.parse(stored));
+      } else {
+        setCards([]);
       }
     } catch (e) /* istanbul ignore next */ {
       console.error("Failed to load cards:", e);
@@ -60,7 +65,7 @@ export default function PantryScreen() {
 
   const saveCards = async (updatedCards: StoreCard[]) => {
     try {
-      await setItem("store_cards", JSON.stringify(updatedCards));
+      await setItem(cardsKey, JSON.stringify(updatedCards));
       setCards(updatedCards);
     } catch (e) /* istanbul ignore next */ {
       console.error("Failed to save cards:", e);
