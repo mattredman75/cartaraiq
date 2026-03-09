@@ -166,10 +166,21 @@ export function useBiometricAuth() {
     }
   }, []);
 
-  // Enable PIN login
-  const enablePin = useCallback(async (): Promise<boolean> => {
+  // Enable PIN login — persists the hash into biometric_credentials so
+  // biometric setup can verify a PIN exists before proceeding.
+  const enablePin = useCallback(async (pinHash?: string): Promise<boolean> => {
     try {
       await setItem("pin_enabled", "true");
+      if (pinHash) {
+        const existingJson = await getItem("biometric_credentials");
+        const existing: BiometricCredentials = existingJson
+          ? JSON.parse(existingJson)
+          : { email: "", password: "" };
+        await setItem(
+          "biometric_credentials",
+          JSON.stringify({ ...existing, pinHash }),
+        );
+      }
       return true;
     } catch {
       return false;
