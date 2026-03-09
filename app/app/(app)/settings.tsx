@@ -951,62 +951,27 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* Reset PIN Modal */}
-      <Modal visible={showResetPINModal} transparent animationType="slide">
-        <SafeAreaView
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            justifyContent: "flex-end",
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: "#fff",
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              paddingHorizontal: 24,
-              paddingVertical: 24,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "600",
-                color: TEXT,
-                marginBottom: 6,
-              }}
-            >
-              {resetPINStep === "first" ? "Set PIN" : "Confirm PIN"}
-            </Text>
-            <Text style={{ fontSize: 13, color: MUTED, marginBottom: 16 }}>
-              {resetPINStep === "first"
+      <Modal visible={showResetPINModal} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+          <PINEntry
+            title={resetPINStep === "first" ? "Set PIN" : "Confirm PIN"}
+            subtitle={
+              resetPINStep === "first"
                 ? "Enter a 4-digit PIN to secure your account"
-                : "Re-enter your PIN to confirm"}
-            </Text>
-
-            <PINEntry
-              onComplete={
-                resetPINStep === "first"
-                  ? handleFirstResetPIN
-                  : handleConfirmResetPIN
-              }
-              error={resetPINError}
-            />
-
-            <TouchableOpacity
-              onPress={() => {
-                setShowResetPINModal(false);
-                setResetPINStep("first");
-                setFirstResetPIN("");
-                setResetPINError("");
-              }}
-              style={{ marginTop: 16 }}
-            >
-              <Text style={{ fontSize: 14, color: MUTED, textAlign: "center" }}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
+                : "Re-enter your PIN to confirm"
+            }
+            onComplete={
+              resetPINStep === "first"
+                ? handleFirstResetPIN
+                : handleConfirmResetPIN
+            }
+            onCancel={() => {
+              setShowResetPINModal(false);
+              setResetPINStep("first");
+              setFirstResetPIN("");
+              setResetPINError("");
+            }}
+          />
         </SafeAreaView>
       </Modal>
 

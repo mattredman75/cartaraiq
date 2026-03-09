@@ -534,13 +534,7 @@ export default function LoginScreen() {
                   />
                 </View>
 
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "center",
-                    gap: 16,
-                  }}
-                >
+                <View style={{ gap: 12 }}>
                   {/* Apple */}
                   {appleAvailable && (
                     <TouchableOpacity
@@ -554,16 +548,23 @@ export default function LoginScreen() {
                       style={{
                         backgroundColor: "#000",
                         borderRadius: 14,
-                        width: 56,
-                        height: 56,
+                        height: 52,
+                        flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
+                        gap: 10,
+                        paddingHorizontal: 20,
                       }}
                     >
                       {socialLoading === "apple" ? (
                         <ActivityIndicator color="#fff" />
                       ) : (
-                        <Ionicons name="logo-apple" size={28} color="#fff" />
+                        <>
+                          <Ionicons name="logo-apple" size={22} color="#fff" />
+                          <Text style={{ fontFamily: "Montserrat_600SemiBold", fontSize: 15, color: "#fff" }}>
+                            Continue with Apple
+                          </Text>
+                        </>
                       )}
                     </TouchableOpacity>
                   )}
@@ -581,10 +582,12 @@ export default function LoginScreen() {
                       style={{
                         backgroundColor: COLORS.card,
                         borderRadius: 14,
-                        width: 56,
-                        height: 56,
+                        height: 52,
+                        flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
+                        gap: 10,
+                        paddingHorizontal: 20,
                         borderWidth: 1.5,
                         borderColor: COLORS.border,
                       }}
@@ -592,10 +595,15 @@ export default function LoginScreen() {
                       {socialLoading === "google" ? (
                         <ActivityIndicator color={COLORS.teal} />
                       ) : (
-                        <Image
-                          source={require("../../assets/google-icon.png")}
-                          style={{ width: 24, height: 24 }}
-                        />
+                        <>
+                          <Image
+                            source={require("../../assets/google-icon.png")}
+                            style={{ width: 20, height: 20 }}
+                          />
+                          <Text style={{ fontFamily: "Montserrat_600SemiBold", fontSize: 15, color: COLORS.ink }}>
+                            Continue with Google
+                          </Text>
+                        </>
                       )}
                     </TouchableOpacity>
                   )}
@@ -613,16 +621,23 @@ export default function LoginScreen() {
                       style={{
                         backgroundColor: "#1877F2",
                         borderRadius: 14,
-                        width: 56,
-                        height: 56,
+                        height: 52,
+                        flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
+                        gap: 10,
+                        paddingHorizontal: 20,
                       }}
                     >
                       {socialLoading === "facebook" ? (
                         <ActivityIndicator color="#fff" />
                       ) : (
-                        <Ionicons name="logo-facebook" size={28} color="#fff" />
+                        <>
+                          <Ionicons name="logo-facebook" size={22} color="#fff" />
+                          <Text style={{ fontFamily: "Montserrat_600SemiBold", fontSize: 15, color: "#fff" }}>
+                            Continue with Facebook
+                          </Text>
+                        </>
                       )}
                     </TouchableOpacity>
                   )}
