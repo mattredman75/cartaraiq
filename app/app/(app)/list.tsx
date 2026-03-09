@@ -382,12 +382,13 @@ export default function ListScreen() {
         checked={checked}
         items={items}
         isLoading={isLoading}
+        isPullRefreshing={isPullRefreshing}
         onToggle={(id) => toggleMutation.mutate({ id, checked: 0 })}
         onDelete={handleDelete}
         onLongPress={handleLongPress}
       />
     ),
-    [checked, items, isLoading],
+    [checked, items, isLoading, isPullRefreshing],
   );
 
   const scrollContextValue = React.useMemo(

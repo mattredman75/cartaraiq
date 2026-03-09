@@ -45,7 +45,14 @@ function extractShareToken(url: string): string | null {
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      retryDelay: 1000,
+    },
+  },
+});
 
 function AuthGate() {
   const { token, setAuth } = useAuthStore();

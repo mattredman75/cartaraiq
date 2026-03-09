@@ -12,6 +12,7 @@ interface ListFooterProps {
   checked: ListItem[];
   items: ListItem[];
   isLoading: boolean;
+  isPullRefreshing?: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onLongPress: (item: ListItem) => void;
@@ -21,6 +22,7 @@ export function ListFooter({
   checked,
   items,
   isLoading,
+  isPullRefreshing = false,
   onToggle,
   onDelete,
   onLongPress,
@@ -86,7 +88,7 @@ export function ListFooter({
         </View>
       )}
 
-      {items.length === 0 && isLoading && (
+      {items.length === 0 && isLoading && !isPullRefreshing && (
         <View style={{ alignItems: "center", marginTop: 60 }}>
           <ActivityIndicator size="large" color={TEAL} />
         </View>
