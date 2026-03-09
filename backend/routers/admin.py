@@ -854,8 +854,12 @@ def _parse_jest_json(stdout: str, stderr: str = "") -> dict:
     }
     try:
         # Jest may print warnings before JSON — find the first '{'
+        # Use raw_decode (not json.loads) so that trailing text (e.g. the
+        # coverage text table that Jest appends after the JSON in stdout)
+        # does not cause a JSONDecodeError and silently discard all results.
         idx = stdout.index("{")
-        data = json.loads(stdout[idx:])
+        decoder = json.JSONDecoder()
+        data, _ = decoder.raw_decode(stdout[idx:])
         result["passed"] = data.get("numPassedTests", 0)
         result["failed"] = data.get("numFailedTests", 0)
         result["skipped"] = data.get("numPendingTests", 0)
@@ -1168,6 +1172,10 @@ async def get_test_history(
                 "skipped": r.skipped,
                 "total": r.total,
                 "coverage": r.coverage,
+                "coverage_statements": r.coverage_statements,
+                "coverage_branches": r.coverage_branches,
+                "coverage_functions": r.coverage_functions,
+                "coverage_lines": r.coverage_lines,
                 "duration": r.duration,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
