@@ -1,7 +1,11 @@
 import "../global.css";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Slot, useRouter, useSegments } from "expo-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import * as SplashScreen from "expo-splash-screen";
 import { Linking } from "react-native";
 import { getItem, setItem, deleteItem } from "../lib/storage";
@@ -14,7 +18,7 @@ import {
 } from "@expo-google-fonts/montserrat";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useAuthStore } from "../lib/store";
+import { useAuthStore, useListStore } from "../lib/store";
 import { useAppStatus } from "../hooks/useAppStatus";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useLoyaltyPrograms } from "../hooks/useLoyaltyPrograms";
@@ -45,6 +49,8 @@ const queryClient = new QueryClient();
 
 function AuthGate() {
   const { token, setAuth } = useAuthStore();
+  const { setCurrentList } = useListStore();
+  const qc = useQueryClient();
   const segments = useSegments();
   const router = useRouter();
   const {
@@ -150,13 +156,18 @@ function AuthGate() {
     return () => sub.remove();
   }, [handleShareUrl]);
 
-  // When user becomes authenticated, process any pending invite
+  // When user becomes authenticated, process any pending invite.
+  // When user logs out, wipe cache and selected list so the next user
+  // never sees stale data from the previous session.
   useEffect(() => {
     if (token) {
       processPendingInvite();
     } else {
       // Reset so it can be processed again on next login
       pendingInviteProcessed.current = false;
+      // Clear all cached query data and the selected list
+      qc.clear();
+      setCurrentList(null);
     }
   }, [token, processPendingInvite]);
 
@@ -164,8 +175,10 @@ function AuthGate() {
   useEffect(() => {
     if (statusChecked && maintenance) return; // skip navigation when in maintenance
     const inAuthGroup = segments[0] === "(auth)";
+    // Allow the share accept screen to handle its own auth logic
+    const inShareRoute = segments[0] === "share";
 
-    if (!token && !inAuthGroup) {
+    if (!token && !inAuthGroup && !inShareRoute) {
       router.replace("/(auth)/welcome");
     } else if (token && inAuthGroup) {
       router.replace("/(app)/list");

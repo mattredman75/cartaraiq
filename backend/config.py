@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     facebook_app_secret: str = ""
     fat_secret_client_id: str = ""
     fat_secret_api_secret: str = ""
+    cors_extra_origins: str = ""
+    app_base_url: str = "https://cartaraiq.app"
 
     class Config:
         env_file = ".env"

@@ -99,6 +99,7 @@ class ShareOut(BaseModel):
     shared_with_email: Optional[str]
     status: str  # "pending" | "accepted"
     invite_url: str
+    created_at: Optional[datetime] = None
 
 
 class InviteOut(BaseModel):
@@ -109,7 +110,8 @@ class InviteOut(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _build_invite_url(token: str) -> str:
-    return f"https://cartaraiq.app/share/{token}"
+    from backend.config import settings
+    return f"{settings.app_base_url}/share/{token}"
 
 
 def _has_list_access(db: Session, list_id: str, user_id: str):
@@ -183,8 +185,9 @@ def _add_single_item(
         .first()
     )
 
+    # Compute min across ALL items in the list (not just this user's) so new
+    # items always land at the top even on shared lists.
     min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
-        ListItem.user_id == user_id,
         ListItem.list_id == list_id,
         ListItem.checked == 0,
     ).scalar()
@@ -397,6 +400,7 @@ def get_list_shares(
             shared_with_email=collaborator.email if collaborator else None,
             status=s.status,
             invite_url=_build_invite_url(s.invite_token),
+            created_at=s.created_at,
         ))
     return result
 
@@ -430,10 +434,32 @@ def remove_list_share(
               detail={"list_id": list_id, "share_id": share_id})
 
 
+@router.post("/groups/{list_id}/leave", status_code=204)
+def leave_list(
+    list_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Collaborator removes themselves from a shared list."""
+    share = db.query(ListShare).filter(
+        ListShare.list_id == list_id,
+        ListShare.shared_with_id == current_user.id,
+        ListShare.status == "accepted",
+    ).first()
+    if not share:
+        raise HTTPException(status_code=404, detail="You are not a member of this list.")
+    db.delete(share)
+    db.commit()
+    log_audit(db, action="list_leave", request=request, user_id=current_user.id,
+              detail={"list_id": list_id})
+
+
 @router.post("/share/accept/{token}", status_code=200)
 def accept_list_invite(
     token: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -462,6 +488,17 @@ def accept_list_invite(
     db.commit()
 
     lst = db.query(ShoppingList).filter(ShoppingList.id == share.list_id).first()
+
+    # Silent push to the owner so their app refreshes the collaborator list
+    owner_tokens = [t[0] for t in db.query(PushToken.token).filter(PushToken.user_id == share.owner_id).all()]
+    if owner_tokens:
+        background_tasks.add_task(
+            send_push_notifications, owner_tokens,
+            None, None,
+            {"type": "invite_accepted", "list_id": share.list_id, "accepted_by": current_user.name},
+            content_available=True,
+        )
+
     log_audit(db, action="list_invite_accepted", request=request, user_id=current_user.id,
               detail={"list_id": share.list_id, "share_id": share.id})
     return {"list_id": share.list_id, "list_name": lst.name if lst else None}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../../lib/store";
 import {
@@ -26,6 +26,7 @@ import {
   createListInvite,
   fetchListShares,
   removeListShare,
+  leaveList,
 } from "../../lib/api";
 import { setItem, deleteItem, getItem } from "../../lib/storage";
 import { useBiometricAuth } from "../../hooks/useBiometricAuth";
@@ -115,12 +116,12 @@ export default function SettingsScreen() {
       const inviteUrl: string = res.data?.invite_url ?? "";
       await Share.share({
         message: `Join my "${list.name}" shopping list on CartaraIQ!\n${inviteUrl}`,
-        url: inviteUrl,
       });
     } catch {
       // user cancelled or error
     } finally {
       setSharingLoadingId(null);
+      loadSharingData();
     }
   };
 
@@ -148,9 +149,45 @@ export default function SettingsScreen() {
       // Refresh list to update share_count
       const res = await fetchShoppingLists();
       setSharingLists(res.data ?? []);
-    } catch {
-      Alert.alert("Error", "Could not remove collaborator. Please try again.");
+    } catch (e: any) {
+      if (e?.response?.status === 404) {
+        loadSharingData();
+      } else {
+        Alert.alert(
+          "Error",
+          "Could not remove collaborator. Please try again.",
+        );
+      }
     }
+  };
+
+  const handleLeaveList = (list: ShoppingList) => {
+    Alert.alert(
+      "Leave List",
+      `Leave "${list.name}"? You will lose access and need a new invite to rejoin.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leaveList(list.id);
+              setSharingLists((prev) => prev.filter((l) => l.id !== list.id));
+            } catch (e: any) {
+              if (e?.response?.status === 404) {
+                loadSharingData();
+              } else {
+                Alert.alert(
+                  "Error",
+                  "Could not leave the list. Please try again.",
+                );
+              }
+            }
+          },
+        },
+      ],
+    );
   };
 
   useEffect(() => {
@@ -169,6 +206,13 @@ export default function SettingsScreen() {
     // Load sharing data
     loadSharingData();
   }, [checkBiometricAvailability, isBiometricEnabled, isPinEnabled]);
+
+  // Refresh sharing data whenever this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadSharingData();
+    }, []),
+  );
 
   const handleFirstResetPIN = async (pin: string) => {
     setFirstResetPIN(pin);
@@ -209,10 +253,10 @@ export default function SettingsScreen() {
     try {
       const success = await disablePin();
       if (success) {
+        setPinEnabledState(false);
         setResetPINStep("first");
         setFirstResetPIN("");
         setResetPINError("");
-        Alert.alert("Success", "Your PIN has been disabled successfully.");
       } else {
         setResetPINError("Could not disable PIN. Please try again.");
       }
@@ -230,11 +274,11 @@ export default function SettingsScreen() {
         onPress: async () => {
           try {
             await authLogout();
-            clearAuth();
-            router.replace("/(auth)/login");
-          } catch (e) {
-            Alert.alert("Error", `Failed to log out: ${e}`);
+          } catch {
+            // best-effort — always clear local state
           }
+          clearAuth();
+          router.replace("/(auth)/login");
         },
       },
     ]);
@@ -581,13 +625,13 @@ export default function SettingsScreen() {
                     paddingVertical: 12,
                     borderBottomWidth:
                       idx < sharingLists.length - 1 ||
-                      expandedListId === list.id
+                      (!list.owner_name && expandedListId === list.id)
                         ? 1
                         : 0,
                     borderBottomColor: BORDER,
                   }}
                 >
-                  {/* List name + collaborator count */}
+                  {/* List name + collaborator count (owners can expand) */}
                   <TouchableOpacity
                     style={{
                       flex: 1,
@@ -595,20 +639,31 @@ export default function SettingsScreen() {
                       alignItems: "center",
                       gap: 8,
                     }}
-                    onPress={() => handleExpandList(list.id)}
+                    onPress={() =>
+                      !list.owner_name && handleExpandList(list.id)
+                    }
+                    disabled={!!list.owner_name}
                   >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "500",
-                        color: TEXT,
-                        flex: 1,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {list.name}
-                    </Text>
-                    {(list.share_count ?? 0) > 0 && (
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "500",
+                          color: TEXT,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {list.name}
+                      </Text>
+                      {list.owner_name && (
+                        <Text
+                          style={{ fontSize: 12, color: MUTED, marginTop: 1 }}
+                        >
+                          Shared by {list.owner_name}
+                        </Text>
+                      )}
+                    </View>
+                    {!list.owner_name && (list.share_count ?? 0) > 0 && (
                       <View
                         style={{
                           flexDirection: "row",
@@ -632,53 +687,86 @@ export default function SettingsScreen() {
                         </Text>
                       </View>
                     )}
-                    <Ionicons
-                      name={
-                        expandedListId === list.id
-                          ? "chevron-up"
-                          : "chevron-down"
-                      }
-                      size={16}
-                      color={MUTED}
-                    />
-                  </TouchableOpacity>
-
-                  {/* Share button */}
-                  <TouchableOpacity
-                    onPress={() => handleShareList(list)}
-                    disabled={sharingLoadingId === list.id}
-                    style={{
-                      marginLeft: 12,
-                      backgroundColor: TEAL,
-                      paddingHorizontal: 14,
-                      paddingVertical: 7,
-                      borderRadius: 8,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 5,
-                    }}
-                  >
-                    {sharingLoadingId === list.id ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="share-outline" size={14} color="#fff" />
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            color: "#fff",
-                            fontWeight: "600",
-                          }}
-                        >
-                          Share
-                        </Text>
-                      </>
+                    {!list.owner_name && (
+                      <Ionicons
+                        name={
+                          expandedListId === list.id
+                            ? "chevron-up"
+                            : "chevron-down"
+                        }
+                        size={16}
+                        color={MUTED}
+                      />
                     )}
                   </TouchableOpacity>
+
+                  {/* Owner: Share button — Collaborator: Leave button */}
+                  {!list.owner_name ? (
+                    <TouchableOpacity
+                      onPress={() => handleShareList(list)}
+                      disabled={sharingLoadingId === list.id}
+                      style={{
+                        marginLeft: 12,
+                        backgroundColor: TEAL,
+                        paddingHorizontal: 14,
+                        paddingVertical: 7,
+                        borderRadius: 8,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      {sharingLoadingId === list.id ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name="share-outline"
+                            size={14}
+                            color="#fff"
+                          />
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              color: "#fff",
+                              fontWeight: "600",
+                            }}
+                          >
+                            Share
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => handleLeaveList(list)}
+                      style={{
+                        marginLeft: 12,
+                        backgroundColor: "rgba(239,68,68,0.1)",
+                        paddingHorizontal: 14,
+                        paddingVertical: 7,
+                        borderRadius: 8,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <Ionicons name="exit-outline" size={14} color="#EF4444" />
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: "#EF4444",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Leave
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
-                {/* Expanded collaborators list */}
-                {expandedListId === list.id && (
+                {/* Expanded collaborators list — owner only */}
+                {!list.owner_name && expandedListId === list.id && (
                   <View style={{ backgroundColor: "#F8FAFB" }}>
                     {(shareDetails[list.id] ?? []).length === 0 ? (
                       <View
@@ -715,7 +803,9 @@ export default function SettingsScreen() {
                             </Text>
                             {share.status === "pending" && (
                               <Text style={{ fontSize: 12, color: MUTED }}>
-                                Invite pending
+                                {share.created_at
+                                  ? `Sent ${new Date(share.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                                  : "Invite pending"}
                               </Text>
                             )}
                           </View>

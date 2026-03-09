@@ -235,3 +235,6 @@ export const removeListShare = (listId: string, shareId: string) =>
 
 export const acceptListInvite = (token: string) =>
   api.post(`/lists/share/accept/${token}`);
+
+export const leaveList = (listId: string) =>
+  api.post(`/lists/groups/${listId}/leave`);

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ListItem, ShoppingList } from "../lib/types";
 import { VoiceAddButton } from "./VoiceAddButton";
@@ -48,6 +49,7 @@ export function ListHeader({
   inputRef,
 }: ListHeaderProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <View
@@ -124,10 +126,17 @@ export function ListHeader({
           )}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          {/* Shared indicator */}
+          {/* Shared indicator — tappable, navigates to settings */}
           {(currentList?.is_shared || (currentList?.share_count ?? 0) > 0) && (
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            <TouchableOpacity
+              onPress={() => router.push("/(app)/settings")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                padding: 4,
+              }}
+              accessibilityLabel="Sharing settings"
             >
               <Ionicons
                 name="people-outline"
@@ -145,7 +154,7 @@ export function ListHeader({
                   {currentList!.share_count}
                 </Text>
               )}
-            </View>
+            </TouchableOpacity>
           )}
           <TouchableOpacity
             onPress={() => {
