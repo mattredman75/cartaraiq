@@ -9,9 +9,11 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import smtplib
 import ssl
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -752,6 +754,8 @@ If you did not expect this, please contact support@cartaraiq.app.
 
 # Project root is two levels up from this file (backend/routers/admin.py → project root)
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# Resolve npx at import time: prefer PATH, fall back to known server location
+_NPX_CMD = shutil.which("npx") or "/opt/alt/alt-nodejs20/root/usr/bin/npx"
 
 _SUITE_TIMEOUT = 120  # seconds per test suite
 
@@ -1021,26 +1025,34 @@ def _parse_vitest_json(stdout: str, stderr: str = "") -> dict:
 def _run_suite(suite: str) -> dict:
     """Run a single test suite and return structured results."""
     if suite == "backend":
-        cmd = ["python", "-m", "pytest", "backend/tests", "--tb=short", "-q", "--no-header",
+        cmd = [sys.executable, "-m", "pytest", "backend/tests", "--tb=short", "-q", "--no-header",
                "--color=no", "--cov=backend", "--cov-report=term-missing", "--cov-branch"]
         cwd = _PROJECT_ROOT
         parser = _parse_pytest_output
     elif suite == "app":
-        cmd = ["npx", "jest", "--json", "--coverage", "--forceExit"]
+        cmd = [_NPX_CMD, "jest", "--json", "--coverage", "--forceExit"]
         cwd = os.path.join(_PROJECT_ROOT, "app")
         parser = _parse_jest_json
     elif suite == "admin":
-        cmd = ["npx", "vitest", "run", "--reporter=json", "--coverage"]
+        cmd = [_NPX_CMD, "vitest", "run", "--reporter=json", "--coverage"]
         cwd = os.path.join(_PROJECT_ROOT, "admin")
         parser = _parse_vitest_json
     else:
         return {"status": "error", "error": f"Unknown suite: {suite}"}
 
     try:
+        # Ensure node 20 bin is in PATH so npx can locate the node executable
+        _node20_bin = "/opt/alt/alt-nodejs20/root/usr/bin"
+        run_env = {
+            **os.environ,
+            "CI": "true",
+            "FORCE_COLOR": "0",
+            "PATH": f"{_node20_bin}:{os.environ.get('PATH', '/usr/local/bin:/usr/bin:/bin')}",
+        }
         proc = subprocess.run(
             cmd, cwd=cwd, capture_output=True, text=True,
             timeout=_SUITE_TIMEOUT,
-            env={**os.environ, "CI": "true", "FORCE_COLOR": "0"},
+            env=run_env,
         )
         stats = parser(proc.stdout, proc.stderr)
         # Determine status from actual test results, not exit code.
