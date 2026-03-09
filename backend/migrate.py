@@ -47,6 +47,7 @@ def run() -> None:
         _run_mysql_ingredient_pairings(conn)
         _run_mysql_loyalty_programs(conn)
         _run_mysql_list_shares(conn)
+        _run_mysql_recipes_db(conn)
         conn.commit()
 
     print("Migration complete.")
@@ -474,6 +475,25 @@ def _run_mysql_list_shares(conn) -> None:
         conn.execute(text("CREATE INDEX ix_list_shares_list_id ON list_shares(list_id)"))
     if not _index_exists(conn, "list_shares", "ix_list_shares_shared_with_id"):
         conn.execute(text("CREATE INDEX ix_list_shares_shared_with_id ON list_shares(shared_with_id)"))
+
+
+def _run_mysql_recipes_db(conn) -> None:
+    if not _table_exists(conn, "recipes_db"):
+        conn.execute(text("""
+            CREATE TABLE recipes_db (
+                id          VARCHAR(36)  NOT NULL PRIMARY KEY,
+                slug        VARCHAR(255) NOT NULL UNIQUE,
+                name        VARCHAR(500) NOT NULL,
+                image_url   TEXT         NULL,
+                recipe_url  TEXT         NOT NULL,
+                processed   TINYINT(1)   NOT NULL DEFAULT 0,
+                scraped_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+    if not _index_exists(conn, "recipes_db", "ix_recipes_db_slug"):
+        conn.execute(text("CREATE INDEX ix_recipes_db_slug ON recipes_db(slug)"))
+    if not _index_exists(conn, "recipes_db", "ix_recipes_db_processed"):
+        conn.execute(text("CREATE INDEX ix_recipes_db_processed ON recipes_db(processed)"))
 
 
 if __name__ == "__main__":

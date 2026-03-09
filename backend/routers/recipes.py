@@ -17,7 +17,10 @@ from typing import Optional
 import logging
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from ..database import get_db
+from ..models.recipe_db import RecipeDB
 from pydantic import BaseModel
 from ..config import settings
 
@@ -668,6 +671,151 @@ def get_ar_detailed(
         raise HTTPException(status_code=502, detail=f"Scraper error: {exc}")
 
     return results
+
+
+# ── Dinner category scraper ──────────────────────────────────────────────────
+import re as _re
+import uuid as _uuid
+
+_DINNER_LISTING_URL = "https://www.allrecipes.com/recipes/17562/dinner/"
+
+
+def _fetch_roundup_page(url: str) -> list[dict]:
+    """Scrape one roundup/article page, return list of {recipe_url, slug, name}."""
+    if not _SCRAPER_AVAILABLE:
+        return []
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as _PWTimeout
+        from bs4 import BeautifulSoup as _BS
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent=_AR_UA,
+                viewport={"width": 1280, "height": 900},
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=20000)
+            try:
+                page.wait_for_selector("a[href*='/recipe/']", timeout=8000)
+            except _PWTimeout:
+                pass
+            html = page.content()
+            browser.close()
+
+        soup = _BS(html, "html.parser")
+        seen: set[str] = set()
+        results: list[dict] = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if not _re.match(r"https://www\.allrecipes\.com/recipe/\d+/", href):
+                continue
+            if href in seen:
+                continue
+            seen.add(href)
+            parts = [p for p in href.rstrip("/").split("/") if p]
+            # parts tail: [..., 'recipe', '<id>', '<name-slug>']
+            if len(parts) < 2:
+                continue
+            id_part = parts[-2]
+            name_part = parts[-1]
+            slug = f"{id_part}-{name_part}"
+            name = name_part.replace("-", " ").title()
+            results.append({"recipe_url": href, "slug": slug, "name": name})
+        return results
+    except Exception:
+        return []
+
+
+@router.post("/scrape-dinner")
+def scrape_dinner_recipes(db: Session = Depends(get_db)):
+    """
+    Two-pass scrape of allrecipes.com dinner category:
+      Pass 1 — collect roundup article URLs from the dinner listing page.
+      Pass 2 — parallel-scrape each roundup to extract individual /recipe/ links.
+    New records are written to recipes_db; existing slugs are skipped.
+    """
+    if not _SCRAPER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Playwright not available")
+
+    # ── Pass 1: get roundup URLs ──────────────────────────────────────────────
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as _PWTimeout
+        from bs4 import BeautifulSoup as _BS
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent=_AR_UA,
+                viewport={"width": 1280, "height": 900},
+            )
+            page.goto(_DINNER_LISTING_URL, wait_until="domcontentloaded", timeout=20000)
+            try:
+                page.wait_for_selector("[data-doc-id]", timeout=8000)
+            except _PWTimeout:
+                pass
+            page.wait_for_timeout(1500)
+            for _ in range(8):
+                page.evaluate("window.scrollBy(0, 1800)")
+                page.wait_for_timeout(600)
+            html = page.content()
+            browser.close()
+
+        soup = _BS(html, "html.parser")
+        roundup_urls: list[str] = []
+        seen_roundup: set[str] = set()
+        for a in soup.find_all("a", attrs={"data-doc-id": True}, href=True):
+            href = a["href"]
+            if href in seen_roundup:
+                continue
+            # Skip individual recipe pages and sub-category listing pages
+            if "/recipe/" in href or "/recipes/" in href:
+                continue
+            seen_roundup.add(href)
+            roundup_urls.append(href)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to load dinner page: {exc}")
+
+    if not roundup_urls:
+        raise HTTPException(status_code=502, detail="No roundup articles found on dinner page")
+
+    # ── Pass 2: parallel-scrape roundup pages ─────────────────────────────────
+    all_recipes: list[dict] = []
+    with _futures.ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(_fetch_roundup_page, url): url for url in roundup_urls}
+        for fut in _futures.as_completed(futures):
+            all_recipes.extend(fut.result())
+
+    # Deduplicate by slug
+    seen_slug: set[str] = set()
+    unique_recipes: list[dict] = []
+    for r in all_recipes:
+        if r["slug"] not in seen_slug:
+            seen_slug.add(r["slug"])
+            unique_recipes.append(r)
+
+    # ── Write to DB ───────────────────────────────────────────────────────────
+    existing_slugs = {row.slug for row in db.query(RecipeDB.slug).all()}
+    new_count = 0
+    for r in unique_recipes:
+        if r["slug"] in existing_slugs:
+            continue
+        db.add(RecipeDB(
+            id=str(_uuid.uuid4()),
+            slug=r["slug"],
+            name=r["name"],
+            image_url=None,
+            recipe_url=r["recipe_url"],
+            processed=False,
+        ))
+        new_count += 1
+
+    db.commit()
+    return {
+        "roundup_pages_scraped": len(roundup_urls),
+        "unique_recipes_found": len(unique_recipes),
+        "new_records_added": new_count,
+        "already_known": len(unique_recipes) - new_count,
+    }
 
 
 # ── Single recipe detail ──────────────────────────────────────────────────────

@@ -8,3 +8,4 @@ from .audit_log import AuditLog
 from .test_run import TestRun
 from .loyalty_program import LoyaltyProgram
 from .list_share import ListShare
+from .recipe_db import RecipeDB
