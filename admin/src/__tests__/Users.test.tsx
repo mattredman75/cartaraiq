@@ -621,9 +621,6 @@ describe("Users page", () => {
 
       // Click the "next" button (ChevronRight)
       const buttons = screen.getAllByRole("button");
-      const nextBtn = buttons.find(
-        (b) => !b.hasAttribute("disabled") && b.querySelector("svg"),
-      );
       // The next button is the second pagination button
       const paginationBtns = buttons.filter(
         (b) =>
