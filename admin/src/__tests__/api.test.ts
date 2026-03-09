@@ -12,7 +12,7 @@
  * 8. On 401 with a refresh token but refresh fails: clear session + redirect
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import axios from "axios";
+// axios imported via vi.mock below
 
 vi.mock("axios", () => {
   const requestInterceptors: any[] = [];

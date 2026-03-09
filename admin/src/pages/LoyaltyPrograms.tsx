@@ -29,8 +29,6 @@ interface LoyaltyProgram {
   updated_at: string | null;
 }
 
-const emptyRules: DetectionRules = { prefixes: [], lengths: [], symbology: [] };
-
 const emptyForm = {
   slug: "",
   name: "",

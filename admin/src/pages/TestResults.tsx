@@ -179,45 +179,6 @@ function coverageRingColor(pct: number | null) {
   return "stroke-red-500";
 }
 
-function CoverageRing({ pct }: { pct: number | null }) {
-  const radius = 28;
-  const circumference = 2 * Math.PI * radius;
-  const filled = pct !== null ? (pct / 100) * circumference : 0;
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative w-20 h-20 flex items-center justify-center">
-        <svg className="w-20 h-20 -rotate-90" viewBox="0 0 64 64">
-          <circle
-            cx="32"
-            cy="32"
-            r={radius}
-            fill="none"
-            strokeWidth="5"
-            className="stroke-gray-200 dark:stroke-gray-700"
-          />
-          <circle
-            cx="32"
-            cy="32"
-            r={radius}
-            fill="none"
-            strokeWidth="5"
-            strokeDasharray={`${filled} ${circumference}`}
-            strokeLinecap="round"
-            className={coverageRingColor(pct)}
-          />
-        </svg>
-        <span className={`absolute text-sm font-bold ${coverageColor(pct)}`}>
-          {pct !== null ? `${pct}%` : "—"}
-        </span>
-      </div>
-      <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        Coverage
-      </span>
-    </div>
-  );
-}
-
 /* ── Trend Chart ──────────────────────────────────────────────────────────── */
 
 function TrendChart({ history }: { history: HistoryPoint[] }) {

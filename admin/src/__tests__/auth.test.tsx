@@ -13,7 +13,7 @@
  * 9. Throw when useAuth is called outside AuthProvider
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, act } from "@testing-library/react";
 import { AuthProvider, useAuth } from "../lib/auth";
 
 vi.mock("../lib/api", () => ({
