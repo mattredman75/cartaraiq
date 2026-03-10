@@ -247,3 +247,9 @@ export const acceptListInvite = (token: string) =>
 
 export const leaveList = (listId: string) =>
   api.post(`/lists/groups/${listId}/leave`);
+
+// --- Recipe hearts (favourites) ---
+export const heartRecipe = (id: string) => api.post(`/recipes/ar/${id}/heart`);
+export const unheartRecipe = (id: string) =>
+  api.delete(`/recipes/ar/${id}/heart`);
+export const fetchHeartedRecipes = () => api.get("/recipes/hearts");

@@ -17,10 +17,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchARRecipeSearch,
   fetchARRecipeDetail,
+  heartRecipe,
+  unheartRecipe,
+  fetchHeartedRecipes,
   addListItem,
   fetchListItems,
   fetchShoppingLists,
@@ -72,7 +75,7 @@ interface ShoppingList {
 
 // ── Category config ───────────────────────────────────────────────────────────
 
-type Category = "breakfast" | "lunch" | "dinner" | "dessert";
+type Category = "favorites" | "breakfast" | "lunch" | "dinner" | "dessert";
 
 const CATEGORIES: {
   key: Category;
@@ -82,6 +85,14 @@ const CATEGORIES: {
   sub: string;
   gradient: readonly [string, string, string];
 }[] = [
+  {
+    key: "favorites",
+    label: "Favorites",
+    icon: "heart",
+    headline: "Your favorites",
+    sub: "Recipes you've loved",
+    gradient: [COLORS.teal, COLORS.tealDark, "#062F38"] as const,
+  },
   {
     key: "breakfast",
     label: "Breakfast",
@@ -170,6 +181,23 @@ function RecipeCard({
   onViewDetail: (recipe: Recipe) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isHearted, setIsHearted] = useState(recipe.is_hearted ?? false);
+  const [heartCount, setHeartCount] = useState(recipe.heart_count ?? 0);
+  const qc = useQueryClient();
+  const heartMutation = useMutation({
+    mutationFn: (hearted: boolean) =>
+      hearted ? unheartRecipe(recipe.id) : heartRecipe(recipe.id),
+    onMutate: (hearted: boolean) => {
+      setIsHearted(!hearted);
+      setHeartCount((c) => (hearted ? c - 1 : c + 1));
+    },
+    onError: (_err: unknown, hearted: boolean) => {
+      setIsHearted(hearted);
+      setHeartCount((c) => (hearted ? c + 1 : c - 1));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["arRecipeHearts"] }),
+  });
+  const toggleHeart = () => heartMutation.mutate(isHearted);
 
   return (
     <View
@@ -221,40 +249,31 @@ function RecipeCard({
               >
                 {recipe.name}
               </Text>
-              {recipe.recipe_types.length > 0 && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    gap: 4,
-                    marginTop: 5,
-                  }}
-                >
-                  {recipe.recipe_types.slice(0, 3).map((t) => (
-                    <View
-                      key={t}
-                      style={{
-                        backgroundColor: "rgba(255,255,255,0.25)",
-                        borderRadius: 8,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: "#fff",
-                          fontSize: 10,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {t}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
             </LinearGradient>
-            {/* Expand hint */}
+            {/* Heart button — top left */}
+            <TouchableOpacity
+              onPress={toggleHeart}
+              style={{
+                position: "absolute",
+                top: 12,
+                left: 12,
+                backgroundColor: "rgba(0,0,0,0.35)",
+                borderRadius: 20,
+                padding: 8,
+                zIndex: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={isHearted ? "heart" : "heart-outline"}
+                size={16}
+                color={isHearted ? "#FF6B6B" : "#fff"}
+              />
+            </TouchableOpacity>
+            {/* Expand hint — top right */}
             <View
               style={{
                 position: "absolute",
@@ -483,6 +502,27 @@ function RecipeDetailModal({
   onClose: () => void;
   onAddToList: (recipe: Recipe) => void;
 }) {
+  const qcModal = useQueryClient();
+  const [modalIsHearted, setModalIsHearted] = useState(false);
+
+  React.useEffect(() => {
+    if (recipe) setModalIsHearted(recipe.is_hearted ?? false);
+  }, [recipe?.id]);
+
+  const modalHeartMutation = useMutation({
+    mutationFn: (hearted: boolean) =>
+      hearted ? unheartRecipe(recipe!.id) : heartRecipe(recipe!.id),
+    onMutate: (hearted: boolean) => setModalIsHearted(!hearted),
+    onError: (_err: unknown, hearted: boolean) => setModalIsHearted(hearted),
+    onSuccess: () => {
+      qcModal.invalidateQueries({ queryKey: ["arRecipeHearts"] });
+      qcModal.invalidateQueries({ queryKey: ["arRecipeDetail", recipe?.id] });
+    },
+  });
+
+  const toggleModalHeart = () =>
+    recipe && modalHeartMutation.mutate(modalIsHearted);
+
   const { data: detail, isLoading } = useQuery<RecipeDetail>({
     queryKey: ["arRecipeDetail", recipe?.id],
     queryFn: () => fetchARRecipeDetail(recipe!.id).then((r) => r.data),
@@ -626,6 +666,29 @@ function RecipeDetailModal({
               >
                 <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
+              {/* Heart button — top left */}
+              <TouchableOpacity
+                onPress={toggleModalHeart}
+                style={{
+                  position: "absolute",
+                  top: 16,
+                  left: 16,
+                  backgroundColor: "rgba(0,0,0,0.45)",
+                  borderRadius: 20,
+                  padding: 8,
+                  zIndex: 2,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={modalIsHearted ? "heart" : "heart-outline"}
+                  size={20}
+                  color={modalIsHearted ? "#FF6B6B" : "#fff"}
+                />
+              </TouchableOpacity>
             </View>
           ) : (
             <View
@@ -658,42 +721,6 @@ function RecipeDetailModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ padding: 20, paddingBottom: 110 }}
           >
-            {/* Type badges */}
-            {(r?.recipe_types ?? []).length > 0 && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 6,
-                  marginBottom: 14,
-                }}
-              >
-                {r!.recipe_types.map((t) => (
-                  <View
-                    key={t}
-                    style={{
-                      backgroundColor: COLORS.surface,
-                      borderRadius: 8,
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: COLORS.teal,
-                        fontSize: 11,
-                        fontWeight: "700",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {t}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
             {/* Quick stats */}
             {detail && (
               <View
@@ -1190,17 +1217,21 @@ function RecipeList({
   onAddToList: (recipe: Recipe) => void;
   onViewDetail: (recipe: Recipe) => void;
 }) {
+  const isFavs = category === "favorites";
   const { data, isLoading, isFetching, isError, refetch } = useQuery<Recipe[]>({
-    queryKey: ["arRecipeInspiration", category, page],
-    queryFn: () =>
-      fetchARRecipeSearch(category, 12).then((r) => r.data.recipes),
-    staleTime: 5 * 60 * 1000,
-    // Only keep previous data when refreshing within the same category (page bump).
-    // On a category switch, let it show the loading state instead.
-    placeholderData: (previousData, previousQuery) =>
-      (previousQuery?.queryKey as unknown[])?.[1] === category
-        ? previousData
-        : undefined,
+    queryKey: isFavs
+      ? ["arRecipeHearts"]
+      : ["arRecipeInspiration", category, page],
+    queryFn: isFavs
+      ? () => fetchHeartedRecipes().then((r) => r.data.recipes)
+      : () => fetchARRecipeSearch(category, 12).then((r) => r.data.recipes),
+    staleTime: isFavs ? 0 : 5 * 60 * 1000,
+    placeholderData: isFavs
+      ? undefined
+      : (previousData, previousQuery) =>
+          (previousQuery?.queryKey as unknown[])?.[1] === category
+            ? previousData
+            : undefined,
   });
 
   if (isLoading) {
