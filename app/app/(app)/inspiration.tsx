@@ -139,6 +139,111 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const CARD_W = SCREEN_W - 32;
 const HERO_H = 220;
 
+// ── Heart button with swell + starburst animation ─────────────────────────────
+
+const BURST_ANGLES = [0, 60, 120, 180, 240, 300].map(
+  (d) => (d * Math.PI) / 180,
+);
+const BURST_RADIUS = 16;
+
+function HeartButton({
+  isHearted,
+  size = 18,
+  onPress,
+}: {
+  isHearted: boolean;
+  size?: number;
+  onPress: () => void;
+}) {
+  const heartScale = React.useRef(new Animated.Value(1)).current;
+  const burstAnim = React.useRef(new Animated.Value(0)).current;
+
+  const handlePress = () => {
+    burstAnim.setValue(0);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.spring(heartScale, {
+          toValue: 1.55,
+          useNativeDriver: true,
+          speed: 40,
+          bounciness: 0,
+        }),
+        Animated.spring(heartScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 20,
+          bounciness: 8,
+        }),
+      ]),
+      Animated.timing(burstAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
+      <View
+        style={{
+          backgroundColor: "rgba(0,0,0,0.38)",
+          borderRadius: 22,
+          padding: 8,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "visible",
+        }}
+      >
+        {BURST_ANGLES.map((angle, i) => {
+          const tx = burstAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, Math.cos(angle) * BURST_RADIUS],
+          });
+          const ty = burstAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, Math.sin(angle) * BURST_RADIUS],
+          });
+          const opacity = burstAnim.interpolate({
+            inputRange: [0, 0.1, 0.65, 1],
+            outputRange: [0, 1, 0.45, 0],
+          });
+          const dotScale = burstAnim.interpolate({
+            inputRange: [0, 0.2, 0.75, 1],
+            outputRange: [0, 1, 0.6, 0],
+          });
+          return (
+            <Animated.View
+              key={i}
+              style={{
+                position: "absolute",
+                width: 5,
+                height: 5,
+                borderRadius: 2.5,
+                backgroundColor: "#FF6B6B",
+                opacity,
+                transform: [
+                  { translateX: tx },
+                  { translateY: ty },
+                  { scale: dotScale },
+                ],
+              }}
+            />
+          );
+        })}
+        <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+          <Ionicons
+            name={isHearted ? "heart" : "heart-outline"}
+            size={size}
+            color={isHearted ? "#FF6B6B" : "#fff"}
+          />
+        </Animated.View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ── Nutrition badge ───────────────────────────────────────────────────────────
 
 function NutriBadge({
@@ -190,10 +295,22 @@ function RecipeCard({
     onMutate: (hearted: boolean) => {
       setIsHearted(!hearted);
       setHeartCount((c) => (hearted ? c - 1 : c + 1));
+      if (hearted) {
+        // Optimistically remove from Favorites list immediately
+        const prevFavs = qc.getQueryData<Recipe[]>(["arRecipeHearts"]);
+        qc.setQueryData<Recipe[]>(
+          ["arRecipeHearts"],
+          (old) => old?.filter((r) => r.id !== recipe.id) ?? [],
+        );
+        return { prevFavs };
+      }
     },
-    onError: (_err: unknown, hearted: boolean) => {
+    onError: (_err: unknown, hearted: boolean, context: any) => {
       setIsHearted(hearted);
       setHeartCount((c) => (hearted ? c + 1 : c - 1));
+      if (hearted && context?.prevFavs) {
+        qc.setQueryData(["arRecipeHearts"], context.prevFavs);
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["arRecipeHearts"] }),
   });
@@ -251,28 +368,20 @@ function RecipeCard({
               </Text>
             </LinearGradient>
             {/* Heart button — top left */}
-            <TouchableOpacity
-              onPress={toggleHeart}
+            <View
               style={{
                 position: "absolute",
-                top: 12,
-                left: 12,
-                backgroundColor: "rgba(0,0,0,0.35)",
-                borderRadius: 20,
-                padding: 8,
+                top: 8,
+                left: 8,
                 zIndex: 10,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
               }}
-              activeOpacity={0.8}
             >
-              <Ionicons
-                name={isHearted ? "heart" : "heart-outline"}
+              <HeartButton
+                isHearted={isHearted}
                 size={16}
-                color={isHearted ? "#FF6B6B" : "#fff"}
+                onPress={toggleHeart}
               />
-            </TouchableOpacity>
+            </View>
             {/* Expand hint — top right */}
             <View
               style={{
@@ -667,28 +776,20 @@ function RecipeDetailModal({
                 <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
               {/* Heart button — top left */}
-              <TouchableOpacity
-                onPress={toggleModalHeart}
+              <View
                 style={{
                   position: "absolute",
-                  top: 16,
-                  left: 16,
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                  borderRadius: 20,
-                  padding: 8,
+                  top: 12,
+                  left: 12,
                   zIndex: 2,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
                 }}
-                activeOpacity={0.8}
               >
-                <Ionicons
-                  name={modalIsHearted ? "heart" : "heart-outline"}
+                <HeartButton
+                  isHearted={modalIsHearted}
                   size={20}
-                  color={modalIsHearted ? "#FF6B6B" : "#fff"}
+                  onPress={toggleModalHeart}
                 />
-              </TouchableOpacity>
+              </View>
             </View>
           ) : (
             <View
@@ -1252,18 +1353,22 @@ function RecipeList({
     );
   }
 
-  if (isError || !data || data.length === 0) {
+  if (isError) {
     return (
       <View
         style={{
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          paddingTop: 80,
+          paddingTop: 60,
           paddingHorizontal: 32,
         }}
       >
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.muted} />
+        <Image
+          source={require("../../assets/cartara_empty_fancy.png")}
+          style={{ width: 180, height: 180 }}
+          resizeMode="contain"
+        />
         <Text
           style={{
             color: COLORS.ink,
@@ -1296,8 +1401,66 @@ function RecipeList({
             paddingVertical: 12,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Try again</Text>
+          <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          paddingTop: 60,
+          paddingHorizontal: 32,
+        }}
+      >
+        <Image
+          source={require("../../assets/cartara_empty_fancy.png")}
+          style={{ width: 180, height: 180 }}
+          resizeMode="contain"
+        />
+        <Text
+          style={{
+            color: COLORS.ink,
+            fontWeight: "700",
+            fontSize: 16,
+            marginTop: 16,
+            textAlign: "center",
+          }}
+        >
+          {isFavs ? "No favorites yet" : "No recipes found"}
+        </Text>
+        <Text
+          style={{
+            color: COLORS.muted,
+            fontSize: 13,
+            textAlign: "center",
+            marginTop: 6,
+            lineHeight: 19,
+          }}
+        >
+          {isFavs
+            ? "Add favorites to save them here"
+            : "Check your connection and try again."}
+        </Text>
+        {!isFavs && (
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={{
+              marginTop: 20,
+              backgroundColor: COLORS.teal,
+              borderRadius: 10,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
