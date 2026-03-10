@@ -12,9 +12,8 @@ import {
   Share,
   ActivityIndicator,
   Image,
-  NativeModules,
 } from "react-native";
-// expo-image-picker is lazy-required inside handlePickPhoto
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -202,7 +201,9 @@ export default function SettingsScreen() {
     isPinEnabled().then(setPinEnabledState);
 
     // Load avatar
-    getItem("profile_avatar_uri").then((v) => { if (v) setAvatarUri(v); });
+    getItem("profile_avatar_uri").then((v) => {
+      if (v) setAvatarUri(v);
+    });
 
     // Load feature flags — explicitly set both true and false so toggle renders correctly
     getItem("ai_suggestions_enabled").then((v) => setAiEnabled(v !== "0"));
@@ -222,20 +223,16 @@ export default function SettingsScreen() {
   );
 
   const handlePickPhoto = () => {
-    // Guard: native module only present in builds that include expo-image-picker
-    if (!NativeModules.ExponentImagePicker) {
-      Alert.alert("Update Required", "Photo upload will be available in the next app update.");
-      return;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const ImagePicker = require("expo-image-picker") as typeof import("expo-image-picker");
     Alert.alert("Profile Photo", "Choose an option", [
       {
         text: "Take Photo",
         onPress: async () => {
           const { status } = await ImagePicker.requestCameraPermissionsAsync();
           if (status !== "granted") {
-            Alert.alert("Permission required", "Camera access is needed to take a photo.");
+            Alert.alert(
+              "Permission required",
+              "Camera access is needed to take a photo.",
+            );
             return;
           }
           const result = await ImagePicker.launchCameraAsync({
@@ -254,9 +251,13 @@ export default function SettingsScreen() {
       {
         text: "Choose from Library",
         onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== "granted") {
-            Alert.alert("Permission required", "Photo library access is needed to choose a photo.");
+            Alert.alert(
+              "Permission required",
+              "Photo library access is needed to choose a photo.",
+            );
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({
@@ -358,7 +359,14 @@ export default function SettingsScreen() {
             backgroundColor: "#fff",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 16 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+              gap: 16,
+            }}
+          >
             {/* Avatar */}
             <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.8}>
               <View
@@ -378,7 +386,9 @@ export default function SettingsScreen() {
                     style={{ width: 88, height: 88, borderRadius: 44 }}
                   />
                 ) : (
-                  <Text style={{ color: "#fff", fontSize: 34, fontWeight: "700" }}>
+                  <Text
+                    style={{ color: "#fff", fontSize: 34, fontWeight: "700" }}
+                  >
                     {user?.name?.charAt(0).toUpperCase() ?? "?"}
                   </Text>
                 )}
@@ -465,7 +475,9 @@ export default function SettingsScreen() {
                   }}
                   style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: TEXT }}>
+                  <Text
+                    style={{ fontSize: 15, fontWeight: "700", color: TEXT }}
+                  >
                     {user?.name ?? "User"}
                   </Text>
                   <Text style={{ fontSize: 11, color: MUTED }}>✎</Text>
