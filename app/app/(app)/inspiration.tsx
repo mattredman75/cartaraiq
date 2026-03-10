@@ -1366,7 +1366,13 @@ function RecipeList({
       >
         <Image
           source={require("../../assets/cartara_empty_fancy.png")}
-          style={{ width: 180, height: 180 }}
+          style={{
+            width: 300,
+            height: 300,
+            marginBottom: -30,
+            marginTop: -75,
+            opacity: 0.75,
+          }}
           resizeMode="contain"
         />
         <Text
@@ -1420,12 +1426,18 @@ function RecipeList({
       >
         <Image
           source={require("../../assets/cartara_empty_fancy.png")}
-          style={{ width: 180, height: 180 }}
+          style={{
+            width: 300,
+            height: 300,
+            marginBottom: -30,
+            marginTop: -75,
+            opacity: 0.75,
+          }}
           resizeMode="contain"
         />
         <Text
           style={{
-            color: COLORS.ink,
+            color: COLORS.mutedSemiTransparent,
             fontWeight: "700",
             fontSize: 16,
             marginTop: 16,
