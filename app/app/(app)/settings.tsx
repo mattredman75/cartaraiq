@@ -12,8 +12,9 @@ import {
   Share,
   ActivityIndicator,
   Image,
+  NativeModules,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
+// expo-image-picker is lazy-required inside handlePickPhoto
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -221,6 +222,13 @@ export default function SettingsScreen() {
   );
 
   const handlePickPhoto = () => {
+    // Guard: native module only present in builds that include expo-image-picker
+    if (!NativeModules.ExponentImagePicker) {
+      Alert.alert("Update Required", "Photo upload will be available in the next app update.");
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const ImagePicker = require("expo-image-picker") as typeof import("expo-image-picker");
     Alert.alert("Profile Photo", "Choose an option", [
       {
         text: "Take Photo",
