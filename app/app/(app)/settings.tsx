@@ -273,6 +273,18 @@ export default function SettingsScreen() {
           }
         },
       },
+      ...(avatarUri
+        ? [
+            {
+              text: "Clear Photo",
+              style: "destructive" as const,
+              onPress: async () => {
+                setAvatarUri(null);
+                await deleteItem("profile_avatar_uri");
+              },
+            },
+          ]
+        : []),
       { text: "Cancel", style: "cancel" },
     ]);
   };
