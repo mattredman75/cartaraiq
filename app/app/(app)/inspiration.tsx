@@ -24,9 +24,8 @@ import {
   heartRecipe,
   unheartRecipe,
   fetchHeartedRecipes,
-  addListItem,
-  fetchListItems,
   fetchShoppingLists,
+  parseAndAddItems,
 } from "../../lib/api";
 import { useListStore } from "../../lib/store";
 import { COLORS } from "../../lib/constants";
@@ -42,6 +41,7 @@ interface RecipeNutrition {
 
 interface RecipeIngredient {
   name: string;
+  raw?: string;
 }
 
 interface Recipe {
@@ -1083,6 +1083,7 @@ function AddToListSheet({
   onClose: () => void;
 }) {
   const { currentList } = useListStore();
+  const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [done, setDone] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
@@ -1112,34 +1113,20 @@ function AddToListSheet({
     if (!recipe) return;
     setAdding(true);
     try {
-      // Fetch existing items so we can skip duplicates
-      const existingRes = await fetchListItems(selectedListId);
-      const existingItems: { name: string }[] = Array.isArray(existingRes.data)
-        ? existingRes.data
-        : (existingRes.data?.items ?? []);
-      const existingNames = new Set(
-        existingItems.map((item) => item.name.toLowerCase().trim()),
-      );
-
-      let added = 0;
-      let skipped = 0;
-      for (const ing of recipe.ingredients) {
-        if (existingNames.has(ing.name.toLowerCase().trim())) {
-          skipped++;
-        } else {
-          await addListItem(ing.name, 1, selectedListId);
-          added++;
-        }
-      }
-      setAddedCount(added);
-      setSkippedCount(skipped);
+      const rawText = recipe.ingredients
+        .map((ing) => ing.raw ?? ing.name)
+        .join("\n");
+      await parseAndAddItems(rawText, selectedListId);
+      setAddedCount(recipe.ingredients.length);
+      setSkippedCount(0);
       setDone(true);
+      qc.invalidateQueries({ queryKey: ["listItems", selectedListId] });
       setTimeout(onClose, 1800);
     } catch {
       Alert.alert("Error", "Could not add items. Please try again.");
       setAdding(false);
     }
-  }, [recipe, selectedListId, onClose]);
+  }, [recipe, selectedListId, onClose, qc]);
 
   return (
     <Modal

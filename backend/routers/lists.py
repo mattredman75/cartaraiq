@@ -72,6 +72,7 @@ class BulkAddRequest(BaseModel):
 class UpdateItemRequest(BaseModel):
     name: Optional[str] = None
     quantity: Optional[int] = None
+    unit: Optional[str] = None
     checked: Optional[int] = None  # 0=active, 1=done, 2=soft-deleted
     sort_order: Optional[int] = None
 
@@ -740,9 +741,18 @@ def update_item(
         item.name = payload.name
     if payload.quantity is not None:
         item.quantity = payload.quantity
+    if payload.unit is not None:
+        item.unit = payload.unit
     if payload.checked is not None:
         item.checked = payload.checked
-    if payload.sort_order is not None:
+    if payload.checked == 0:
+        # Item transitioning back to active — place it at the top of the list
+        min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
+            ListItem.list_id == item.list_id,
+            ListItem.checked == 0,
+        ).scalar()
+        item.sort_order = (min_order - 1) if min_order is not None else 0
+    elif payload.sort_order is not None:
         item.sort_order = payload.sort_order
 
     db.commit()

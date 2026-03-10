@@ -160,6 +160,7 @@ export const updateListItem = (
   data: Partial<{
     name: string;
     quantity: number;
+    unit: string | null;
     checked: number;
     sort_order: number;
   }>,

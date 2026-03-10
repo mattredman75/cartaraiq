@@ -8,6 +8,10 @@ export interface ModalStackProps {
   editItem: ListItem | null;
   editName: string;
   setEditName: (v: string) => void;
+  editQuantity: number;
+  setEditQuantity: (v: number) => void;
+  editUnit: string;
+  setEditUnit: (v: string) => void;
   onCancelEdit: () => void;
   onSaveRename: () => void;
   showListModal: boolean;
@@ -32,6 +36,10 @@ export function ModalStack({
   editItem,
   editName,
   setEditName,
+  editQuantity,
+  setEditQuantity,
+  editUnit,
+  setEditUnit,
   onCancelEdit,
   onSaveRename,
   showListModal,
@@ -57,6 +65,10 @@ export function ModalStack({
         editItem={editItem}
         editName={editName}
         setEditName={setEditName}
+        editQuantity={editQuantity}
+        setEditQuantity={setEditQuantity}
+        editUnit={editUnit}
+        setEditUnit={setEditUnit}
         onCancel={onCancelEdit}
         onSave={onSaveRename}
       />

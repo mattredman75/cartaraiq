@@ -61,6 +61,8 @@ export default function ListScreen() {
   const [pairingEnabled, setPairingEnabled] = useState(true);
   const [editItem, setEditItem] = useState<ListItem | null>(null);
   const [editName, setEditName] = useState("");
+  const [editQuantity, setEditQuantity] = useState<number>(1);
+  const [editUnit, setEditUnit] = useState<string>("");
   const [editList, setEditList] = useState<ShoppingList | null>(null);
   const [editListName, setEditListName] = useState("");
   const [actionItem, setActionItem] = useState<ListItem | null>(null);
@@ -210,10 +212,10 @@ export default function ListScreen() {
     );
   };
 
-  const handleLongPress = (item: ListItem) => {
+  const handleLongPress = useCallback((item: ListItem) => {
     setActionItem(item);
     setShowActionDrawer(true);
-  };
+  }, []);
 
   const handleFixWithAI = async () => {
     if (!actionItem) return;
@@ -259,8 +261,17 @@ export default function ListScreen() {
   const handleSaveRename = () => {
     const name = editName.trim();
     if (!name || !editItem) return;
-    if (name !== editItem.name)
-      renameMutation.mutate({ id: editItem.id, name });
+    const nameChanged = name !== editItem.name;
+    const qtyChanged = editQuantity !== (editItem.quantity ?? 1);
+    const unitChanged = (editUnit || null) !== (editItem.unit ?? null);
+    if (nameChanged || qtyChanged || unitChanged) {
+      renameMutation.mutate({
+        id: editItem.id,
+        name,
+        quantity: editQuantity,
+        unit: editUnit || null,
+      });
+    }
     setEditItem(null);
   };
 
@@ -297,7 +308,7 @@ export default function ListScreen() {
     ]);
   };
 
-  const renderDraggableItem = ({
+  const renderDraggableItem = useCallback(({
     item,
     drag,
     isActive,
@@ -313,7 +324,7 @@ export default function ListScreen() {
       drag={drag}
       isActive={isActive}
     />
-  );
+  ), [toggleMutation.mutate, deleteMutation.mutate, handleLongPress]);
 
   const handleSuggestionAdd = (name: string, type: string) =>
     type === "ai" ? handleAddSuggestion(name) : handleAddRecipeSuggestion(name);
@@ -386,7 +397,7 @@ export default function ListScreen() {
         onLongPress={handleLongPress}
       />
     ),
-    [checked, items, isLoading, isPullRefreshing],
+    [checked, isLoading, isPullRefreshing],
   );
 
   const scrollContextValue = React.useMemo(
@@ -461,6 +472,11 @@ export default function ListScreen() {
                 ListFooterComponentStyle={
                   items.length === 0 && !isLoading ? { flex: 1 } : undefined
                 }
+                removeClippedSubviews={true}
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                updateCellsBatchingPeriod={50}
               />
             </View>
           )}
@@ -479,6 +495,8 @@ export default function ListScreen() {
           if (actionItem) {
             setEditItem(actionItem);
             setEditName(actionItem.name);
+            setEditQuantity(actionItem.quantity ?? 1);
+            setEditUnit(actionItem.unit ?? "");
           }
         }}
         onFixWithAI={handleFixWithAI}
@@ -487,6 +505,10 @@ export default function ListScreen() {
         editItem={editItem}
         editName={editName}
         setEditName={setEditName}
+        editQuantity={editQuantity}
+        setEditQuantity={setEditQuantity}
+        editUnit={editUnit}
+        setEditUnit={setEditUnit}
         onCancelEdit={() => setEditItem(null)}
         onSaveRename={handleSaveRename}
         showListModal={showListModal}
