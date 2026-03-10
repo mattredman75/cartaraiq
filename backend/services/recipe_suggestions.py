@@ -1,23 +1,26 @@
 """
-Recipe-pairing suggestions via TheMealDB (free tier, no API key required).
+Recipe-pairing suggestions.
 
-Strategy:
-  1. Take the names of active (unchecked) items on the user's current list.
-  2. For each item, ensure its ingredient pairings are cached in the DB
-     (fetched from TheMealDB and stored in `ingredient_pairings`).
-  3. Query the DB for all pairings where base_ingredient is one of the
-     user's list items, filtering out anything already on the list.
-  4. Rank by total co-occurrence count across list items, return top N.
+Two complementary strategies are provided:
 
-Caching:
-  - DB-backed with PAIRING_TTL_DAYS TTL (7 days).
-  - Survives server restarts and is shared across workers.
-  - Predictive pre-warming: `warm_ingredient_pairings(name)` is designed
-    to be called as a FastAPI BackgroundTask when an item is added to a
-    shopping list, so pairings are ready before the user opens suggestions.
+1. Canonical co-occurrence  (get_canonical_suggestions)
+   Uses our own 22k-recipe / 15k-ingredient database.  The
+   ingredient_cooccurrence table records how many recipes contain each
+   pair of canonical ingredients.  A pool of the top-40 co-occurring
+   ingredients (filtered to recipe_count >= 5) is weighted-randomly
+   sampled to produce 8 varied, high-quality suggestions.
+
+2. TheMealDB live pairing  (get_recipe_suggestions)
+   Free external API, cached in ingredient_pairings table (7-day TTL).
+   Used as a fallback / supplement when canonical data yields nothing.
+
+Predictive pre-warming:
+  warm_ingredient_pairings(name) is a FastAPI BackgroundTask called when
+  an item is added to a list, so TheMealDB pairings are ready in advance.
 """
 
 import logging
+import math
 import random
 import urllib.request
 import urllib.parse
@@ -26,9 +29,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from ..database import SessionLocal
 from ..models.ingredient_pairing import IngredientPairing
+from .ingredient_parser import parse_ingredient
 
 logger = logging.getLogger(__name__)
 
@@ -233,5 +238,210 @@ def get_recipe_suggestions(
             listed = ", ".join(trigger_titles[:-1]) + f" and {trigger_titles[-1]}"
         reason = f"{prefix} {listed}"
         results.append({"name": ing_name.title(), "reason": reason})
+
+    return results
+
+
+# ── Canonical co-occurrence suggestions ───────────────────────────────────────
+
+CANONICAL_POOL_SIZE = 40       # how many top candidates to consider
+CANONICAL_SAMPLE_SIZE = 8      # how many to return
+CANONICAL_MIN_RECIPE_COUNT = 5 # noise floor — ignore pairs below this
+
+CANONICAL_PAIRING_PHRASES = [
+    "Goes great with",
+    "Often cooked with",
+    "Pairs well with",
+    "Frequently used with",
+    "Complements",
+    "Popular alongside",
+    "A classic with",
+    "Works well with",
+    "Combines nicely with",
+    "Seen a lot with",
+]
+
+
+def _get_random_canonical_phrase() -> str:
+    return random.choice(CANONICAL_PAIRING_PHRASES)
+
+
+def get_canonical_suggestions(
+    item_names: list[str],
+    db: Session,
+    *,
+    pool_size: int = CANONICAL_POOL_SIZE,
+    sample_size: int = CANONICAL_SAMPLE_SIZE,
+    min_recipe_count: int = CANONICAL_MIN_RECIPE_COUNT,
+) -> list[dict]:
+    """
+    Return up to `sample_size` recipe-cooccurrence-based ingredient suggestions.
+
+    Algorithm:
+      1. Parse each item name to a canonical form.
+      2. Look up their IDs in canonical_ingredients.
+      3. Query ingredient_cooccurrence for all co-occurring ingredients,
+         summing recipe_count across all input items.
+      4. Filter out items already on the list and pairs below min_recipe_count.
+      5. Take the top `pool_size` by total recipe_count.
+      6. Weighted-random sample `sample_size` using log(1 + recipe_count)
+         weights so high-count items are preferred but not guaranteed.
+      7. Return as [{"name": str, "reason": str}].
+    """
+    if not item_names:
+        return []
+
+    # Step 1 — parse item names to canonical form
+    canonical_inputs: list[str] = []
+    for raw in item_names:
+        parsed = parse_ingredient(raw)
+        if parsed:
+            canonical_inputs.append(parsed)
+        else:
+            # Fall back to simple lowercase strip if parser returns nothing
+            fb = raw.lower().strip()
+            if fb:
+                canonical_inputs.append(fb)
+
+    if not canonical_inputs:
+        return []
+
+    canonical_inputs = list(set(canonical_inputs))
+    on_list_set = set(canonical_inputs)
+
+    # Step 2 — look up canonical IDs
+    try:
+        id_rows = db.execute(
+            text(
+                "SELECT id, name FROM canonical_ingredients "
+                "WHERE name IN :names"
+            ),
+            {"names": tuple(canonical_inputs)},
+        ).fetchall()
+    except Exception as exc:
+        logger.warning("canonical_suggestions: ID lookup failed: %s", exc)
+        return []
+
+    if not id_rows:
+        return []
+
+    ingredient_ids = [r[0] for r in id_rows]
+    # Map id → name for building trigger labels
+    id_to_name: dict[int, str] = {r[0]: r[1] for r in id_rows}
+
+    # Step 3 — query cooccurrence table
+    # We want all candidate ingredient IDs that co-occur with our list items,
+    # scanning both (ingredient_a, ingredient_b) directions.
+    try:
+        cooc_rows = db.execute(
+            text(
+                """
+                SELECT
+                    CASE WHEN ingredient_a IN :ids THEN ingredient_b ELSE ingredient_a END AS candidate_id,
+                    CASE WHEN ingredient_a IN :ids THEN ingredient_a ELSE ingredient_b END AS trigger_id,
+                    recipe_count
+                FROM ingredient_cooccurrence
+                WHERE (ingredient_a IN :ids OR ingredient_b IN :ids)
+                  AND recipe_count >= :min_count
+                """
+            ),
+            {
+                "ids": tuple(ingredient_ids),
+                "min_count": min_recipe_count,
+            },
+        ).fetchall()
+    except Exception as exc:
+        logger.warning("canonical_suggestions: cooccurrence query failed: %s", exc)
+        return []
+
+    if not cooc_rows:
+        return []
+
+    # Step 4 — aggregate, filter out items already on list
+    # Look up candidate name → filter excludes
+    candidate_ids = list({row[0] for row in cooc_rows})
+
+    try:
+        cand_name_rows = db.execute(
+            text(
+                "SELECT id, name FROM canonical_ingredients WHERE id IN :ids"
+            ),
+            {"ids": tuple(candidate_ids)},
+        ).fetchall()
+    except Exception as exc:
+        logger.warning("canonical_suggestions: candidate name lookup failed: %s", exc)
+        return []
+
+    cand_id_to_name: dict[int, str] = {r[0]: r[1] for r in cand_name_rows}
+
+    # Aggregate: candidate_id → {total_count, trigger_names}
+    aggregated: dict[int, dict] = {}
+    for candidate_id, trigger_id, recipe_count in cooc_rows:
+        # Skip if candidate is one of the user's own list items
+        cand_name = cand_id_to_name.get(candidate_id, "")
+        if not cand_name or cand_name in on_list_set:
+            continue
+        # Skip if candidate_id == trigger_id (shouldn't happen, but guard)
+        if candidate_id == trigger_id:
+            continue
+
+        entry = aggregated.setdefault(candidate_id, {"total": 0, "triggers": set()})
+        entry["total"] += recipe_count
+        trigger_name = id_to_name.get(trigger_id, "")
+        if trigger_name:
+            entry["triggers"].add(trigger_name)
+
+    if not aggregated:
+        return []
+
+    # Step 5 — rank and take top pool_size
+    ranked = sorted(aggregated.items(), key=lambda kv: -kv[1]["total"])
+    pool = ranked[:pool_size]
+
+    # Step 6 — weighted-random sample without replacement
+    pool_ids = [item[0] for item in pool]
+    pool_data = [item[1] for item in pool]
+    weights = [math.log(1 + d["total"]) for d in pool_data]
+
+    chosen_indices: list[int] = []
+    available = list(range(len(pool_ids)))
+    avail_weights = list(weights)
+
+    for _ in range(min(sample_size, len(pool_ids))):
+        total_w = sum(avail_weights)
+        if total_w <= 0:
+            break
+        r = random.uniform(0, total_w)
+        cumulative = 0.0
+        chosen = 0
+        for idx, w in enumerate(avail_weights):
+            cumulative += w
+            if cumulative >= r:
+                chosen = idx
+                break
+        chosen_indices.append(available[chosen])
+        available.pop(chosen)
+        avail_weights.pop(chosen)
+
+    # Step 7 — format results
+    results: list[dict] = []
+    for pool_idx in chosen_indices:
+        cand_id = pool_ids[pool_idx]
+        data = pool_data[pool_idx]
+        cand_name = cand_id_to_name.get(cand_id, "")
+        if not cand_name:
+            continue
+        triggers = sorted(data["triggers"])[:3]
+        prefix = _get_random_canonical_phrase()
+        trigger_titles = [t.title() for t in triggers]
+        if len(trigger_titles) == 0:
+            reason = prefix + " items on your list"
+        elif len(trigger_titles) == 1:
+            reason = f"{prefix} {trigger_titles[0]}"
+        elif len(trigger_titles) == 2:
+            reason = f"{prefix} {trigger_titles[0]} and {trigger_titles[1]}"
+        else:
+            reason = f"{prefix} {', '.join(trigger_titles[:-1])} and {trigger_titles[-1]}"
+        results.append({"name": cand_name.title(), "reason": reason})
 
     return results
