@@ -19,8 +19,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import {
-  fetchRecipeInspiration,
-  fetchRecipeDetail,
+  fetchARRecipeSearch,
+  fetchARRecipeDetail,
   addListItem,
   fetchListItems,
   fetchShoppingLists,
@@ -49,13 +49,20 @@ interface Recipe {
   recipe_types: string[];
   ingredients: RecipeIngredient[];
   nutrition?: RecipeNutrition | null;
+  total_mins?: number | null;
+  servings?: number | null;
+  heart_count?: number;
+  is_hearted?: boolean;
 }
 
 interface RecipeDetail extends Recipe {
   directions: string[];
-  prep_time_min?: string | null;
-  cook_time_min?: string | null;
-  servings?: string | null;
+  prep_mins?: number | null;
+  cook_mins?: number | null;
+  total_mins?: number | null;
+  servings?: number | null;
+  heart_count?: number;
+  is_hearted?: boolean;
 }
 
 interface ShoppingList {
@@ -234,7 +241,11 @@ function RecipeCard({
                       }}
                     >
                       <Text
-                        style={{ color: "#fff", fontSize: 10, fontWeight: "600" }}
+                        style={{
+                          color: "#fff",
+                          fontSize: 10,
+                          fontWeight: "600",
+                        }}
                       >
                         {t}
                       </Text>
@@ -378,8 +389,7 @@ function RecipeCard({
                   flexDirection: "row",
                   alignItems: "flex-start",
                   paddingVertical: 5,
-                  borderBottomWidth:
-                    i < recipe.ingredients.length - 1 ? 1 : 0,
+                  borderBottomWidth: i < recipe.ingredients.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.border,
                   gap: 10,
                 }}
@@ -474,9 +484,8 @@ function RecipeDetailModal({
   onAddToList: (recipe: Recipe) => void;
 }) {
   const { data: detail, isLoading } = useQuery<RecipeDetail>({
-    queryKey: ["recipeDetail", recipe?.id],
-    queryFn: () =>
-      fetchRecipeDetail(recipe!.id).then((r) => r.data),
+    queryKey: ["arRecipeDetail", recipe?.id],
+    queryFn: () => fetchARRecipeDetail(recipe!.id).then((r) => r.data),
     enabled: visible && !!recipe,
     staleTime: 10 * 60 * 1000,
   });
@@ -529,7 +538,7 @@ function RecipeDetailModal({
           }).start();
         }
       },
-    })
+    }),
   ).current;
 
   // Merge: use detail data where available, fall back to card data
@@ -698,21 +707,19 @@ function RecipeDetailModal({
                 <StatPill
                   icon="people-outline"
                   label="servings"
-                  value={detail.servings}
+                  value={
+                    detail.servings != null ? String(detail.servings) : null
+                  }
                 />
                 <StatPill
                   icon="time-outline"
                   label="prep"
-                  value={
-                    detail.prep_time_min ? `${detail.prep_time_min} min` : null
-                  }
+                  value={detail.prep_mins ? `${detail.prep_mins} min` : null}
                 />
                 <StatPill
                   icon="flame-outline"
                   label="cook"
-                  value={
-                    detail.cook_time_min ? `${detail.cook_time_min} min` : null
-                  }
+                  value={detail.cook_mins ? `${detail.cook_mins} min` : null}
                 />
               </View>
             )}
@@ -953,7 +960,7 @@ function AddToListSheet({
   const [addedCount, setAddedCount] = useState(0);
   const [skippedCount, setSkippedCount] = useState(0);
   const [selectedListId, setSelectedListId] = useState<string | undefined>(
-    undefined
+    undefined,
   );
 
   const { data: listsData } = useQuery<ShoppingList[]>({
@@ -981,9 +988,9 @@ function AddToListSheet({
       const existingRes = await fetchListItems(selectedListId);
       const existingItems: { name: string }[] = Array.isArray(existingRes.data)
         ? existingRes.data
-        : existingRes.data?.items ?? [];
+        : (existingRes.data?.items ?? []);
       const existingNames = new Set(
-        existingItems.map((item) => item.name.toLowerCase().trim())
+        existingItems.map((item) => item.name.toLowerCase().trim()),
       );
 
       let added = 0;
@@ -1048,9 +1055,7 @@ function AddToListSheet({
           >
             Add to shopping list
           </Text>
-          <Text
-            style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20 }}
-          >
+          <Text style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20 }}>
             {recipe?.ingredients.length ?? 0} ingredients from "
             {recipe?.name ?? ""}"
           </Text>
@@ -1157,11 +1162,11 @@ function AddToListSheet({
                 ? skippedCount > 0 && addedCount === 0
                   ? "All already in list"
                   : skippedCount > 0
-                  ? `Added ${addedCount} • ${skippedCount} already in list`
-                  : `Added ${addedCount} items`
+                    ? `Added ${addedCount} • ${skippedCount} already in list`
+                    : `Added ${addedCount} items`
                 : adding
-                ? "Adding…"
-                : `Add ${recipe?.ingredients.length ?? 0} items`}
+                  ? "Adding…"
+                  : `Add ${recipe?.ingredients.length ?? 0} items`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1186,9 +1191,9 @@ function RecipeList({
   onViewDetail: (recipe: Recipe) => void;
 }) {
   const { data, isLoading, isFetching, isError, refetch } = useQuery<Recipe[]>({
-    queryKey: ["recipeInspiration", category, page],
+    queryKey: ["arRecipeInspiration", category, page],
     queryFn: () =>
-      fetchRecipeInspiration(category, page).then((r) => r.data.recipes),
+      fetchARRecipeSearch(category, 12).then((r) => r.data.recipes),
     staleTime: 5 * 60 * 1000,
     // Only keep previous data when refreshing within the same category (page bump).
     // On a category switch, let it show the loading state instead.
@@ -1302,7 +1307,12 @@ export default function InspirationScreen() {
     useState<Category>(getInitialCategory);
   const [pages, setPages] = useState<Partial<Record<Category, number>>>(() => {
     const rand = () => Math.floor(Math.random() * 10);
-    return { breakfast: rand(), lunch: rand(), dinner: rand(), dessert: rand() };
+    return {
+      breakfast: rand(),
+      lunch: rand(),
+      dinner: rand(),
+      dessert: rand(),
+    };
   });
   const [modalRecipe, setModalRecipe] = useState<Recipe | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -1352,9 +1362,7 @@ export default function InspirationScreen() {
               }}
             >
               <Ionicons name={activeCfg.icon as any} size={26} color="#fff" />
-              <Text
-                style={{ fontSize: 26, fontWeight: "800", color: "#fff" }}
-              >
+              <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff" }}>
                 {activeCfg.headline}
               </Text>
             </View>
