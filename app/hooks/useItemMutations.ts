@@ -1,5 +1,5 @@
 import { useMutation, QueryClient } from "@tanstack/react-query";
-import { addListItem, parseAndAddItems, updateListItem } from "../lib/api";
+import { addListItem, updateListItem } from "../lib/api";
 import type { ListItem } from "../lib/types";
 
 interface UseItemMutationsArgs {
@@ -16,6 +16,29 @@ export function useItemMutations({ listId, qc }: UseItemMutationsArgs) {
       //  ? addListItem(text.trim(), 1, listId)
       //  : parseAndAddItems(text, listId);
     },
+    onMutate: ({ text }) => {
+      const prev = qc.getQueryData<ListItem[]>(["listItems", listId]);
+      const tempItem: ListItem = {
+        id: "temp-" + Date.now(),
+        name: text.trim(),
+        quantity: 1,
+        unit: null,
+        checked: 0,
+        sort_order: -1,
+        times_added: 1,
+        added_by_name: null,
+      };
+      qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => [
+        tempItem,
+        ...old,
+      ]);
+      return { prev };
+    },
+    onError: (_, __, ctx) => {
+      if (ctx?.prev !== undefined) {
+        qc.setQueryData(["listItems", listId], ctx.prev);
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["listItems", listId] });
       qc.invalidateQueries({ queryKey: ["deletedItems", listId] });
@@ -26,10 +49,7 @@ export function useItemMutations({ listId, qc }: UseItemMutationsArgs) {
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, checked }: { id: string; checked: number }) =>
-      updateListItem(
-        id,
-        checked === 0 ? { checked, sort_order: 0 } : { checked },
-      ),
+      updateListItem(id, { checked }),
     onMutate: ({ id, checked }) => {
       qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
         const updated = old.map((it) =>
@@ -61,11 +81,29 @@ export function useItemMutations({ listId, qc }: UseItemMutationsArgs) {
   });
 
   const renameMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      updateListItem(id, { name }),
-    onMutate: ({ id, name }) => {
+    mutationFn: ({
+      id,
+      name,
+      quantity,
+      unit,
+    }: {
+      id: string;
+      name: string;
+      quantity?: number;
+      unit?: string | null;
+    }) => updateListItem(id, { name, quantity, unit }),
+    onMutate: ({ id, name, quantity, unit }) => {
       qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) =>
-        old.map((it) => (it.id === id ? { ...it, name } : it)),
+        old.map((it) =>
+          it.id === id
+            ? {
+                ...it,
+                name,
+                ...(quantity !== undefined ? { quantity } : {}),
+                ...(unit !== undefined ? { unit } : {}),
+              }
+            : it,
+        ),
       );
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["listItems", listId] }),

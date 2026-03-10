@@ -56,7 +56,7 @@ export const ScrollInfoContext = React.createContext<ScrollInfo>({
 
 // ── ItemRow ───────────────────────────────────────────────────────────────────
 
-export function ItemRow({
+function ItemRowInner({
   item,
   onToggle,
   onDelete,
@@ -314,6 +314,15 @@ export function ItemRow({
                     ? `${item.quantity}${item.unit ? ` ${pluralUnit(item.unit, item.quantity)}` : ""} ${item.name}`
                     : item.name}
                 </Text>
+                {(item.quantity > 1 || !!item.unit) && (
+                  <Text
+                    style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}
+                  >
+                    {[item.quantity > 1 ? String(item.quantity) : null, item.unit || null]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </Text>
+                )}
                 {false && item.times_added > 3 && (
                   <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
                     Added {item.times_added}× before
@@ -369,3 +378,13 @@ export function ItemRow({
     </Reanimated.View>
   );
 }
+
+export const ItemRow = React.memo(ItemRowInner, (prev, next) =>
+  prev.item.id === next.item.id &&
+  prev.item.name === next.item.name &&
+  prev.item.quantity === next.item.quantity &&
+  prev.item.unit === next.item.unit &&
+  prev.item.checked === next.item.checked &&
+  prev.item.sort_order === next.item.sort_order &&
+  prev.isActive === next.isActive
+);

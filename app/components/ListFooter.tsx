@@ -18,7 +18,7 @@ interface ListFooterProps {
   onLongPress: (item: ListItem) => void;
 }
 
-export function ListFooter({
+export const ListFooter = React.memo(function ListFooter({
   checked,
   items,
   isLoading,

@@ -6,6 +6,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ScrollView,
   Dimensions,
   Platform,
 } from "react-native";
@@ -26,10 +27,30 @@ const shadow = {
   elevation: 3,
 };
 
+const UNIT_CHIPS = [
+  "each",
+  "g",
+  "kg",
+  "oz",
+  "lb",
+  "ml",
+  "L",
+  "tsp",
+  "tbsp",
+  "cup",
+  "can",
+  "bunch",
+  "pack",
+];
+
 interface RenameItemModalProps {
   editItem: ListItem | null;
   editName: string;
   setEditName: (v: string) => void;
+  editQuantity: number;
+  setEditQuantity: (v: number) => void;
+  editUnit: string;
+  setEditUnit: (v: string) => void;
   onCancel: () => void;
   onSave: () => void;
 }
@@ -38,9 +59,23 @@ export function RenameItemModal({
   editItem,
   editName,
   setEditName,
+  editQuantity,
+  setEditQuantity,
+  editUnit,
+  setEditUnit,
   onCancel,
   onSave,
 }: RenameItemModalProps) {
+  const isChipSelected = (chip: string) =>
+    editUnit === chip;
+
+  const handleChipPress = (chip: string) => {
+    setEditUnit(editUnit === chip ? "" : chip);
+  };
+
+  const isCustomUnit =
+    editUnit !== "" && !UNIT_CHIPS.includes(editUnit);
+
   return (
     <Modal visible={!!editItem} transparent animationType="fade">
       <KeyboardAvoidingView
@@ -76,7 +111,7 @@ export function RenameItemModal({
               marginBottom: 16,
             }}
           >
-            Rename item
+            Edit item
           </Text>
           <TextInput
             value={editName}
@@ -92,9 +127,104 @@ export function RenameItemModal({
               paddingVertical: 12,
               fontSize: 15,
               color: TEXT,
+              marginBottom: 12,
+            }}
+          />
+
+          {/* Quantity row */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+              gap: 10,
+            }}
+          >
+            <Text
+              style={{ fontSize: 13, fontWeight: "600", color: MUTED, width: 30 }}
+            >
+              Qty
+            </Text>
+            <TextInput
+              value={String(editQuantity)}
+              onChangeText={(v) => {
+                const n = parseInt(v, 10);
+                if (!isNaN(n) && n > 0) setEditQuantity(n);
+                else if (v === "") setEditQuantity(1);
+              }}
+              keyboardType="numeric"
+              style={{
+                borderWidth: 1.5,
+                borderColor: BORDER,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                fontSize: 15,
+                color: TEXT,
+                width: 70,
+              }}
+            />
+          </View>
+
+          {/* Unit chips */}
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: MUTED,
+              marginBottom: 8,
+            }}
+          >
+            Unit
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginBottom: 12 }}
+            contentContainerStyle={{ gap: 6 }}
+          >
+            {UNIT_CHIPS.map((chip) => (
+              <TouchableOpacity
+                key={chip}
+                onPress={() => handleChipPress(chip)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  backgroundColor: isChipSelected(chip) ? TEAL : BORDER,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "600",
+                    color: isChipSelected(chip) ? "#fff" : MUTED,
+                  }}
+                >
+                  {chip}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Custom unit fallback */}
+          <TextInput
+            value={isCustomUnit ? editUnit : ""}
+            onChangeText={(v) => setEditUnit(v)}
+            placeholder="Custom unit…"
+            placeholderTextColor={MUTED}
+            style={{
+              borderWidth: 1,
+              borderColor: BORDER,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              fontSize: 13,
+              color: TEXT,
               marginBottom: 16,
             }}
           />
+
           <View style={{ flexDirection: "row", gap: 10 }}>
             <TouchableOpacity
               onPress={onCancel}
