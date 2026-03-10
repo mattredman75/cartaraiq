@@ -1129,10 +1129,11 @@ def ar_fetch_batch(
     if not _SCRAPER_AVAILABLE:
         raise HTTPException(status_code=503, detail="Playwright not available")
 
-    # Select unprocessed batch
+    # Select unprocessed, non-ignored batch
     pending = (
         db.query(RecipeDB)
         .filter(RecipeDB.processed == False)  # noqa: E712
+        .filter(RecipeDB.ignored == False)    # noqa: E712
         .limit(batch)
         .all()
     )
@@ -1354,7 +1355,46 @@ def search_ar_recipes(
 
 
 # ── AR recipe detail by ID ─────────────────────────────────────────────────────
-@router.get("/ar/{ar_recipe_id}", response_model=ARRecipeDetail)
+@router.patch("/ar/{ar_recipe_id}/ignore", status_code=200)
+def ignore_ar_recipe(
+    ar_recipe_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    """
+    Mark a recipe as ignored so it is never re-fetched by /ar-fetch.
+    Locates the parent recipes_db row via the ar_recipe’s recipe_db_id
+    and sets ignored=True on it.
+    """
+    ar_recipe = db.query(ARRecipe).filter(ARRecipe.id == ar_recipe_id).first()
+    if not ar_recipe:
+        raise HTTPException(status_code=404, detail="AR recipe not found.")
+
+    recipe_db_row = db.query(RecipeDB).filter(RecipeDB.id == ar_recipe.recipe_db_id).first()
+    if not recipe_db_row:
+        raise HTTPException(status_code=404, detail="Source recipe_db row not found.")
+
+    recipe_db_row.ignored = True
+    db.commit()
+    return {"ignored": True, "recipe_db_id": recipe_db_row.id, "name": ar_recipe.name}
+
+
+@router.patch("/db/{recipe_db_id}/ignore", status_code=200)
+def ignore_recipe_db(
+    recipe_db_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    """
+    Mark a recipes_db row as ignored directly by its UUID.
+    Useful for ignoring entries that haven’t been fetched into ar_recipes yet.
+    """
+    row = db.query(RecipeDB).filter(RecipeDB.id == recipe_db_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Recipe not found.")
+    row.ignored = True
+    db.commit()
+    return {"ignored": True, "recipe_db_id": row.id, "name": row.name}
 def get_ar_recipe_detail(
     ar_recipe_id: str,
     db: Session = Depends(get_db),

@@ -498,6 +498,13 @@ def _run_mysql_recipes_db(conn) -> None:
             conn.execute(text("""
                 ALTER TABLE recipes_db ADD COLUMN source_category_url TEXT NULL
             """))
+        # Add ignored column if missing (existing installs)
+        if not _col_exists(conn, "recipes_db", "ignored"):
+            conn.execute(text("""
+                ALTER TABLE recipes_db ADD COLUMN ignored TINYINT(1) NOT NULL DEFAULT 0
+            """))
+    if not _index_exists(conn, "recipes_db", "ix_recipes_db_ignored"):
+        conn.execute(text("CREATE INDEX ix_recipes_db_ignored ON recipes_db(ignored)"))
     if not _index_exists(conn, "recipes_db", "ix_recipes_db_slug"):
         conn.execute(text("CREATE INDEX ix_recipes_db_slug ON recipes_db(slug)"))
     if not _index_exists(conn, "recipes_db", "ix_recipes_db_processed"):

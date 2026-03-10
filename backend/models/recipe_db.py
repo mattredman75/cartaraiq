@@ -14,4 +14,5 @@ class RecipeDB(Base):
     recipe_url          = Column(Text, nullable=False)
     source_category_url = Column(Text, nullable=True)
     processed           = Column(Boolean, nullable=False, default=False, index=True)
+    ignored             = Column(Boolean, nullable=False, default=False, index=True)
     scraped_at          = Column(DateTime(timezone=True), server_default=func.now(), index=True)
