@@ -23,8 +23,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Allow CartaraIQ to use the microphone for adding items by voice.",
         "NSSpeechRecognitionUsageDescription": "Allow CartaraIQ to recognize speech to add items to your list.",
-        "NSPhotoLibraryUsageDescription": "CartaraIQ does not use your photo library.",
-        "NSCameraUsageDescription": "Allow CartaraIQ to use the camera to scan loyalty card barcodes.",
+        "NSPhotoLibraryUsageDescription": "Allow CartaraIQ to access your photo library to set a profile photo.",
+        "NSCameraUsageDescription": "Allow CartaraIQ to use the camera to scan loyalty card barcodes or take a profile photo.",
         "NSFaceIDUsageDescription": "Allow CartaraIQ to use Face ID to keep your account secure.",
         "NSLocalNetworkUsageDescription": "CartaraIQ uses the local network to connect to development servers."
       }
@@ -60,7 +60,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow CartaraIQ to use the camera to scan loyalty card barcodes."
+          "cameraPermission": "Allow CartaraIQ to use the camera to scan loyalty card barcodes or take a profile photo."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow CartaraIQ to access your photo library to set a profile photo.",
+          "cameraPermission": "Allow CartaraIQ to use the camera to take a profile photo."
         }
       ]
     ],
