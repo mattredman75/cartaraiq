@@ -219,6 +219,13 @@ export const fetchRecipeInspiration = (category: string, page = 0) =>
 export const fetchRecipeDetail = (recipeId: string) =>
   api.get(`/recipes/${recipeId}`);
 
+// --- AR Recipes ---
+export const fetchARRecipeSearch = (category: string, limit = 12) =>
+  api.get("/recipes/search", { params: { category, limit } });
+
+export const fetchARRecipeDetail = (recipeId: string) =>
+  api.get(`/recipes/ar/${recipeId}`);
+
 // --- Auth Lifecycle ---
 export const authLogout = () => api.post("/auth/logout");
 
