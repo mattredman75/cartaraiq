@@ -49,6 +49,7 @@ def run() -> None:
         _run_mysql_list_shares(conn)
         _run_mysql_recipes_db(conn)
         _run_mysql_ar_tables(conn)
+        _run_mysql_ar_hearts(conn)
         conn.commit()
 
     print("Migration complete.")
@@ -591,6 +592,24 @@ def _run_mysql_ar_tables(conn) -> None:
         """))
     if not _index_exists(conn, "ar_recipe_tags", "ix_ar_recipe_tags_tag_id"):
         conn.execute(text("CREATE INDEX ix_ar_recipe_tags_tag_id ON ar_recipe_tags(tag_id)"))
+
+
+def _run_mysql_ar_hearts(conn) -> None:
+    """Create ar_recipe_hearts table (user favourites)."""
+    if not _table_exists(conn, "ar_recipe_hearts"):
+        conn.execute(text("""
+            CREATE TABLE ar_recipe_hearts (
+                id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+                user_id    VARCHAR(36)  NOT NULL,
+                recipe_id  VARCHAR(36)  NOT NULL,
+                hearted_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_ar_recipe_hearts_user_recipe (user_id, recipe_id)
+            )
+        """))
+    if not _index_exists(conn, "ar_recipe_hearts", "ix_ar_recipe_hearts_user_id"):
+        conn.execute(text("CREATE INDEX ix_ar_recipe_hearts_user_id ON ar_recipe_hearts(user_id)"))
+    if not _index_exists(conn, "ar_recipe_hearts", "ix_ar_recipe_hearts_recipe_id"):
+        conn.execute(text("CREATE INDEX ix_ar_recipe_hearts_recipe_id ON ar_recipe_hearts(recipe_id)"))
 
 
 if __name__ == "__main__":

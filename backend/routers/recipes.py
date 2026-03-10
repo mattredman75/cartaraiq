@@ -29,6 +29,7 @@ from ..models.ar_ingredient import ARIngredient
 from ..models.ar_step import ARStep
 from ..models.ar_tag import ARTag
 from ..models.ar_recipe_tag import ARRecipeTag
+from ..models.ar_recipe_heart import ARRecipeHeart
 from pydantic import BaseModel
 from ..config import settings
 
@@ -94,6 +95,8 @@ class ARRecipeSummary(BaseModel):
     nutrition: Optional[RecipeNutrition] = None
     total_mins: Optional[int] = None
     servings: Optional[int] = None
+    heart_count: int = 0
+    is_hearted: bool = False
 
 
 class ARSearchResponse(BaseModel):
@@ -1270,6 +1273,7 @@ def search_ar_recipes(
         description="Optional keyword to match against recipe name.",
     ),
     limit: int = Query(default=10, ge=1, le=100, description="Number of results (1–100)."),
+    sort: str = Query(default="random", description="Sort order: 'random' (default) or 'popular' (most hearts first)."),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1302,7 +1306,17 @@ def search_ar_recipes(
 
     total = query.count()
 
-    rows = query.order_by(sa_func.random()).limit(limit).all()
+    if sort == "popular":
+        from sqlalchemy import select as sa_select
+        heart_subq = (
+            sa_select(sa_func.count(ARRecipeHeart.id))
+            .where(ARRecipeHeart.recipe_id == ARRecipe.id)
+            .correlate(ARRecipe)
+            .scalar_subquery()
+        )
+        rows = query.order_by(heart_subq.desc()).limit(limit).all()
+    else:
+        rows = query.order_by(sa_func.random()).limit(limit).all()
 
     # Bulk-fetch ingredients for all returned recipe ids
     recipe_ids = [r.id for r in rows]
@@ -1331,6 +1345,26 @@ def search_ar_recipes(
     for rt, tag in tag_rows:
         tags_by_recipe.setdefault(rt.recipe_id, []).append(tag.name)
 
+    # Bulk-fetch heart counts and current-user hearts for the returned recipes
+    heart_counts: dict[str, int] = {}
+    user_hearted: set[str] = set()
+    if recipe_ids:
+        heart_counts = dict(
+            db.query(ARRecipeHeart.recipe_id, sa_func.count(ARRecipeHeart.id))
+            .filter(ARRecipeHeart.recipe_id.in_(recipe_ids))
+            .group_by(ARRecipeHeart.recipe_id)
+            .all()
+        )
+        user_hearted = {
+            h.recipe_id
+            for h in db.query(ARRecipeHeart.recipe_id)
+            .filter(
+                ARRecipeHeart.recipe_id.in_(recipe_ids),
+                ARRecipeHeart.user_id == current_user.id,
+            )
+            .all()
+        }
+
     summaries = [
         ARRecipeSummary(
             id=r.id,
@@ -1347,6 +1381,8 @@ def search_ar_recipes(
             ) if any(v is not None for v in (r.calories, r.fat_g, r.carbs_g, r.protein_g)) else None,
             total_mins=r.total_mins,
             servings=r.servings,
+            heart_count=heart_counts.get(r.id, 0),
+            is_hearted=r.id in user_hearted,
         )
         for r in rows
     ]
@@ -1395,6 +1431,9 @@ def ignore_recipe_db(
     row.ignored = True
     db.commit()
     return {"ignored": True, "recipe_db_id": row.id, "name": row.name}
+
+
+@router.get("/ar/{ar_recipe_id}", response_model=ARRecipeDetail)
 def get_ar_recipe_detail(
     ar_recipe_id: str,
     db: Session = Depends(get_db),
@@ -1439,6 +1478,20 @@ def get_ar_recipe_detail(
         protein=str(recipe.protein_g) if recipe.protein_g is not None else None,
     ) if any(v is not None for v in (recipe.calories, recipe.fat_g, recipe.carbs_g, recipe.protein_g)) else None
 
+    heart_count = (
+        db.query(ARRecipeHeart)
+        .filter(ARRecipeHeart.recipe_id == ar_recipe_id)
+        .count()
+    )
+    is_hearted = bool(
+        db.query(ARRecipeHeart)
+        .filter(
+            ARRecipeHeart.recipe_id == ar_recipe_id,
+            ARRecipeHeart.user_id == current_user.id,
+        )
+        .first()
+    )
+
     return ARRecipeDetail(
         id=recipe.id,
         name=recipe.name,
@@ -1452,7 +1505,145 @@ def get_ar_recipe_detail(
         cook_mins=recipe.cook_mins,
         servings=recipe.servings,
         directions=directions,
+        heart_count=heart_count,
+        is_hearted=is_hearted,
     )
+
+
+# ── Recipe hearts (favourites) ───────────────────────────────────────────────────
+
+@router.post("/ar/{ar_recipe_id}/heart", status_code=201)
+def heart_recipe(
+    ar_recipe_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Heart (favourite) an AR recipe. Idempotent — hearting twice is a no-op."""
+    import uuid as _uuid
+    recipe = db.query(ARRecipe).filter(ARRecipe.id == ar_recipe_id).first()
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found.")
+
+    existing = (
+        db.query(ARRecipeHeart)
+        .filter(
+            ARRecipeHeart.recipe_id == ar_recipe_id,
+            ARRecipeHeart.user_id == current_user.id,
+        )
+        .first()
+    )
+    if existing:
+        count = db.query(ARRecipeHeart).filter(ARRecipeHeart.recipe_id == ar_recipe_id).count()
+        return {"hearted": True, "heart_count": count}
+
+    heart = ARRecipeHeart(
+        id=str(_uuid.uuid4()),
+        user_id=current_user.id,
+        recipe_id=ar_recipe_id,
+    )
+    db.add(heart)
+    db.commit()
+    count = db.query(ARRecipeHeart).filter(ARRecipeHeart.recipe_id == ar_recipe_id).count()
+    return {"hearted": True, "heart_count": count}
+
+
+@router.delete("/ar/{ar_recipe_id}/heart", status_code=200)
+def unheart_recipe(
+    ar_recipe_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove a heart from an AR recipe. Idempotent — un-hearting a recipe you haven't hearted is a no-op."""
+    heart = (
+        db.query(ARRecipeHeart)
+        .filter(
+            ARRecipeHeart.recipe_id == ar_recipe_id,
+            ARRecipeHeart.user_id == current_user.id,
+        )
+        .first()
+    )
+    if heart:
+        db.delete(heart)
+        db.commit()
+    count = db.query(ARRecipeHeart).filter(ARRecipeHeart.recipe_id == ar_recipe_id).count()
+    return {"hearted": False, "heart_count": count}
+
+
+@router.get("/hearts", response_model=ARSearchResponse)
+def get_hearted_recipes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all AR recipes hearted by the current user, ordered by most recently hearted."""
+    from sqlalchemy import func as sa_func
+
+    heart_rows = (
+        db.query(ARRecipeHeart)
+        .filter(ARRecipeHeart.user_id == current_user.id)
+        .order_by(ARRecipeHeart.hearted_at.desc())
+        .all()
+    )
+    recipe_ids = [h.recipe_id for h in heart_rows]
+
+    if not recipe_ids:
+        return ARSearchResponse(category="hearts", total=0, recipes=[])
+
+    recipes = db.query(ARRecipe).filter(ARRecipe.id.in_(recipe_ids)).all()
+    recipes_by_id = {r.id: r for r in recipes}
+    ordered_recipes = [recipes_by_id[rid] for rid in recipe_ids if rid in recipes_by_id]
+
+    ingredient_rows = (
+        db.query(ARIngredient)
+        .filter(ARIngredient.recipe_id.in_(recipe_ids))
+        .order_by(ARIngredient.recipe_id, ARIngredient.sort_order)
+        .all()
+    )
+    ingredients_by_recipe: dict[str, list[RecipeIngredient]] = {}
+    for ing in ingredient_rows:
+        ingredients_by_recipe.setdefault(ing.recipe_id, []).append(
+            RecipeIngredient(name=ing.raw_text)
+        )
+
+    tag_rows = (
+        db.query(ARRecipeTag, ARTag)
+        .join(ARTag, ARTag.id == ARRecipeTag.tag_id)
+        .filter(ARRecipeTag.recipe_id.in_(recipe_ids))
+        .all()
+    )
+    tags_by_recipe: dict[str, list[str]] = {}
+    for rt, tag in tag_rows:
+        tags_by_recipe.setdefault(rt.recipe_id, []).append(tag.name)
+
+    heart_counts = dict(
+        db.query(ARRecipeHeart.recipe_id, sa_func.count(ARRecipeHeart.id))
+        .filter(ARRecipeHeart.recipe_id.in_(recipe_ids))
+        .group_by(ARRecipeHeart.recipe_id)
+        .all()
+    )
+
+    summaries = [
+        ARRecipeSummary(
+            id=r.id,
+            name=r.name,
+            description=r.description or "",
+            image_url=r.image_url,
+            recipe_types=tags_by_recipe.get(r.id, []),
+            ingredients=ingredients_by_recipe.get(r.id, []),
+            nutrition=RecipeNutrition(
+                calories=str(r.calories) if r.calories is not None else None,
+                fat=str(r.fat_g) if r.fat_g is not None else None,
+                carbohydrate=str(r.carbs_g) if r.carbs_g is not None else None,
+                protein=str(r.protein_g) if r.protein_g is not None else None,
+            ) if any(v is not None for v in (r.calories, r.fat_g, r.carbs_g, r.protein_g)) else None,
+            total_mins=r.total_mins,
+            servings=r.servings,
+            heart_count=heart_counts.get(r.id, 0),
+            is_hearted=True,
+        )
+        for r in ordered_recipes
+    ]
+
+    return ARSearchResponse(category="hearts", total=len(summaries), recipes=summaries)
 
 
 # ── Single recipe detail (FatSecret) ───────────────────────────────────────────
