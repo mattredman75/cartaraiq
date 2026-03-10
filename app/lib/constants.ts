@@ -12,6 +12,7 @@ export const COLORS = {
   muted: "#8A9BA2",
   danger: "#EF4444",
   success: "#10B981",
+  mutedSemiTransparent: "rgba(100, 116, 139, 0.5)",
 };
 
 export const API_URL =
