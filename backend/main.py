@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from fastapi.staticfiles import StaticFiles
 from .routers import admin, auth, lists, products, app_status, my_data, push, loyalty_programs, recipes
 
 # Write logs to a file next to passenger_wsgi.py so they're easy to find.
@@ -81,6 +82,11 @@ app.include_router(my_data.router)
 app.include_router(push.router)
 app.include_router(loyalty_programs.router)
 app.include_router(recipes.router)
+
+# Serve uploaded files (avatars etc.) from /uploads
+_uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(_uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
 
 
 @app.get("/health")

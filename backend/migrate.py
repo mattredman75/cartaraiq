@@ -50,6 +50,7 @@ def run() -> None:
         _run_mysql_recipes_db(conn)
         _run_mysql_ar_tables(conn)
         _run_mysql_ar_hearts(conn)
+        _run_mysql_avatar_url(conn)
         conn.commit()
 
     print("Migration complete.")
@@ -610,6 +611,12 @@ def _run_mysql_ar_hearts(conn) -> None:
         conn.execute(text("CREATE INDEX ix_ar_recipe_hearts_user_id ON ar_recipe_hearts(user_id)"))
     if not _index_exists(conn, "ar_recipe_hearts", "ix_ar_recipe_hearts_recipe_id"):
         conn.execute(text("CREATE INDEX ix_ar_recipe_hearts_recipe_id ON ar_recipe_hearts(recipe_id)"))
+
+
+def _run_mysql_avatar_url(conn) -> None:
+    """Add avatar_url column to users table."""
+    if not _col_exists(conn, "users", "avatar_url"):
+        conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) NULL"))
 
 
 if __name__ == "__main__":

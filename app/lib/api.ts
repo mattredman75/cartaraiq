@@ -118,6 +118,16 @@ export const authForgotPassword = (email: string) =>
 
 export const updateMe = (name: string) => api.patch("/auth/me", { name });
 
+export const uploadAvatar = (uri: string) => {
+  const formData = new FormData();
+  formData.append("file", { uri, name: "avatar.jpg", type: "image/jpeg" } as unknown as Blob);
+  return api.post("/auth/me/avatar", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const clearAvatar = () => api.delete("/auth/me/avatar");
+
 export const authResetPassword = (
   email: string,
   code: string,

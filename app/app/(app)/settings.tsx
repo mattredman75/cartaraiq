@@ -29,6 +29,8 @@ import {
   fetchListShares,
   removeListShare,
   leaveList,
+  uploadAvatar,
+  clearAvatar,
 } from "../../lib/api";
 import { setItem, deleteItem, getItem } from "../../lib/storage";
 import { useBiometricAuth } from "../../hooks/useBiometricAuth";
@@ -40,6 +42,7 @@ interface ShareEntry {
   shared_with_id: number | null;
   shared_with_name: string | null;
   shared_with_email: string | null;
+  shared_with_avatar_url: string | null;
   status: "pending" | "accepted";
   created_at: string;
 }
@@ -200,10 +203,15 @@ export default function SettingsScreen() {
     isBiometricEnabled().then(setBiometricEnabled);
     isPinEnabled().then(setPinEnabledState);
 
-    // Load avatar
-    getItem("profile_avatar_uri").then((v) => {
-      if (v) setAvatarUri(v);
-    });
+    // Load avatar — prefer server URL stored on the user object, fall back to local cache
+    const serverAvatar = user?.avatar_url;
+    if (serverAvatar) {
+      setAvatarUri(serverAvatar);
+    } else {
+      getItem("profile_avatar_uri").then((v) => {
+        if (v) setAvatarUri(v);
+      });
+    }
 
     // Load feature flags — explicitly set both true and false so toggle renders correctly
     getItem("ai_suggestions_enabled").then((v) => setAiEnabled(v !== "0"));
@@ -245,6 +253,15 @@ export default function SettingsScreen() {
             const uri = result.assets[0].uri;
             setAvatarUri(uri);
             await setItem("profile_avatar_uri", uri);
+            try {
+              const res = await uploadAvatar(uri);
+              if (res.data?.avatar_url) {
+                updateUser({ avatar_url: res.data.avatar_url });
+                setAvatarUri(res.data.avatar_url);
+              }
+            } catch {
+              // Upload failed — local preview still shown
+            }
           }
         },
       },
@@ -270,6 +287,15 @@ export default function SettingsScreen() {
             const uri = result.assets[0].uri;
             setAvatarUri(uri);
             await setItem("profile_avatar_uri", uri);
+            try {
+              const res = await uploadAvatar(uri);
+              if (res.data?.avatar_url) {
+                updateUser({ avatar_url: res.data.avatar_url });
+                setAvatarUri(res.data.avatar_url);
+              }
+            } catch {
+              // Upload failed — local preview still shown
+            }
           }
         },
       },
@@ -281,6 +307,8 @@ export default function SettingsScreen() {
               onPress: async () => {
                 setAvatarUri(null);
                 await deleteItem("profile_avatar_uri");
+                updateUser({ avatar_url: null });
+                try { await clearAvatar(); } catch { /* best-effort */ }
               },
             },
           ]
@@ -961,6 +989,32 @@ export default function SettingsScreen() {
                             borderTopColor: BORDER,
                           }}
                         >
+                          {/* Avatar circle */}
+                          <View
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 17,
+                              backgroundColor: TEAL_DARK,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              overflow: "hidden",
+                              marginRight: 10,
+                            }}
+                          >
+                            {share.shared_with_avatar_url ? (
+                              <Image
+                                source={{ uri: share.shared_with_avatar_url }}
+                                style={{ width: 34, height: 34, borderRadius: 17 }}
+                              />
+                            ) : (
+                              <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>
+                                {(share.shared_with_name ?? share.shared_with_email ?? "?")
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </Text>
+                            )}
+                          </View>
                           <View style={{ flex: 1 }}>
                             <Text
                               style={{
