@@ -210,6 +210,9 @@ def _add_single_item(
     ).scalar()
     top_order = (min_order - 1) if min_order is not None else 0
 
+    # Clamp quantity to minimum 1 (fractional values from parser, e.g. 0.25, become 0 as int)
+    quantity = max(1, quantity or 1)
+
     if existing:
         days_since = 0
         if existing.last_added_at:

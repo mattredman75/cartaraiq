@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Dimensions } from "react-native";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Reanimated, {
   useSharedValue,
@@ -12,35 +12,15 @@ import type { ListItem } from "../lib/types";
 
 const TEAL = "#1B6B7A";
 
-const PLURAL: Record<string, string> = {
-  loaf: "loaves",
-  roll: "rolls",
-  slice: "slices",
-  sheet: "sheets",
-  bar: "bars",
-  jar: "jars",
-  tub: "tubs",
-  punnet: "punnets",
-  sachet: "sachets",
-  piece: "pieces",
-  pack: "packs",
-  packet: "packets",
-  bottle: "bottles",
-  can: "cans",
-  bag: "bags",
-  box: "boxes",
-  bunch: "bunches",
-  cup: "cups",
-};
-const pluralUnit = (unit: string, qty: number) =>
-  qty > 1 ? (PLURAL[unit] ?? unit + "s") : unit;
 const CARD = "#FFFFFF";
 const TEXT = "#1A1A2E";
 const MUTED = "#64748B";
 const BORDER = "#E8EFF2";
 
-export const DELETE_WIDTH = 80;
+export const DELETE_WIDTH = 80; // peek/snap width
 const SWIPE_THRESHOLD = 55;
+const SCREEN_W = Dimensions.get("window").width;
+const FULL_SWIPE_THRESHOLD = SCREEN_W * 0.55;
 
 // ── Scroll/drag context shared between ListScreen (provider) and ItemRow (consumer) ──
 
@@ -130,13 +110,21 @@ function ItemRowInner({
           const base = isOpenedShared.value ? -DELETE_WIDTH : 0;
           translateXShared.value = Math.min(
             0,
-            Math.max(base + e.translationX, -DELETE_WIDTH - 8),
+            Math.max(base + e.translationX, -SCREEN_W),
           );
         })
         .onEnd((e) => {
           const base = isOpenedShared.value ? -DELETE_WIDTH : 0;
           const finalX = base + e.translationX;
-          if (finalX <= -SWIPE_THRESHOLD) {
+          const isFastFling = e.velocityX < -900;
+          if (isFastFling || finalX <= -FULL_SWIPE_THRESHOLD) {
+            // Full swipe — animate off screen then delete
+            translateXShared.value = withTiming(-SCREEN_W, { duration: 200 }, (done) => {
+              if (done) runOnJS(onDelete)();
+            });
+            isOpenedShared.value = false;
+          } else if (finalX <= -SWIPE_THRESHOLD) {
+            // Partial — snap to peek state
             isOpenedShared.value = true;
             translateXShared.value = withSpring(-DELETE_WIDTH, {
               damping: 20,
@@ -150,7 +138,7 @@ function ItemRowInner({
             });
           }
         }),
-    [],
+    [onDelete],
   );
 
   const swipeableAnimStyle = useAnimatedStyle(() => ({
@@ -159,7 +147,7 @@ function ItemRowInner({
 
   const confirmDelete = () => {
     isOpenedShared.value = false;
-    translateXShared.value = withTiming(-500, { duration: 180 }, (finished) => {
+    translateXShared.value = withTiming(-SCREEN_W, { duration: 200 }, (finished) => {
       if (finished) runOnJS(onDelete)();
     });
   };
@@ -170,15 +158,15 @@ function ItemRowInner({
       style={[
         itemAnimStyle,
         {
-          borderRadius: 14,
+          borderRadius: 4,
           shadowColor: "#000",
           shadowOffset: isActive
-            ? { width: 0, height: 10 }
-            : { width: 0, height: 1 },
-          shadowOpacity: isActive ? 0.22 : 0.06,
-          shadowRadius: isActive ? 18 : 6,
-          elevation: isActive ? 14 : 2,
-          marginBottom: 8,
+            ? { width: 0, height: 8 }
+            : { width: 0, height: 3 },
+          shadowOpacity: isActive ? 0.22 : 0.16,
+          shadowRadius: isActive ? 12 : 4,
+          elevation: isActive ? 10 : 4,
+          marginBottom: 6,
           marginHorizontal: 20,
           zIndex: isActive ? 999 : 0,
         },
@@ -186,69 +174,32 @@ function ItemRowInner({
     >
       <View
         style={{
-          borderRadius: 14,
+          borderRadius: 4,
           overflow: "hidden",
           borderWidth: 1,
           borderColor: "#C5D5D9",
         }}
       >
-        {/* Red delete zone */}
-        <View
+        {/* Red delete zone — full width, label pinned to right */}
+        <TouchableOpacity
+          onPress={confirmDelete}
+          activeOpacity={1}
           style={{
             position: "absolute",
             top: 0,
             right: 0,
             bottom: 0,
-            width: DELETE_WIDTH,
+            left: 0,
             backgroundColor: "#EF4444",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "center",
+            paddingRight: 14,
           }}
         >
-          <View
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 3,
-              backgroundColor: "rgba(0,0,0,0.24)",
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              left: 3,
-              top: 0,
-              bottom: 0,
-              width: 5,
-              backgroundColor: "rgba(0,0,0,0.10)",
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              left: 8,
-              top: 0,
-              bottom: 0,
-              width: 8,
-              backgroundColor: "rgba(0,0,0,0.04)",
-            }}
-          />
-          <TouchableOpacity
-            onPress={confirmDelete}
-            style={{
-              flex: 1,
-              width: "100%",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
-              Delete
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+            Delete
+          </Text>
+        </TouchableOpacity>
 
         {/* Swipeable row content */}
         <GestureDetector gesture={swipeGesture}>
@@ -257,7 +208,7 @@ function ItemRowInner({
               swipeableAnimStyle,
               {
                 backgroundColor: isActive ? "#F0F8FA" : CARD,
-                paddingVertical: 14,
+                paddingVertical: 12,
                 paddingHorizontal: 14,
                 flexDirection: "row",
                 alignItems: "center",
@@ -310,17 +261,17 @@ function ItemRowInner({
                     flexShrink: 1,
                   }}
                 >
-                  {item.quantity > 1
-                    ? `${item.quantity}${item.unit ? ` ${pluralUnit(item.unit, item.quantity)}` : ""} ${item.name}`
-                    : item.name}
+                  {item.unit
+                    ? item.name
+                    : item.quantity > 1
+                      ? `${item.quantity} ${item.name}`
+                      : item.name}
                 </Text>
-                {(item.quantity > 1 || !!item.unit) && (
+                {!!item.unit && (
                   <Text
                     style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}
                   >
-                    {[item.quantity > 1 ? String(item.quantity) : null, item.unit || null]
-                      .filter(Boolean)
-                      .join(" ")}
+                    {`${Math.max(1, item.quantity)} ${item.unit}`}
                   </Text>
                 )}
                 {false && item.times_added > 3 && (
@@ -379,12 +330,14 @@ function ItemRowInner({
   );
 }
 
-export const ItemRow = React.memo(ItemRowInner, (prev, next) =>
-  prev.item.id === next.item.id &&
-  prev.item.name === next.item.name &&
-  prev.item.quantity === next.item.quantity &&
-  prev.item.unit === next.item.unit &&
-  prev.item.checked === next.item.checked &&
-  prev.item.sort_order === next.item.sort_order &&
-  prev.isActive === next.isActive
+export const ItemRow = React.memo(
+  ItemRowInner,
+  (prev, next) =>
+    prev.item.id === next.item.id &&
+    prev.item.name === next.item.name &&
+    prev.item.quantity === next.item.quantity &&
+    prev.item.unit === next.item.unit &&
+    prev.item.checked === next.item.checked &&
+    prev.item.sort_order === next.item.sort_order &&
+    prev.isActive === next.isActive,
 );

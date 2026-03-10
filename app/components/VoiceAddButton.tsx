@@ -22,7 +22,11 @@ interface VoiceAddButtonProps {
   onFinalTranscript: (text: string) => void;
 }
 
-export function VoiceAddButton({ onPress, onInterimTranscript, onFinalTranscript }: VoiceAddButtonProps) {
+export function VoiceAddButton({
+  onPress,
+  onInterimTranscript,
+  onFinalTranscript,
+}: VoiceAddButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const onFinalTranscriptRef = useRef(onFinalTranscript);
   onFinalTranscriptRef.current = onFinalTranscript;
@@ -85,7 +89,7 @@ export function VoiceAddButton({ onPress, onInterimTranscript, onFinalTranscript
           duration: 600,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     pulseLoopRef.current.start();
   }, [morphAnim, pulseAnim]);
@@ -153,11 +157,12 @@ export function VoiceAddButton({ onPress, onInterimTranscript, onFinalTranscript
 
   const handleLongPress = useCallback(async () => {
     if (isListening) return;
-    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    const { granted } =
+      await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!granted) {
       Alert.alert(
         "Microphone Access Required",
-        "Enable microphone access in Settings to add items by voice."
+        "Enable microphone access in Settings to add items by voice.",
       );
       return;
     }
@@ -185,7 +190,12 @@ export function VoiceAddButton({ onPress, onInterimTranscript, onFinalTranscript
   const plusStyle = {
     opacity: morphAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
     transform: [
-      { scale: morphAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] }) },
+      {
+        scale: morphAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.4],
+        }),
+      },
     ],
   };
 
@@ -193,12 +203,20 @@ export function VoiceAddButton({ onPress, onInterimTranscript, onFinalTranscript
     position: "absolute" as const,
     opacity: morphAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
     transform: [
-      { scale: morphAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
+      {
+        scale: morphAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.4, 1],
+        }),
+      },
     ],
   };
 
   const pulseRingStyle = {
-    opacity: morphAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.3] }),
+    opacity: morphAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.3],
+    }),
     transform: [{ scale: pulseAnim }],
   };
 
@@ -235,11 +253,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 58,
     height: 58,
-    borderRadius: 29,
+    borderRadius: 4,
   },
   button: {
-    borderTopRightRadius: 14,
-    borderBottomRightRadius: 14,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
     overflow: "hidden",
   },
   touchable: {

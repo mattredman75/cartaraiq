@@ -85,7 +85,9 @@ export default function PantryScreen() {
   };
 
   const handleEditCard = (updatedCard: StoreCard) => {
-    const updatedCards = cards.map((c) => (c.id === updatedCard.id ? updatedCard : c));
+    const updatedCards = cards.map((c) =>
+      c.id === updatedCard.id ? updatedCard : c,
+    );
     saveCards(updatedCards);
     setShowEditModal(false);
     setSelectedCard(null);
@@ -115,7 +117,9 @@ export default function PantryScreen() {
   const handleCardLongPress = (card: StoreCard) => {
     // Matched/branded cards are not editable
     const program = card.programId
-      ? programs.find((p) => p.id === card.programId || p.slug === card.programId)
+      ? programs.find(
+          (p) => p.id === card.programId || p.slug === card.programId,
+        )
       : null;
     if (program?.logo_url) return;
     setSelectedCard(card);
@@ -125,16 +129,23 @@ export default function PantryScreen() {
   const gridData: GridItem[] = [...cards, { id: "__add__" }];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={["right", "left"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: BG }}
+      edges={["right", "left"]}
+    >
       <View style={{ flex: 1, paddingTop: insets.top }}>
         {/* Header */}
         <View style={{ paddingHorizontal: GRID_PADDING, paddingVertical: 16 }}>
-          <Text style={{ fontSize: 28, fontWeight: "700", color: TEXT }}>Loyalty Cards</Text>
+          <Text style={{ fontSize: 28, fontWeight: "700", color: TEXT }}>
+            Loyalty Cards
+          </Text>
         </View>
 
         {/* Card Grid */}
         {loading ? (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
             <Text style={{ color: MUTED }}>Loading cards...</Text>
           </View>
         ) : (
@@ -143,7 +154,11 @@ export default function PantryScreen() {
             keyExtractor={(item) => item.id}
             numColumns={2}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: GRID_PADDING, paddingBottom: 32, gap: GRID_GAP }}
+            contentContainerStyle={{
+              paddingHorizontal: GRID_PADDING,
+              paddingBottom: 32,
+              gap: GRID_GAP,
+            }}
             columnWrapperStyle={{ gap: GRID_GAP }}
             renderItem={({ item }) => {
               if (item.id === "__add__") {
@@ -154,11 +169,16 @@ export default function PantryScreen() {
                     style={{
                       width: CARD_WIDTH,
                       height: CARD_HEIGHT,
-                      borderRadius: 16,
+                      borderRadius: 4,
                       backgroundColor: "#E0F5F7",
                       justifyContent: "center",
                       alignItems: "center",
                       gap: 8,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 3 },
+                      shadowOpacity: 0.16,
+                      shadowRadius: 4,
+                      elevation: 4,
                     }}
                   >
                     <View
@@ -173,7 +193,11 @@ export default function PantryScreen() {
                     >
                       <Ionicons name="add" size={24} color="#fff" />
                     </View>
-                    <Text style={{ color: TEAL, fontWeight: "600", fontSize: 13 }}>Add new card</Text>
+                    <Text
+                      style={{ color: TEAL, fontWeight: "600", fontSize: 13 }}
+                    >
+                      Add new card
+                    </Text>
                   </TouchableOpacity>
                 );
               }
@@ -193,7 +217,11 @@ export default function PantryScreen() {
       </View>
 
       {/* Modals */}
-      <AddCardModal visible={showAddModal} onClose={() => setShowAddModal(false)} onSave={handleAddCard} />
+      <AddCardModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleAddCard}
+      />
 
       {selectedCard && (
         <>
