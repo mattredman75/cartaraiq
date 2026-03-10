@@ -13,7 +13,7 @@ from ..models.user import User
 from ..auth import get_current_user
 from ..config import settings
 from ..services.prediction import get_frequency_candidates, get_smart_suggestions
-from ..services.recipe_suggestions import get_recipe_suggestions, warm_ingredient_pairings
+from ..services.recipe_suggestions import get_recipe_suggestions, warm_ingredient_pairings, get_canonical_suggestions
 from ..services.nl_parser import parse_shopping_input
 from ..services.audit import log_audit
 from ..services.push_notifications import send_push_notifications
@@ -861,4 +861,12 @@ def get_recipe_suggestions_endpoint(
         .all()
     )
     item_names = [item.name for item in active_items]
-    return get_recipe_suggestions(item_names, db)
+
+    # Primary: canonical co-occurrence suggestions from our recipe DB
+    results = get_canonical_suggestions(item_names, db)
+
+    # Fallback: TheMealDB external API pairings
+    if not results:
+        results = get_recipe_suggestions(item_names, db)
+
+    return results
