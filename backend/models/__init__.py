@@ -8,3 +8,9 @@ from .audit_log import AuditLog
 from .test_run import TestRun
 from .loyalty_program import LoyaltyProgram
 from .list_share import ListShare
+from .recipe_db import RecipeDB
+from .ar_recipe import ARRecipe
+from .ar_ingredient import ARIngredient
+from .ar_step import ARStep
+from .ar_tag import ARTag
+from .ar_recipe_tag import ARRecipeTag

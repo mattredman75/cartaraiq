@@ -47,6 +47,9 @@ def run() -> None:
         _run_mysql_ingredient_pairings(conn)
         _run_mysql_loyalty_programs(conn)
         _run_mysql_list_shares(conn)
+        _run_mysql_recipes_db(conn)
+        _run_mysql_ar_tables(conn)
+        _run_mysql_ar_hearts(conn)
         conn.commit()
 
     print("Migration complete.")
@@ -474,6 +477,139 @@ def _run_mysql_list_shares(conn) -> None:
         conn.execute(text("CREATE INDEX ix_list_shares_list_id ON list_shares(list_id)"))
     if not _index_exists(conn, "list_shares", "ix_list_shares_shared_with_id"):
         conn.execute(text("CREATE INDEX ix_list_shares_shared_with_id ON list_shares(shared_with_id)"))
+
+
+def _run_mysql_recipes_db(conn) -> None:
+    if not _table_exists(conn, "recipes_db"):
+        conn.execute(text("""
+            CREATE TABLE recipes_db (
+                id                  VARCHAR(36)  NOT NULL PRIMARY KEY,
+                slug                VARCHAR(255) NOT NULL UNIQUE,
+                name                VARCHAR(500) NOT NULL,
+                image_url           TEXT         NULL,
+                recipe_url          TEXT         NOT NULL,
+                source_category_url TEXT         NULL,
+                processed           TINYINT(1)   NOT NULL DEFAULT 0,
+                scraped_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+    else:
+        # Add source_category_url column if missing (existing installs)
+        if not _col_exists(conn, "recipes_db", "source_category_url"):
+            conn.execute(text("""
+                ALTER TABLE recipes_db ADD COLUMN source_category_url TEXT NULL
+            """))
+        # Add ignored column if missing (existing installs)
+        if not _col_exists(conn, "recipes_db", "ignored"):
+            conn.execute(text("""
+                ALTER TABLE recipes_db ADD COLUMN ignored TINYINT(1) NOT NULL DEFAULT 0
+            """))
+    if not _index_exists(conn, "recipes_db", "ix_recipes_db_ignored"):
+        conn.execute(text("CREATE INDEX ix_recipes_db_ignored ON recipes_db(ignored)"))
+    if not _index_exists(conn, "recipes_db", "ix_recipes_db_slug"):
+        conn.execute(text("CREATE INDEX ix_recipes_db_slug ON recipes_db(slug)"))
+    if not _index_exists(conn, "recipes_db", "ix_recipes_db_processed"):
+        conn.execute(text("CREATE INDEX ix_recipes_db_processed ON recipes_db(processed)"))
+
+
+def _run_mysql_ar_tables(conn) -> None:
+    """Create normalized AllRecipes tables: ar_recipes, ar_ingredients, ar_steps, ar_tags, ar_recipe_tags."""
+    if not _table_exists(conn, "ar_recipes"):
+        conn.execute(text("""
+            CREATE TABLE ar_recipes (
+                id           VARCHAR(36)   NOT NULL PRIMARY KEY,
+                recipe_db_id VARCHAR(36)   NOT NULL UNIQUE,
+                name         VARCHAR(500)  NOT NULL,
+                description  TEXT          NULL,
+                image_url    TEXT          NULL,
+                prep_mins    SMALLINT      NULL,
+                cook_mins    SMALLINT      NULL,
+                total_mins   SMALLINT      NULL,
+                servings     SMALLINT      NULL,
+                calories     SMALLINT      NULL,
+                fat_g        DECIMAL(6,1)  NULL,
+                carbs_g      DECIMAL(6,1)  NULL,
+                protein_g    DECIMAL(6,1)  NULL,
+                fetched_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+    for idx, col in [
+        ("ix_ar_recipes_recipe_db_id", "recipe_db_id"),
+        ("ix_ar_recipes_name",         "name"),
+        ("ix_ar_recipes_total_mins",   "total_mins"),
+        ("ix_ar_recipes_calories",     "calories"),
+    ]:
+        if not _index_exists(conn, "ar_recipes", idx):
+            conn.execute(text(f"CREATE INDEX {idx} ON ar_recipes({col})"))
+
+    if not _table_exists(conn, "ar_ingredients"):
+        conn.execute(text("""
+            CREATE TABLE ar_ingredients (
+                id         INT UNSIGNED  NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                recipe_id  VARCHAR(36)   NOT NULL,
+                sort_order TINYINT       NOT NULL DEFAULT 0,
+                raw_text   VARCHAR(500)  NOT NULL
+            )
+        """))
+    if not _index_exists(conn, "ar_ingredients", "ix_ar_ingredients_recipe_id"):
+        conn.execute(text("CREATE INDEX ix_ar_ingredients_recipe_id ON ar_ingredients(recipe_id)"))
+
+    if not _table_exists(conn, "ar_steps"):
+        conn.execute(text("""
+            CREATE TABLE ar_steps (
+                id          INT UNSIGNED  NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                recipe_id   VARCHAR(36)   NOT NULL,
+                step_number TINYINT       NOT NULL,
+                instruction TEXT          NOT NULL
+            )
+        """))
+    if not _index_exists(conn, "ar_steps", "ix_ar_steps_recipe_id"):
+        conn.execute(text("CREATE INDEX ix_ar_steps_recipe_id ON ar_steps(recipe_id)"))
+
+    if not _table_exists(conn, "ar_tags"):
+        conn.execute(text("""
+            CREATE TABLE ar_tags (
+                id       INT UNSIGNED  NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                slug     VARCHAR(100)  NOT NULL UNIQUE,
+                name     VARCHAR(100)  NOT NULL,
+                tag_type VARCHAR(20)   NOT NULL DEFAULT 'other'
+            )
+        """))
+    for idx, col in [
+        ("ix_ar_tags_slug",     "slug"),
+        ("ix_ar_tags_tag_type", "tag_type"),
+    ]:
+        if not _index_exists(conn, "ar_tags", idx):
+            conn.execute(text(f"CREATE INDEX {idx} ON ar_tags({col})"))
+
+    if not _table_exists(conn, "ar_recipe_tags"):
+        conn.execute(text("""
+            CREATE TABLE ar_recipe_tags (
+                recipe_id VARCHAR(36)   NOT NULL,
+                tag_id    INT UNSIGNED  NOT NULL,
+                PRIMARY KEY (recipe_id, tag_id)
+            )
+        """))
+    if not _index_exists(conn, "ar_recipe_tags", "ix_ar_recipe_tags_tag_id"):
+        conn.execute(text("CREATE INDEX ix_ar_recipe_tags_tag_id ON ar_recipe_tags(tag_id)"))
+
+
+def _run_mysql_ar_hearts(conn) -> None:
+    """Create ar_recipe_hearts table (user favourites)."""
+    if not _table_exists(conn, "ar_recipe_hearts"):
+        conn.execute(text("""
+            CREATE TABLE ar_recipe_hearts (
+                id         VARCHAR(36)  NOT NULL PRIMARY KEY,
+                user_id    VARCHAR(36)  NOT NULL,
+                recipe_id  VARCHAR(36)  NOT NULL,
+                hearted_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_ar_recipe_hearts_user_recipe (user_id, recipe_id)
+            )
+        """))
+    if not _index_exists(conn, "ar_recipe_hearts", "ix_ar_recipe_hearts_user_id"):
+        conn.execute(text("CREATE INDEX ix_ar_recipe_hearts_user_id ON ar_recipe_hearts(user_id)"))
+    if not _index_exists(conn, "ar_recipe_hearts", "ix_ar_recipe_hearts_recipe_id"):
+        conn.execute(text("CREATE INDEX ix_ar_recipe_hearts_recipe_id ON ar_recipe_hearts(recipe_id)"))
 
 
 if __name__ == "__main__":
