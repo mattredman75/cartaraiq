@@ -13,6 +13,7 @@ Supported categories: breakfast | lunch | dinner | dessert
 import re
 import time
 import base64
+import html as _html
 from datetime import datetime
 from typing import Optional
 import logging
@@ -226,7 +227,7 @@ def _parse_recipe(r: dict) -> Recipe:
     return Recipe(
         id=str(r.get("recipe_id", "")),
         name=r.get("recipe_name", "Untitled Recipe"),
-        description=r.get("recipe_description", ""),
+        description=_html.unescape(r.get("recipe_description", "")),
         image_url=r.get("recipe_image") or None,
         recipe_types=_parse_recipe_types(r),
         ingredients=_parse_ingredients(r),
@@ -247,7 +248,7 @@ def _parse_directions(recipe_data: dict) -> list[str]:
     # Each direction has direction_number and direction_description
     steps = sorted(raw, key=lambda d: int(d.get("direction_number", 0)))
     return [
-        step.get("direction_description", "").strip()
+        _html.unescape(step.get("direction_description", "").strip())
         for step in steps
         if step.get("direction_description")
     ]
@@ -513,7 +514,7 @@ def _parse_ar_recipe_page(html: str, url: str) -> ARDetailedRecipe:
                 t = item.get("@type", "")
                 if t == "Recipe" or (isinstance(t, list) and "Recipe" in t):
                     if not description and item.get("description"):
-                        description = _scrub_brand(item["description"])
+                        description = _scrub_brand(_html.unescape(item["description"]))
                     cats = item.get("recipeCategory", [])
                     if isinstance(cats, str):
                         cats = [cats]
@@ -1733,7 +1734,7 @@ def get_recipe_detail(recipe_id: str, current_user: User = Depends(get_current_u
     return RecipeDetail(
         id=str(r.get("recipe_id", recipe_id)),
         name=r.get("recipe_name", "Untitled Recipe"),
-        description=r.get("recipe_description", ""),
+        description=_html.unescape(r.get("recipe_description", "")),
         image_url=image_url,
         recipe_types=recipe_types,
         ingredients=ingredients,
