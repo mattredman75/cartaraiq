@@ -5,8 +5,7 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
-  Alert,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,6 +43,11 @@ export function ItemActionDrawer({
   onRemoveFromGroup,
 }: ItemActionDrawerProps) {
   const insets = useSafeAreaInsets();
+  const [showGroupPicker, setShowGroupPicker] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!visible) setShowGroupPicker(false);
+  }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -144,38 +148,112 @@ export function ItemActionDrawer({
             <>
               {/* Add to existing group */}
               {groups.length > 0 && onAddToGroup && (
-                <TouchableOpacity
-                  onPress={() => {
-                    Alert.alert("Add to group", "Choose a group", [
-                      ...groups.map((g) => ({
-                        text: g.name,
-                        onPress: () => {
-                          onClose();
-                          onAddToGroup(g.id, g.name);
-                        },
-                      })),
-                      { text: "Cancel", style: "cancel" as const },
-                    ]);
-                  }}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: BORDER,
-                    borderRadius: 14,
-                    paddingVertical: 16,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 12,
-                    gap: 8,
-                  }}
-                >
-                  <Ionicons name="folder-open-outline" size={16} color={TEAL} />
-                  <Text
-                    style={{ fontSize: 16, fontWeight: "600", color: TEAL }}
+                <>
+                  <TouchableOpacity
+                    onPress={() => setShowGroupPicker((prev) => !prev)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: BORDER,
+                      borderRadius: 14,
+                      paddingVertical: 16,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 12,
+                      gap: 8,
+                    }}
                   >
-                    Add to group
-                  </Text>
-                </TouchableOpacity>
+                    <Ionicons
+                      name="folder-open-outline"
+                      size={16}
+                      color={TEAL}
+                    />
+                    <Text
+                      style={{ fontSize: 16, fontWeight: "600", color: TEAL }}
+                    >
+                      Add to group
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showGroupPicker && (
+                    <View
+                      style={{
+                        borderWidth: 1,
+                        borderColor: TEAL,
+                        borderRadius: 14,
+                        padding: 12,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "700",
+                          color: TEAL,
+                          marginBottom: 10,
+                        }}
+                      >
+                        Choose a group
+                      </Text>
+
+                      <ScrollView
+                        style={{ maxHeight: 220 }}
+                        contentContainerStyle={{ gap: 8 }}
+                        showsVerticalScrollIndicator
+                      >
+                        {groups.map((g) => (
+                          <TouchableOpacity
+                            key={g.id}
+                            onPress={() => {
+                              setShowGroupPicker(false);
+                              onClose();
+                              onAddToGroup(g.id, g.name);
+                            }}
+                            style={{
+                              backgroundColor: TEAL,
+                              borderRadius: 10,
+                              paddingVertical: 12,
+                              paddingHorizontal: 12,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 15,
+                                fontWeight: "600",
+                                color: "#fff",
+                              }}
+                              numberOfLines={1}
+                            >
+                              {g.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+
+                      <TouchableOpacity
+                        onPress={() => setShowGroupPicker(false)}
+                        style={{
+                          marginTop: 10,
+                          borderWidth: 1,
+                          borderColor: BORDER,
+                          borderRadius: 10,
+                          paddingVertical: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: MUTED,
+                          }}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
               )}
 
               {/* Create new group */}
