@@ -71,6 +71,8 @@ function AuthGate() {
   const [statusChecked, setStatusChecked] = useState(false);
   const pendingInviteProcessed = useRef(false);
   const handledShareUrl = useRef<string | null>(null);
+  // Stable ref so the deep-link effect never re-runs due to router identity change
+  const handleShareUrlRef = useRef<(url: string | null) => Promise<void>>(() => Promise.resolve());
 
   // Handle maintenance updates from silent push
   const onMaintenanceUpdate = useCallback(
@@ -151,15 +153,20 @@ function AuthGate() {
     [router],
   );
 
-  // Capture cold-start deep links
+  // Keep the ref in sync with the latest version of the callback
+  handleShareUrlRef.current = handleShareUrl;
+
+  // Capture cold-start deep links — runs ONCE on mount only (no deps)
+  // Uses ref so it always calls the latest handleShareUrl without re-registering
   useEffect(() => {
     Linking.getInitialURL().then((url) => {
-      if (url) handleShareUrl(url);
+      if (url) handleShareUrlRef.current(url);
     });
 
-    const sub = Linking.addEventListener("url", (e) => handleShareUrl(e.url));
+    const sub = Linking.addEventListener("url", (e) => handleShareUrlRef.current(e.url));
     return () => sub.remove();
-  }, [handleShareUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // When user becomes authenticated, process any pending invite.
   // When user logs out, wipe cache and selected list so the next user
