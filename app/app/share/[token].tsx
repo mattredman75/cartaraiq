@@ -74,7 +74,7 @@ const SunRays = ({ screenWidth }: { screenWidth: number }) => {
             r={SUN_FADE_RADIUS}
             gradientUnits="userSpaceOnUse"
           >
-            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.5" />
+            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.4" />
             <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
           </RadialGradient>
         </Defs>
