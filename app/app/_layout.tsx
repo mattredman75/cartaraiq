@@ -1,6 +1,6 @@
 import "../global.css";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import {
   QueryClient,
   QueryClientProvider,
@@ -202,7 +202,20 @@ function AuthGate() {
     );
   }
 
-  return <Slot />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(app)" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen
+        name="share/[token]"
+        options={{
+          presentation: "transparentModal",
+          animation: "slide_from_bottom",
+          headerShown: false,
+        }}
+      />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
