@@ -50,6 +50,7 @@ interface ItemRowProps {
   drag?: () => void;
   isActive?: boolean;
   inGroup?: boolean;
+  squareTopCorners?: boolean;
   isHoverTarget?: boolean;
 }
 
@@ -61,6 +62,7 @@ function ItemRowInner({
   drag,
   isActive,
   inGroup = false,
+  squareTopCorners = false,
   isHoverTarget = false,
 }: ItemRowProps) {
   const { dragDirection, setDragDirection } =
@@ -213,7 +215,10 @@ function ItemRowInner({
       style={[
         itemAnimStyle,
         {
-          borderRadius: 4,
+          borderTopLeftRadius: squareTopCorners ? 0 : 4,
+          borderTopRightRadius: squareTopCorners ? 0 : 4,
+          borderBottomLeftRadius: 4,
+          borderBottomRightRadius: 4,
           shadowColor: "#000",
           shadowOffset: isActive
             ? { width: 0, height: 8 }
@@ -237,7 +242,10 @@ function ItemRowInner({
             left: 0,
             right: 0,
             bottom: 0,
-            borderRadius: 4,
+            borderTopLeftRadius: squareTopCorners ? 0 : 4,
+            borderTopRightRadius: squareTopCorners ? 0 : 4,
+            borderBottomLeftRadius: 4,
+            borderBottomRightRadius: 4,
             borderWidth: 2.5,
             borderColor: hoverBorderColor,
             zIndex: 10,
@@ -258,157 +266,160 @@ function ItemRowInner({
       >
         <View
           style={{
-            borderRadius: 4,
+            borderTopLeftRadius: squareTopCorners ? 0 : 4,
+            borderTopRightRadius: squareTopCorners ? 0 : 4,
+            borderBottomLeftRadius: 4,
+            borderBottomRightRadius: 4,
             overflow: "hidden",
             borderWidth: 1,
             borderColor: "#C5D5D9",
           }}
         >
-        {/* Red delete zone — full width, label pinned to right */}
-        <TouchableOpacity
-          onPress={confirmDelete}
-          activeOpacity={1}
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-            backgroundColor: "#EF4444",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            paddingRight: 14,
-          }}
-        >
-          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-            Delete
-          </Text>
-        </TouchableOpacity>
-
-        {/* Swipeable row content */}
-        <GestureDetector gesture={swipeGesture}>
-          <Reanimated.View
-            style={[
-              swipeableAnimStyle,
-              {
-                backgroundColor: isActive ? "#F0F8FA" : CARD,
-                paddingVertical: 12,
-                paddingHorizontal: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-              },
-            ]}
+          {/* Red delete zone — full width, label pinned to right */}
+          <TouchableOpacity
+            onPress={confirmDelete}
+            activeOpacity={1}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              backgroundColor: "#EF4444",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              paddingRight: 14,
+            }}
           >
-            {/* Left zone: checkbox + name */}
-            <TouchableOpacity
-              onPress={onToggle}
-              onLongPress={onLongPress}
-              delayLongPress={400}
-              activeOpacity={0.7}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <View
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 13,
-                  borderWidth: 2,
-                  borderColor: item.checked === 1 ? TEAL : BORDER,
-                  backgroundColor: item.checked === 1 ? TEAL : "transparent",
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+              Delete
+            </Text>
+          </TouchableOpacity>
+
+          {/* Swipeable row content */}
+          <GestureDetector gesture={swipeGesture}>
+            <Reanimated.View
+              style={[
+                swipeableAnimStyle,
+                {
+                  backgroundColor: isActive ? "#F0F8FA" : CARD,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  flexDirection: "row",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: 12,
+                },
+              ]}
+            >
+              {/* Left zone: checkbox + name */}
+              <TouchableOpacity
+                onPress={onToggle}
+                onLongPress={onLongPress}
+                delayLongPress={400}
+                activeOpacity={0.7}
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
                 }}
               >
-                {item.checked === 1 && (
-                  <Text
-                    style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}
-                  >
-                    ✓
-                  </Text>
-                )}
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text
+                <View
                   style={{
-                    fontSize: 15,
-                    fontWeight: "600",
-                    color: item.checked === 1 ? MUTED : TEXT,
-                    textDecorationLine:
-                      item.checked === 1 ? "line-through" : "none",
-                    flexShrink: 1,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    borderWidth: 2,
+                    borderColor: item.checked === 1 ? TEAL : BORDER,
+                    backgroundColor: item.checked === 1 ? TEAL : "transparent",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {item.unit
-                    ? item.name
-                    : item.quantity > 1
-                      ? `${item.quantity} ${item.name}`
-                      : item.name}
-                </Text>
-                {!!item.unit && (
-                  <Text
-                    style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}
-                  >
-                    {`${Math.max(1, item.quantity)} ${item.unit}`}
-                  </Text>
-                )}
-                {false && item.times_added > 3 && (
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    Added {item.times_added}× before
-                  </Text>
-                )}
-                {item.added_by_name && (
-                  <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                    Added by {item.added_by_name}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
+                  {item.checked === 1 && (
+                    <Text
+                      style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}
+                    >
+                      ✓
+                    </Text>
+                  )}
+                </View>
 
-            {/* Drag handle — only for unchecked items */}
-            {drag && (
-              <TouchableOpacity
-                onLongPress={drag}
-                delayLongPress={100}
-                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                style={{ paddingLeft: 4 }}
-              >
-                <View style={{ gap: 3 }}>
-                  <View
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 16,
-                      height: 2,
-                      backgroundColor: BORDER,
-                      borderRadius: 1,
+                      fontSize: 15,
+                      fontWeight: "600",
+                      color: item.checked === 1 ? MUTED : TEXT,
+                      textDecorationLine:
+                        item.checked === 1 ? "line-through" : "none",
+                      flexShrink: 1,
                     }}
-                  />
-                  <View
-                    style={{
-                      width: 16,
-                      height: 2,
-                      backgroundColor: BORDER,
-                      borderRadius: 1,
-                    }}
-                  />
-                  <View
-                    style={{
-                      width: 16,
-                      height: 2,
-                      backgroundColor: BORDER,
-                      borderRadius: 1,
-                    }}
-                  />
+                  >
+                    {item.unit
+                      ? item.name
+                      : item.quantity > 1
+                        ? `${item.quantity} ${item.name}`
+                        : item.name}
+                  </Text>
+                  {!!item.unit && (
+                    <Text
+                      style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}
+                    >
+                      {`${Math.max(1, item.quantity)} ${item.unit}`}
+                    </Text>
+                  )}
+                  {false && item.times_added > 3 && (
+                    <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
+                      Added {item.times_added}× before
+                    </Text>
+                  )}
+                  {item.added_by_name && (
+                    <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
+                      Added by {item.added_by_name}
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
-            )}
-          </Reanimated.View>
-        </GestureDetector>
+
+              {/* Drag handle — only for unchecked items */}
+              {drag && (
+                <TouchableOpacity
+                  onLongPress={drag}
+                  delayLongPress={100}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  style={{ paddingLeft: 4 }}
+                >
+                  <View style={{ gap: 3 }}>
+                    <View
+                      style={{
+                        width: 16,
+                        height: 2,
+                        backgroundColor: BORDER,
+                        borderRadius: 1,
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 16,
+                        height: 2,
+                        backgroundColor: BORDER,
+                        borderRadius: 1,
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 16,
+                        height: 2,
+                        backgroundColor: BORDER,
+                        borderRadius: 1,
+                      }}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </Reanimated.View>
+          </GestureDetector>
         </View>
       </View>
     </Reanimated.View>
@@ -426,6 +437,7 @@ export const ItemRow = React.memo(
     prev.item.group_id === next.item.group_id &&
     prev.item.sort_order === next.item.sort_order &&
     prev.inGroup === next.inGroup &&
+    prev.squareTopCorners === next.squareTopCorners &&
     Boolean(prev.drag) === Boolean(next.drag) &&
     prev.isActive === next.isActive &&
     prev.isHoverTarget === next.isHoverTarget,

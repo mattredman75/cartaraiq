@@ -595,7 +595,7 @@ export default function ListScreen() {
               onRename={() => handleRenameGroup(entry.group)}
               onDissolve={() => handleDissolveGroup(entry.group.id)}
             />
-            {entry.items.map((groupItem) => (
+            {entry.items.map((groupItem, index) => (
               <ItemRow
                 key={groupItem.id}
                 item={groupItem}
@@ -607,6 +607,7 @@ export default function ListScreen() {
                 onLongPress={() => handleLongPress(groupItem)}
                 isActive={false}
                 inGroup
+                squareTopCorners={index === 0}
               />
             ))}
           </View>
