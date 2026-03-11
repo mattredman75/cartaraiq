@@ -19,6 +19,7 @@ import Constants from "expo-constants";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../../lib/store";
+import { sanitizeAvatarUrl } from "../../lib/constants";
 import {
   updateMe,
   setupBiometric,
@@ -204,7 +205,7 @@ export default function SettingsScreen() {
     isPinEnabled().then(setPinEnabledState);
 
     // Load avatar — prefer server URL stored on the user object, fall back to local cache
-    const serverAvatar = user?.avatar_url;
+    const serverAvatar = sanitizeAvatarUrl(user?.avatar_url);
     if (serverAvatar) {
       setAvatarUri(serverAvatar);
     } else {
@@ -1008,7 +1009,7 @@ export default function SettingsScreen() {
                           >
                             {share.shared_with_avatar_url ? (
                               <Image
-                                source={{ uri: share.shared_with_avatar_url }}
+                                source={{ uri: sanitizeAvatarUrl(share.shared_with_avatar_url) }}
                                 style={{
                                   width: 34,
                                   height: 34,

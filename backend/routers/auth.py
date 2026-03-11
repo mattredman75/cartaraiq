@@ -394,7 +394,7 @@ async def upload_avatar(
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    avatar_url = f"{settings.app_base_url}/uploads/avatars/{filename}"
+    avatar_url = f"{settings.server_url}/uploads/avatars/{filename}"
     current_user.avatar_url = avatar_url
     db.commit()
     db.refresh(current_user)

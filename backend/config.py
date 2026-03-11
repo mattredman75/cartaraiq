@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     fat_secret_api_secret: str = ""
     cors_extra_origins: str = ""
     app_base_url: str = "https://cartaraiq.app"
+    # URL the server is reachable at for serving static files (avatars, uploads).
+    # Separate from app_base_url which may use a custom scheme (cartaraiq://) for deep links.
+    server_url: str = "https://cartaraiq.app"
 
     class Config:
         env_file = ".env"

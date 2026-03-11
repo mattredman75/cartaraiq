@@ -17,6 +17,7 @@ import {
   declineListInvite,
 } from "../../lib/api";
 import { setItem } from "../../lib/storage";
+import { sanitizeAvatarUrl } from "../../lib/constants";
 
 const TEAL_DARK = "#0D4F5C";
 const LIST_GREEN = "#27AE60";
@@ -127,7 +128,7 @@ export default function ShareAcceptScreen() {
     <View style={styles.avatarRing}>
       {preview?.owner_avatar_url ? (
         <Image
-          source={{ uri: preview.owner_avatar_url }}
+          source={{ uri: sanitizeAvatarUrl(preview.owner_avatar_url) }}
           style={styles.avatarImage}
         />
       ) : (
