@@ -248,6 +248,118 @@ struct CartaraIQWidgetProvider: AppIntentTimelineProvider {
 
 // MARK: - Views
 
+// MARK: - Lock Screen Views
+
+struct AccessoryRectangularView: View {
+  var entry: CartaraIQWidgetEntry
+
+  var unchecked: [WidgetItem] { entry.items.filter { $0.checked == 0 } }
+  var remaining: Int { entry.items.filter { $0.checked == 0 }.count }
+
+  var body: some View {
+    if entry.maintenance {
+      VStack(alignment: .leading, spacing: 2) {
+        Text("CartaraIQ")
+          .font(.system(size: 13, weight: .bold))
+          .widgetAccentable()
+        Text("Under Maintenance")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+      }
+    } else if !entry.hasData || entry.items.isEmpty {
+      VStack(alignment: .leading, spacing: 2) {
+        Text("CartaraIQ")
+          .font(.system(size: 13, weight: .bold))
+          .widgetAccentable()
+        Text(remaining == 0 && entry.hasData ? "All done!" : "Open app to sync")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+      }
+    } else {
+      VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 4) {
+          Text(entry.listName)
+            .font(.system(size: 13, weight: .bold))
+            .lineLimit(1)
+            .widgetAccentable()
+          Spacer()
+          if remaining > 0 {
+            Text("\(remaining) left")
+              .font(.system(size: 11))
+              .foregroundColor(.secondary)
+          }
+        }
+        ForEach(Array(unchecked.prefix(2))) { item in
+          HStack(spacing: 4) {
+            Circle()
+              .stroke(Color.primary.opacity(0.5), lineWidth: 1)
+              .frame(width: 8, height: 8)
+            Text(item.name)
+              .font(.system(size: 12))
+              .lineLimit(1)
+            Spacer()
+          }
+        }
+        if unchecked.count > 2 {
+          Text("+\(unchecked.count - 2) more")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+        } else if unchecked.isEmpty {
+          Text("All done! ✓")
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+        }
+      }
+    }
+  }
+}
+
+struct AccessoryCircularView: View {
+  var entry: CartaraIQWidgetEntry
+
+  var remaining: Int { entry.items.filter { $0.checked == 0 }.count }
+
+  var body: some View {
+    ZStack {
+      if entry.maintenance {
+        VStack(spacing: 0) {
+          Image(systemName: "wrench.and.screwdriver")
+            .font(.system(size: 14))
+          Text("Maint.")
+            .font(.system(size: 9))
+        }
+        .widgetAccentable()
+      } else if !entry.hasData {
+        VStack(spacing: 0) {
+          Image(systemName: "cart")
+            .font(.system(size: 16))
+            .widgetAccentable()
+          Text("Sync")
+            .font(.system(size: 9))
+        }
+      } else if remaining == 0 {
+        VStack(spacing: 0) {
+          Image(systemName: "checkmark.circle")
+            .font(.system(size: 18))
+            .widgetAccentable()
+          Text("Done")
+            .font(.system(size: 9))
+        }
+      } else {
+        VStack(spacing: 0) {
+          Text("\(remaining)")
+            .font(.system(size: 26, weight: .bold))
+            .widgetAccentable()
+          Text("left")
+            .font(.system(size: 10))
+        }
+      }
+    }
+  }
+}
+
+// MARK: - Main Widget View
+
 struct CartaraIQWidgetEntryView: View {
   var entry: CartaraIQWidgetEntry
   @Environment(\.widgetFamily) var family
@@ -267,6 +379,16 @@ struct CartaraIQWidgetEntryView: View {
   var remainingCount: Int { max(0, unchecked.count - visibleItems.count) }
 
   var body: some View {
+    // Lock screen families get dedicated compact views
+    if family == .accessoryRectangular {
+      AccessoryRectangularView(entry: entry)
+      return
+    }
+    if family == .accessoryCircular {
+      AccessoryCircularView(entry: entry)
+      return
+    }
+
     VStack(alignment: .leading, spacing: 0) {
 
       // Header row: app name top-left, count top-right
@@ -416,6 +538,6 @@ struct CartaraIQWidget: Widget {
     .contentMarginsDisabled()
     .configurationDisplayName("Shopping List")
     .description("Choose a list and see your items at a glance.")
-    .supportedFamilies([.systemSmall, .systemMedium])
+    .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryCircular])
   }
 }
