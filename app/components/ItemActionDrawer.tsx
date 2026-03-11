@@ -235,7 +235,8 @@ export function ItemActionDrawer({
                         style={{
                           marginTop: 10,
                           borderWidth: 1,
-                          borderColor: BORDER,
+                          borderColor: "#EF4444",
+                          backgroundColor: "#EF4444",
                           borderRadius: 10,
                           paddingVertical: 10,
                           alignItems: "center",
@@ -245,7 +246,7 @@ export function ItemActionDrawer({
                           style={{
                             fontSize: 14,
                             fontWeight: "600",
-                            color: MUTED,
+                            color: "#fff",
                           }}
                         >
                           Cancel
