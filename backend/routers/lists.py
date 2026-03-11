@@ -971,6 +971,7 @@ def update_item(
 
     # Shared lists are collaborative: any accepted member can update items.
     _has_list_access(db, item.list_id, current_user.id)
+    original_group_id = item.group_id
 
     if payload.name is not None:
         item.name = payload.name
@@ -989,12 +990,34 @@ def update_item(
         item.sort_order = (min_order - 1) if min_order is not None else 0
     elif payload.sort_order is not None:
         item.sort_order = payload.sort_order
+
+    explicit_group_update = False
     if payload.group_id is not None:
         # Explicit group assignment (empty string = ungroup)
+        explicit_group_update = True
         item.group_id = payload.group_id if payload.group_id else None
-    elif hasattr(payload, '__fields_set__') and 'group_id' in payload.__fields_set__:
-        # group_id was explicitly passed as null — ungroup
+    elif 'group_id' in (
+        getattr(payload, 'model_fields_set', None)
+        or getattr(payload, '__pydantic_fields_set__', None)
+        or getattr(payload, '__fields_set__', set())
+    ):
+        # group_id was explicitly passed as null — ungroup (Pydantic v2: model_fields_set)
+        explicit_group_update = True
         item.group_id = None
+
+    if (
+        explicit_group_update
+        and original_group_id is not None
+        and item.group_id is None
+        and item.checked == 0
+    ):
+        # Removing from a group must place the item first in the active list.
+        min_order = db.query(sqlfunc.min(ListItem.sort_order)).filter(
+            ListItem.list_id == item.list_id,
+            ListItem.checked == 0,
+            ListItem.id != item.id,
+        ).scalar()
+        item.sort_order = (min_order - 1) if min_order is not None else 0
 
     db.commit()
     db.refresh(item)

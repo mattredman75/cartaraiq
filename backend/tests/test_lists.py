@@ -2,6 +2,7 @@
 
 import pytest
 from backend.tests.conftest import auth_headers, make_item, make_list, make_user
+from backend.models.item_group import ItemGroup
 
 
 class TestListGroups:
@@ -134,6 +135,38 @@ class TestListItems:
         }, headers=headers)
         assert resp.status_code == 200
         assert resp.json()["name"] == "Sourdough Bread"
+
+    def test_remove_from_group_moves_item_to_top(self, client, db):
+        user = make_user(db)
+        lst = make_list(db, user.id)
+        first_item = make_item(db, user.id, lst.id, name="First", sort_order=0)
+        grouped_item = make_item(db, user.id, lst.id, name="Grouped", sort_order=3)
+
+        group = ItemGroup(
+            list_id=lst.id,
+            user_id=user.id,
+            name="Produce",
+            sort_order=1,
+        )
+        db.add(group)
+        db.commit()
+        db.refresh(group)
+
+        grouped_item.group_id = group.id
+        db.commit()
+        db.refresh(grouped_item)
+
+        headers = auth_headers(user)
+        resp = client.patch(
+            f"/lists/items/{grouped_item.id}",
+            json={"group_id": ""},
+            headers=headers,
+        )
+
+        assert resp.status_code == 200
+        db.refresh(grouped_item)
+        assert grouped_item.group_id is None
+        assert grouped_item.sort_order < first_item.sort_order
 
     def test_update_other_users_item_404(self, client, db):
         user1 = make_user(db, email="a@a.com")

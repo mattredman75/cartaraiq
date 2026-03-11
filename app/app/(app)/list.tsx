@@ -18,7 +18,7 @@ import DraggableFlatList, {
   RenderItemParams,
 } from "react-native-draggable-flatlist";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getItem } from "../../lib/storage";
+import { getItem, setItem } from "../../lib/storage";
 import { useAuthStore, useListStore } from "../../lib/store";
 import {
   reorderListGrouped,
@@ -192,6 +192,14 @@ export default function ListScreen() {
   const { dismissedUntil, dismissSuggestion } = useDismissedSuggestions(
     user?.id,
   );
+  const safeUserStorageSuffix = (user?.id ?? "").replace(
+    /[^0-9A-Za-z._-]/g,
+    "_",
+  );
+  const lastListStorageKey =
+    safeUserStorageSuffix.length > 0
+      ? `last_list_id_${safeUserStorageSuffix}`
+      : "last_list_id";
   const listId = currentList?.id;
 
   const {
@@ -238,9 +246,51 @@ export default function ListScreen() {
   );
 
   useEffect(() => {
-    if (!currentList && shoppingLists.length > 0)
-      setCurrentList(shoppingLists[0]);
-  }, [shoppingLists, currentList]);
+    if (!currentList || shoppingLists.length === 0) return;
+    const stillExists = shoppingLists.some(
+      (list) => list.id === currentList.id,
+    );
+    if (!stillExists) {
+      setCurrentList(shoppingLists[0] ?? null);
+    }
+  }, [shoppingLists, currentList, setCurrentList]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreCurrentList = async () => {
+      if (currentList || shoppingLists.length === 0) return;
+
+      const savedListId = await getItem(lastListStorageKey);
+      if (cancelled) return;
+      if (useListStore.getState().currentList) return;
+
+      const savedList = savedListId
+        ? shoppingLists.find((list) => list.id === savedListId)
+        : null;
+      const fallbackList = shoppingLists[0] ?? null;
+      const nextList = savedList ?? fallbackList;
+
+      if (nextList) {
+        setCurrentList(nextList);
+      }
+
+      if (!savedList && fallbackList) {
+        setItem(lastListStorageKey, fallbackList.id).catch(() => {});
+      }
+    };
+
+    restoreCurrentList();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shoppingLists, currentList, setCurrentList, lastListStorageKey]);
+
+  useEffect(() => {
+    if (!currentList?.id) return;
+    setItem(lastListStorageKey, currentList.id).catch(() => {});
+  }, [currentList?.id, lastListStorageKey]);
 
   // Keep the iOS home-screen widget in sync with the current list
   useEffect(() => {
@@ -646,6 +696,8 @@ export default function ListScreen() {
                 handleGroupItemsReorder(entry.group.id, data)
               }
               activationDistance={24}
+              autoscrollThreshold={10}
+              autoscrollSpeed={75}
               renderItem={({
                 item: groupItem,
                 drag: groupDrag,
@@ -826,6 +878,9 @@ export default function ListScreen() {
                 extraData={flatData}
                 renderItem={renderDraggableItem}
                 onDragEnd={handleDragEnd}
+                activationDistance={24}
+                autoscrollThreshold={10}
+                autoscrollSpeed={85}
                 refreshControl={
                   <RefreshControl
                     refreshing={isPullRefreshing}
