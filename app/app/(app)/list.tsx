@@ -493,7 +493,7 @@ export default function ListScreen() {
     const rebased = rebaseGroupedData(data);
     const { items: itemsPayload, groups: groupsPayload } =
       deriveReorderPayload(rebased);
-    // Optimistic update
+    // Optimistic update — items
     qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
       const updated = itemsPayload.reduce(
         (map, p) => {
@@ -515,6 +515,21 @@ export default function ListScreen() {
           : i,
       );
     });
+    // Optimistic update — group sort_orders (so group position snaps
+    // immediately rather than reverting until the network round-trip)
+    if (groupsPayload.length > 0) {
+      qc.setQueryData<ItemGroup[]>(["itemGroups", listId], (old = []) => {
+        const updatedGroups = groupsPayload.reduce(
+          (map, g) => { map[g.id] = g.sort_order; return map; },
+          {} as Record<string, number>,
+        );
+        return old.map((g) =>
+          updatedGroups[g.id] !== undefined
+            ? { ...g, sort_order: updatedGroups[g.id] }
+            : g,
+        );
+      });
+    }
     reorderListGrouped(listId!, itemsPayload, groupsPayload).catch(() => {
       qc.invalidateQueries({ queryKey: ["listItems", listId] });
       qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
@@ -799,6 +814,7 @@ export default function ListScreen() {
               <DraggableFlatList
                 data={flatData}
                 keyExtractor={(entry) => entry.id}
+                extraData={flatData}
                 renderItem={renderDraggableItem}
                 onDragEnd={handleDragEnd}
                 renderPlaceholder={() => <DragPlaceholder />}
