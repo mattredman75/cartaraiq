@@ -293,6 +293,10 @@ export default function ListScreen() {
     queryKey: ["itemGroups", listId],
     queryFn: () => fetchItemGroups(listId!).then((r) => r.data),
     enabled: !!listId,
+    // Keep previous group data while refetching to prevent grouped items
+    // from briefly flashing as standalone during the listItems/itemGroups
+    // dual-refetch race.
+    placeholderData: (prev) => prev,
   });
   const flatData = useMemo(
     () => buildFlatData(unchecked, groups),
@@ -520,7 +524,10 @@ export default function ListScreen() {
     if (groupsPayload.length > 0) {
       qc.setQueryData<ItemGroup[]>(["itemGroups", listId], (old = []) => {
         const updatedGroups = groupsPayload.reduce(
-          (map, g) => { map[g.id] = g.sort_order; return map; },
+          (map, g) => {
+            map[g.id] = g.sort_order;
+            return map;
+          },
           {} as Record<string, number>,
         );
         return old.map((g) =>
@@ -669,7 +676,11 @@ export default function ListScreen() {
           }}
           onDelete={() => handleDelete(item)}
           onLongPress={() => handleLongPress(item)}
-          drag={drag}
+          // Grouped items must not be individually draggable — only the group
+          // header drags the whole block. Passing drag to grouped items lets
+          // them be pulled out of the group, which rebaseGroupedData then
+          // snaps back, causing a jarring visual glitch.
+          drag={entry.inGroup ? undefined : drag}
           isActive={isActive}
         />
       );
