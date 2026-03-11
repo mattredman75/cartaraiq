@@ -70,6 +70,7 @@ function AuthGate() {
   } = useAppStatus();
   const [statusChecked, setStatusChecked] = useState(false);
   const pendingInviteProcessed = useRef(false);
+  const handledShareUrl = useRef<string | null>(null);
 
   // Handle maintenance updates from silent push
   const onMaintenanceUpdate = useCallback(
@@ -135,6 +136,9 @@ function AuthGate() {
       if (!url) return;
       const shareToken = extractShareToken(url);
       if (!shareToken) return;
+      // Prevent double-fire: getInitialURL + addEventListener both fire on cold-start
+      if (handledShareUrl.current === shareToken) return;
+      handledShareUrl.current = shareToken;
       const currentToken = useAuthStore.getState().token;
       if (currentToken) {
         // Already authenticated — navigate to the invite screen to Accept/Decline
