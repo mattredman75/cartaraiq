@@ -63,8 +63,8 @@ const MAX_PANEL_H = 5 * SUGGEST_ITEM_H + 8;
 // ── Flat list mixed-type entry ────────────────────────────────────────────────
 
 type FlatEntry =
-  | { type: "group-header"; id: string; group: ItemGroup; itemCount: number }
-  | { type: "item"; id: string; item: ListItem; inGroup: boolean };
+  | { type: "group"; id: string; group: ItemGroup; items: ListItem[] }
+  | { type: "item"; id: string; item: ListItem };
 
 function buildFlatData(
   unchecked: ListItem[],
@@ -90,81 +90,25 @@ function buildFlatData(
     items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }
 
-  type Block =
-    | { pos: number; type: "item"; item: ListItem }
-    | { pos: number; type: "group"; group: ItemGroup; items: ListItem[] };
-
-  const blocks: Block[] = [];
+  const blocks: { pos: number; entry: FlatEntry }[] = [];
   for (const item of standalone) {
-    blocks.push({ pos: item.sort_order ?? 0, type: "item", item });
+    blocks.push({
+      pos: item.sort_order ?? 0,
+      entry: { type: "item", id: item.id, item },
+    });
   }
   for (const group of groups) {
     const items = itemsByGroup.get(group.id) ?? [];
     if (items.length > 0) {
-      blocks.push({ pos: group.sort_order ?? 0, type: "group", group, items });
+      blocks.push({
+        pos: group.sort_order ?? 0,
+        entry: { type: "group", id: `group:${group.id}`, group, items },
+      });
     }
   }
   blocks.sort((a, b) => a.pos - b.pos);
 
-  const result: FlatEntry[] = [];
-  for (const block of blocks) {
-    if (block.type === "item") {
-      result.push({
-        type: "item",
-        id: block.item.id,
-        item: block.item,
-        inGroup: false,
-      });
-    } else {
-      result.push({
-        type: "group-header",
-        id: `group:${block.group.id}`,
-        group: block.group,
-        itemCount: block.items.length,
-      });
-      for (const item of block.items) {
-        result.push({ type: "item", id: item.id, item, inGroup: true });
-      }
-    }
-  }
-  return result;
-}
-
-// After DraggableFlatList reorders the array, a dragged group-header may no
-// longer be adjacent to its items. This rebuilds the array so every header is
-// immediately followed by all entries that still belong to that group, while
-// standalone items remain in their dragged positions.
-function rebaseGroupedData(data: FlatEntry[]): FlatEntry[] {
-  // Pre-collect grouped items keyed by group_id
-  const groupedItems = new Map<string, Array<FlatEntry & { type: "item" }>>();
-  for (const entry of data) {
-    if (entry.type === "item" && entry.item.group_id) {
-      const arr = groupedItems.get(entry.item.group_id) ?? [];
-      arr.push(entry as FlatEntry & { type: "item" });
-      groupedItems.set(entry.item.group_id, arr);
-    }
-  }
-
-  const result: FlatEntry[] = [];
-  const emitted = new Set<string>(); // group IDs whose items have been placed
-
-  for (const entry of data) {
-    if (entry.type === "group-header") {
-      if (!emitted.has(entry.group.id)) {
-        emitted.add(entry.group.id);
-        result.push(entry);
-        // Immediately place all items that belong to this group
-        const items = groupedItems.get(entry.group.id) ?? [];
-        result.push(...items);
-      }
-    } else if (!entry.item.group_id) {
-      // Standalone item — always keep
-      result.push(entry);
-    }
-    // Grouped items are already emitted above; skip them here
-  }
-
-  return result;
+  return blocks.map((b) => b.entry);
 }
 
 function deriveReorderPayload(newFlat: FlatEntry[]) {
@@ -172,36 +116,26 @@ function deriveReorderPayload(newFlat: FlatEntry[]) {
     [];
   const groups: { id: string; sort_order: number }[] = [];
 
-  let currentGroupId: string | null = null;
-  let posWithinGroup = 0;
   let globalPos = 0;
 
   for (const entry of newFlat) {
-    if (entry.type === "group-header") {
+    if (entry.type === "group") {
       groups.push({ id: entry.group.id, sort_order: globalPos });
-      currentGroupId = entry.group.id;
-      posWithinGroup = 0;
+      entry.items.forEach((item, index) => {
+        items.push({
+          id: item.id,
+          sort_order: index,
+          group_id: entry.group.id,
+        });
+      });
       globalPos++;
     } else {
-      // Use the item's actual stored group_id — NOT the stale inGroup flag.
-      // Drag reorders items; it does not change group membership.
-      // Group membership changes only via the action drawer.
-      const origGroupId = entry.item.group_id ?? null;
-      if (origGroupId) {
-        items.push({
-          id: entry.item.id,
-          sort_order: posWithinGroup,
-          group_id: origGroupId,
-        });
-        posWithinGroup++;
-      } else {
-        items.push({
-          id: entry.item.id,
-          sort_order: globalPos,
-          group_id: null,
-        });
-        globalPos++;
-      }
+      items.push({
+        id: entry.item.id,
+        sort_order: globalPos,
+        group_id: null,
+      });
+      globalPos++;
     }
   }
   return { items, groups };
@@ -491,11 +425,8 @@ export default function ListScreen() {
   };
 
   const handleReorder = ({ data }: { data: FlatEntry[] }) => {
-    // Reassemble so each group-header is adjacent to its items before deriving
-    // sort orders — fixes dragging a group header without its items following.
-    const rebased = rebaseGroupedData(data);
     const { items: itemsPayload, groups: groupsPayload } =
-      deriveReorderPayload(rebased);
+      deriveReorderPayload(data);
     // Optimistic update — items
     qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
       const updated = itemsPayload.reduce(
@@ -653,16 +584,32 @@ export default function ListScreen() {
 
   const renderDraggableItem = useCallback(
     ({ item: entry, drag, isActive }: RenderItemParams<FlatEntry>) => {
-      if (entry.type === "group-header") {
+      if (entry.type === "group") {
         return (
-          <GroupHeader
-            group={entry.group}
-            itemCount={entry.itemCount}
-            drag={drag}
-            isActive={isActive}
-            onRename={() => handleRenameGroup(entry.group)}
-            onDissolve={() => handleDissolveGroup(entry.group.id)}
-          />
+          <View>
+            <GroupHeader
+              group={entry.group}
+              itemCount={entry.items.length}
+              drag={drag}
+              isActive={isActive}
+              onRename={() => handleRenameGroup(entry.group)}
+              onDissolve={() => handleDissolveGroup(entry.group.id)}
+            />
+            {entry.items.map((groupItem) => (
+              <ItemRow
+                key={groupItem.id}
+                item={groupItem}
+                onToggle={() => {
+                  const next = groupItem.checked === 0 ? 1 : 0;
+                  toggleMutation.mutate({ id: groupItem.id, checked: next });
+                }}
+                onDelete={() => handleDelete(groupItem)}
+                onLongPress={() => handleLongPress(groupItem)}
+                isActive={false}
+                inGroup
+              />
+            ))}
+          </View>
         );
       }
       const item = entry.item;
@@ -675,18 +622,20 @@ export default function ListScreen() {
           }}
           onDelete={() => handleDelete(item)}
           onLongPress={() => handleLongPress(item)}
-          // Grouped items must not be individually draggable — only the group
-          // header drags the whole block. Passing drag to grouped items lets
-          // them be pulled out of the group, which rebaseGroupedData then
-          // snaps back, causing a jarring visual glitch.
-          drag={entry.inGroup ? undefined : drag}
+          drag={drag}
           isActive={isActive}
-          inGroup={entry.inGroup}
         />
       );
       return row;
     },
-    [toggleMutation.mutate, deleteMutation.mutate, handleLongPress],
+    [
+      toggleMutation.mutate,
+      deleteMutation.mutate,
+      handleLongPress,
+      handleDelete,
+      handleRenameGroup,
+      handleDissolveGroup,
+    ],
   );
 
   const handleSuggestionAdd = (name: string, type: string) =>
