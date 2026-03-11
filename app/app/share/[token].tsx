@@ -6,8 +6,9 @@ import {
   ActivityIndicator,
   Image,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,10 +27,10 @@ const TEXT = "#1A1A2E";
 const MUTED = "#94A3B8";
 const AVATAR_SIZE = 80;
 const RAY_COUNT = 16;
-const SUN_SIZE = 190; // total canvas for the ray burst
-const SUN_OFFSET = -(SUN_SIZE - AVATAR_SIZE) / 2;
+const SUN_SIZE = 800; // 10× avatar diameter
+const SUN_FADE_RADIUS = SUN_SIZE / 4; // fade to 0 at 50% of ray length (SUN_SIZE/2 * 0.5)
 
-const SunRays = () => {
+const SunRays = ({ screenWidth }: { screenWidth: number }) => {
   const cx = SUN_SIZE / 2;
   const cy = SUN_SIZE / 2;
   const R = SUN_SIZE / 2;
@@ -38,8 +39,25 @@ const SunRays = () => {
     <Svg
       width={SUN_SIZE}
       height={SUN_SIZE}
-      style={{ position: "absolute", left: SUN_OFFSET, top: SUN_OFFSET }}
+      style={{
+        position: "absolute",
+        top: -(SUN_SIZE / 2),
+        left: (screenWidth - SUN_SIZE) / 2,
+        zIndex: 0,
+      }}
     >
+      <Defs>
+        <RadialGradient
+          id="sunFade"
+          cx={cx}
+          cy={cy}
+          r={SUN_FADE_RADIUS}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0%" stopColor="black" stopOpacity="0.3" />
+          <Stop offset="100%" stopColor="black" stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
       {Array.from({ length: RAY_COUNT }).map((_, i) => {
         const a0 = i * angleStep - Math.PI / 2;
         const a1 = (i + 1) * angleStep - Math.PI / 2;
@@ -47,12 +65,11 @@ const SunRays = () => {
         const y1 = cy + R * Math.sin(a0);
         const x2 = cx + R * Math.cos(a1);
         const y2 = cy + R * Math.sin(a1);
-        const fill = i % 2 === 0 ? "#1B6B7A" : "rgba(27,107,122,0.15)";
         return (
           <Path
             key={i}
             d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
-            fill={fill}
+            fill={i % 2 === 0 ? "url(#sunFade)" : "none"}
           />
         );
       })}
@@ -304,6 +321,7 @@ export default function ShareAcceptScreen() {
   };
 
   const showAvatar = phase === "preview" || phase === "busy";
+  const { width: screenWidth } = useWindowDimensions();
 
   return (
     <View style={styles.overlay}>
@@ -314,14 +332,17 @@ export default function ShareAcceptScreen() {
         activeOpacity={1}
       />
 
-      {/* Bottom sheet panel */}
-      <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
-        {showAvatar && (
-          <View style={styles.avatarOverlap}>
-            <SunRays />
-            <OwnerAvatar />
-          </View>
-        )}
+      {/* Wrapper holds sun rays behind the panel */}
+      <View style={{ position: "relative" }}>
+        {showAvatar && <SunRays screenWidth={screenWidth} />}
+
+        {/* Bottom sheet panel */}
+        <View style={[styles.panel, { paddingBottom: insets.bottom + 16, zIndex: 1 }]}>
+          {showAvatar && (
+            <View style={styles.avatarOverlap}>
+              <OwnerAvatar />
+            </View>
+          )}
 
         {/* Drag handle */}
         <View style={styles.handle} />
@@ -334,8 +355,9 @@ export default function ShareAcceptScreen() {
         >
           {renderPanelContent()}
         </View>
-      </View>
-    </View>
+        </View>{/* end panel */}
+      </View>{/* end relative wrapper */}
+    </View>{/* end overlay */}
   );
 }
 
