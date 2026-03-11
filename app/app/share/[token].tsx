@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Image,
   StyleSheet,
+  Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,10 +21,12 @@ import { setItem } from "../../lib/storage";
 import { sanitizeAvatarUrl } from "../../lib/constants";
 
 const TEAL_DARK = "#0D4F5C";
-const LIST_GREEN = "#27AE60";
-const CANVAS_BG = "#E4F0E8";
+const LIST_GREEN = "#2ECC71";
+const CANVAS_BG = "#C8E6C9"; // warm sage green matching reference
 const TEXT = "#1A1A2E";
 const MUTED = "#64748B";
+const SCREEN_H = Dimensions.get("window").height;
+const AVATAR_SIZE = 88;
 
 type Preview = {
   list_id: string;
@@ -51,7 +54,6 @@ export default function ShareAcceptScreen() {
   const [successListName, setSuccessListName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Fetch invite preview — no auth required
   useEffect(() => {
     if (!token) {
       setErrorMsg("Invalid invite link.");
@@ -122,8 +124,8 @@ export default function ShareAcceptScreen() {
 
   const ownerLabel = preview?.owner_name ?? "Someone";
   const ownerInitial = ownerLabel.charAt(0).toUpperCase();
+  const listName = preview?.list_name ?? "Shopping List";
 
-  // ── Owner avatar ─────────────────────────────────────────────────────────────
   const OwnerAvatar = () => (
     <View style={styles.avatarRing}>
       {preview?.owner_avatar_url ? (
@@ -137,43 +139,92 @@ export default function ShareAcceptScreen() {
     </View>
   );
 
-  // ── Preview / busy card ───────────────────────────────────────────────────────
+  // ── Preview / busy ────────────────────────────────────────────────────────────
   if (phase === "preview" || phase === "busy") {
     return (
-      <SafeAreaView style={styles.canvas} edges={["top"]}>
-        {/* Top section: greyed list preview */}
-        <View style={styles.topCanvas}>
+      <View style={styles.root}>
+        {/* ── Green top section ── */}
+        <SafeAreaView style={styles.topSection} edges={["top"]}>
+          {/* Dismiss X */}
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/(app)/list")
+            }
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={styles.closeBtnCircle}>
+              <Ionicons name="close" size={20} color="#fff" />
+            </View>
+          </TouchableOpacity>
+
+          {/* Live sharing heading */}
+          <View style={styles.headingRow}>
+            <View style={styles.redDot} />
+            <Text style={styles.headingText}>Live sharing</Text>
+          </View>
+
+          {/* List preview card */}
           <View style={styles.listCard}>
-            <Text style={styles.listCardTitle} numberOfLines={1}>
-              {preview?.list_name ?? "Shopping List"}
-            </Text>
-            {[0.9, 0.6, 0.45].map((w, i) => (
-              <View key={i} style={styles.skeletonRow}>
-                <View style={styles.skeletonCircle} />
-                <View style={[styles.skeletonBar, { flex: w }]} />
+            {/* Card header */}
+            <View style={styles.cardHeader}>
+              <Ionicons name="chevron-back" size={18} color="#555" />
+              <Text style={styles.cardHeaderTitle} numberOfLines={1}>
+                {listName}
+              </Text>
+              <View style={styles.cardHeaderRight}>
+                <View
+                  style={[styles.miniAvatar, { backgroundColor: TEAL_DARK }]}
+                >
+                  <Text style={styles.miniAvatarText}>{ownerInitial}</Text>
+                </View>
+                <Ionicons
+                  name="ellipsis-vertical"
+                  size={16}
+                  color="#888"
+                  style={{ marginLeft: 8 }}
+                />
+              </View>
+            </View>
+            {/* Progress bar */}
+            <View style={styles.progressBg}>
+              <View style={[styles.progressFill, { width: "0%" }]} />
+            </View>
+            {/* Skeleton item rows */}
+            {[
+              { label: "item 1", w: 0.55 },
+              { label: "item 2", w: 0.38 },
+              { label: "item 3", w: 0.45 },
+            ].map((item, i) => (
+              <View key={i} style={styles.itemRow}>
+                <View style={styles.checkbox} />
+                <View style={[styles.itemBar, { flex: item.w }]} />
               </View>
             ))}
           </View>
-        </View>
+        </SafeAreaView>
 
-        {/* White bottom panel */}
+        {/* ── White bottom panel ── */}
         <View style={styles.panel}>
-          {/* Avatar half-overlapping the top edge */}
+          {/* Avatar straddling the seam */}
           <View style={styles.avatarOverlap}>
             <OwnerAvatar />
           </View>
 
-          <Text style={styles.inviteText}>
+          {/* Content */}
+          <Text style={styles.inviteLabel}>
             <Text style={{ fontWeight: "700" }}>{ownerLabel}</Text>
             {" invites you to the list:"}
           </Text>
 
           <Text style={styles.listNameLabel}>
-            {preview?.list_name?.toUpperCase()}
+            {"• "}
+            {listName.toUpperCase()}
+            {" •"}
           </Text>
 
           <Text style={styles.subtext}>
-            When the list is shared, any changes are instantly visible to
+            When the list is shared, any changes are{"\n"}instantly visible to
             everyone.
           </Text>
 
@@ -181,33 +232,33 @@ export default function ShareAcceptScreen() {
             <ActivityIndicator
               size="large"
               color={LIST_GREEN}
-              style={{ marginVertical: 24 }}
+              style={{ marginVertical: 20 }}
             />
           ) : (
             <>
               <TouchableOpacity
-                style={styles.acceptButton}
+                style={styles.acceptBtn}
                 onPress={handleAccept}
                 activeOpacity={0.85}
               >
-                <Text style={styles.acceptButtonText}>OPEN LIST</Text>
+                <Text style={styles.acceptBtnText}>OPEN LIST</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.declineButton}
+                style={styles.declineBtn}
                 onPress={handleDecline}
                 activeOpacity={0.7}
               >
-                <Text style={styles.declineButtonText}>DISCARD INVITE</Text>
+                <Text style={styles.declineBtnText}>DISCARD INVITE</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // ── Terminal states ───────────────────────────────────────────────────────────
+  // ── Terminal states ─────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.darkScreen}>
       <View style={styles.centeredContainer}>
@@ -307,105 +358,187 @@ export default function ShareAcceptScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Green canvas layout
-  canvas: {
+  root: {
     flex: 1,
     backgroundColor: CANVAS_BG,
   },
-  topCanvas: {
-    flex: 1,
-    paddingHorizontal: 28,
-    paddingTop: 36,
-    paddingBottom: 48,
+
+  // ── Green top section
+  topSection: {
+    backgroundColor: CANVAS_BG,
+    paddingHorizontal: 24,
+    paddingBottom: AVATAR_SIZE / 2 + 8, // leave room for avatar overlap
+    minHeight: SCREEN_H * 0.52,
     justifyContent: "flex-end",
   },
-  listCard: {
-    backgroundColor: "#D4D4D4",
+  closeBtn: {
+    position: "absolute",
+    top: 56,
+    right: 20,
+    zIndex: 10,
+  },
+  closeBtnCircle: {
+    width: 36,
+    height: 36,
     borderRadius: 18,
-    padding: 18,
-    opacity: 0.8,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  listCardTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#555",
-    marginBottom: 14,
-  },
-  skeletonRow: {
+  headingRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 9,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#bbb",
+    justifyContent: "center",
+    marginBottom: 20,
+    gap: 10,
   },
-  skeletonCircle: {
+  redDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#E53935",
+  },
+  headingText: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: TEXT,
+    letterSpacing: -0.5,
+  },
+
+  // ── List preview card
+  listCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  cardHeaderTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: TEXT,
+    marginLeft: 2,
+  },
+  cardHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  miniAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniAvatarText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  progressBg: {
+    height: 4,
+    backgroundColor: "#E8F5E9",
+    marginHorizontal: 0,
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: LIST_GREEN,
+  },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#F0F0F0",
+  },
+  checkbox: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: "#999",
-    marginRight: 12,
+    borderColor: "#90CAF9",
+    marginRight: 14,
   },
-  skeletonBar: {
-    height: 11,
-    backgroundColor: "#b0b0b0",
-    borderRadius: 6,
+  itemBar: {
+    height: 10,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 5,
   },
 
-  // White bottom panel
+  // ── White bottom panel
   panel: {
+    flex: 1,
     backgroundColor: "#fff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 52,
-    paddingBottom: 44,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: AVATAR_SIZE / 2 + 16,
+    paddingBottom: 36,
     paddingHorizontal: 28,
     alignItems: "center",
+    marginTop: -(AVATAR_SIZE / 2),
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 12,
   },
   avatarOverlap: {
     position: "absolute",
-    top: -40,
+    top: -(AVATAR_SIZE / 2),
     alignSelf: "center",
+    zIndex: 10,
   },
   avatarRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#0D4F5C",
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: TEAL_DARK,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
     borderWidth: 4,
     borderColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarInitial: {
     color: "#fff",
-    fontSize: 32,
-    fontWeight: "700",
+    fontSize: 34,
+    fontWeight: "800",
   },
-  inviteText: {
+  inviteLabel: {
     fontSize: 16,
     color: TEXT,
     textAlign: "center",
     marginBottom: 6,
+    lineHeight: 22,
   },
   listNameLabel: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: LIST_GREEN,
     textAlign: "center",
-    letterSpacing: 1.5,
-    marginBottom: 14,
+    letterSpacing: 2,
+    marginBottom: 12,
   },
   subtext: {
     fontSize: 13,
@@ -413,33 +546,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 28,
-    maxWidth: 290,
   },
-  acceptButton: {
+  acceptBtn: {
     backgroundColor: LIST_GREEN,
     borderRadius: 50,
-    paddingVertical: 17,
+    paddingVertical: 18,
     width: "100%",
     alignItems: "center",
     marginBottom: 16,
   },
-  acceptButtonText: {
+  acceptBtnText: {
     color: "#fff",
     fontWeight: "800",
     fontSize: 15,
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
-  declineButton: {
-    paddingVertical: 10,
+  declineBtn: {
+    paddingVertical: 8,
   },
-  declineButtonText: {
+  declineBtnText: {
     color: MUTED,
     fontSize: 13,
     fontWeight: "600",
     letterSpacing: 0.5,
   },
 
-  // Dark terminal states
+  // ── Terminal states
   darkScreen: {
     flex: 1,
     backgroundColor: TEAL_DARK,
@@ -450,9 +582,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 32,
   },
-  terminalBlock: {
-    alignItems: "center",
-  },
+  terminalBlock: { alignItems: "center" },
   iconRing: {
     width: 72,
     height: 72,
