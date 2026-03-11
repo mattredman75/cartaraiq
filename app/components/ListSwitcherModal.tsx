@@ -113,12 +113,12 @@ export function ListSwitcherModal({
                     onClose();
                   }}
                   onDelete={() => onDelete(list)}
-                  onEdit={() => {
+                  onEdit={!list.owner_name ? () => {
                     onClose();
                     setTimeout(() => {
                       onEditList(list);
                     }, 320);
-                  }}
+                  } : undefined}
                 />
               ))}
             </View>
