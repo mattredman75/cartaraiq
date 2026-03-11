@@ -477,6 +477,47 @@ export default function ListScreen() {
     handleReorder(params);
   };
 
+  const handleGroupItemsReorder = useCallback(
+    (groupId: string, orderedItems: ListItem[]) => {
+      if (!listId) return;
+
+      const itemsPayload = orderedItems.map((item, index) => ({
+        id: item.id,
+        sort_order: index,
+        group_id: groupId,
+      }));
+
+      qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
+        const updated = itemsPayload.reduce(
+          (map, payload) => {
+            map[payload.id] = payload;
+            return map;
+          },
+          {} as Record<
+            string,
+            { id: string; sort_order: number; group_id: string }
+          >,
+        );
+
+        return old.map((item) =>
+          updated[item.id]
+            ? {
+                ...item,
+                sort_order: updated[item.id].sort_order,
+                group_id: updated[item.id].group_id,
+              }
+            : item,
+        );
+      });
+
+      reorderListGrouped(listId, itemsPayload, []).catch(() => {
+        qc.invalidateQueries({ queryKey: ["listItems", listId] });
+        qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+      });
+    },
+    [listId, qc],
+  );
+
   const handleConfirmCreateGroup = async (name: string) => {
     if (!pendingGroupItem || !listId) return;
     const item = pendingGroupItem;
@@ -595,21 +636,35 @@ export default function ListScreen() {
               onRename={() => handleRenameGroup(entry.group)}
               onDissolve={() => handleDissolveGroup(entry.group.id)}
             />
-            {entry.items.map((groupItem, index) => (
-              <ItemRow
-                key={groupItem.id}
-                item={groupItem}
-                onToggle={() => {
-                  const next = groupItem.checked === 0 ? 1 : 0;
-                  toggleMutation.mutate({ id: groupItem.id, checked: next });
-                }}
-                onDelete={() => handleDelete(groupItem)}
-                onLongPress={() => handleLongPress(groupItem)}
-                isActive={false}
-                inGroup
-                squareTopCorners={index === 0}
-              />
-            ))}
+            <DraggableFlatList
+              data={entry.items}
+              keyExtractor={(groupItem) => groupItem.id}
+              scrollEnabled={false}
+              onDragEnd={({ data }) =>
+                handleGroupItemsReorder(entry.group.id, data)
+              }
+              activationDistance={6}
+              renderItem={({
+                item: groupItem,
+                drag: groupDrag,
+                isActive,
+                getIndex,
+              }) => (
+                <ItemRow
+                  item={groupItem}
+                  onToggle={() => {
+                    const next = groupItem.checked === 0 ? 1 : 0;
+                    toggleMutation.mutate({ id: groupItem.id, checked: next });
+                  }}
+                  onDelete={() => handleDelete(groupItem)}
+                  onLongPress={() => handleLongPress(groupItem)}
+                  drag={groupDrag}
+                  isActive={isActive}
+                  inGroup
+                  squareTopCorners={(getIndex?.() ?? 0) === 0}
+                />
+              )}
+            />
           </View>
         );
       }
@@ -636,6 +691,7 @@ export default function ListScreen() {
       handleDelete,
       handleRenameGroup,
       handleDissolveGroup,
+      handleGroupItemsReorder,
     ],
   );
 
