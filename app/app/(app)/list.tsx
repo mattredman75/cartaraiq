@@ -131,6 +131,43 @@ function buildFlatData(
   return result;
 }
 
+// After DraggableFlatList reorders the array, a dragged group-header may no
+// longer be adjacent to its items. This rebuilds the array so every header is
+// immediately followed by all entries that still belong to that group, while
+// standalone items remain in their dragged positions.
+function rebaseGroupedData(data: FlatEntry[]): FlatEntry[] {
+  // Pre-collect grouped items keyed by group_id
+  const groupedItems = new Map<string, Array<FlatEntry & { type: "item" }>>();
+  for (const entry of data) {
+    if (entry.type === "item" && entry.item.group_id) {
+      const arr = groupedItems.get(entry.item.group_id) ?? [];
+      arr.push(entry as FlatEntry & { type: "item" });
+      groupedItems.set(entry.item.group_id, arr);
+    }
+  }
+
+  const result: FlatEntry[] = [];
+  const emitted = new Set<string>(); // group IDs whose items have been placed
+
+  for (const entry of data) {
+    if (entry.type === "group-header") {
+      if (!emitted.has(entry.group.id)) {
+        emitted.add(entry.group.id);
+        result.push(entry);
+        // Immediately place all items that belong to this group
+        const items = groupedItems.get(entry.group.id) ?? [];
+        result.push(...items);
+      }
+    } else if (!entry.item.group_id) {
+      // Standalone item — always keep
+      result.push(entry);
+    }
+    // Grouped items are already emitted above; skip them here
+  }
+
+  return result;
+}
+
 function deriveReorderPayload(newFlat: FlatEntry[]) {
   const items: { id: string; sort_order: number; group_id: string | null }[] =
     [];
@@ -451,8 +488,11 @@ export default function ListScreen() {
   };
 
   const handleReorder = ({ data }: { data: FlatEntry[] }) => {
+    // Reassemble so each group-header is adjacent to its items before deriving
+    // sort orders — fixes dragging a group header without its items following.
+    const rebased = rebaseGroupedData(data);
     const { items: itemsPayload, groups: groupsPayload } =
-      deriveReorderPayload(data);
+      deriveReorderPayload(rebased);
     // Optimistic update
     qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
       const updated = itemsPayload.reduce(
