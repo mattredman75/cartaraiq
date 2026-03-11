@@ -29,7 +29,7 @@ const TEXT = "#1A1A2E";
 const MUTED = "#94A3B8";
 const AVATAR_SIZE = 80;
 const RAY_COUNT = 16;
-const SUN_SIZE = 800; // 10× avatar diameter
+const SUN_SIZE = 400; // 5× avatar diameter
 const SUN_FADE_RADIUS = SUN_SIZE / 4; // fade to 0 at 50% of ray length (SUN_SIZE/2 * 0.5)
 
 const SunRays = ({ screenWidth }: { screenWidth: number }) => {
@@ -74,7 +74,7 @@ const SunRays = ({ screenWidth }: { screenWidth: number }) => {
             r={SUN_FADE_RADIUS}
             gradientUnits="userSpaceOnUse"
           >
-            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.4" />
+            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.2" />
             <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
           </RadialGradient>
         </Defs>
