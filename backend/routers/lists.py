@@ -655,9 +655,12 @@ def get_list(
     result = []
     for item in items:
         added_by = None
-        if is_shared and item.user_id != current_user.id:
-            adder = db.query(User).filter(User.id == item.user_id).first()
-            added_by = adder.name if adder else None
+        if is_shared:
+            if item.user_id == current_user.id:
+                added_by = "you"
+            else:
+                adder = db.query(User).filter(User.id == item.user_id).first()
+                added_by = adder.name if adder else None
         result.append(ListItemOut(
             id=item.id,
             list_id=item.list_id,
