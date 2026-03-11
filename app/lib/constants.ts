@@ -17,3 +17,16 @@ export const COLORS = {
 
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ?? "https://api.cartaraiq.app";
+
+/**
+ * Fixes avatar_url values that were incorrectly stored with the app's custom
+ * URL scheme (cartaraiq://uploads/...) instead of an http URL. This happened
+ * when APP_BASE_URL was set to the deep-link scheme in local dev.
+ */
+export function sanitizeAvatarUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("cartaraiq://uploads/")) {
+    return url.replace("cartaraiq:/", API_URL);
+  }
+  return url;
+}
