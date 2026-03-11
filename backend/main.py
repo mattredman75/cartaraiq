@@ -746,7 +746,7 @@ def share_landing(token: str):
   <div class="card">
 
     <h1>You've been invited!</h1>
-    <p class="subtitle">Someone shared their CartaraIQ shopping list with you.</p>
+    <p class="subtitle">Someone shared their CartaraIQ shopping list with you. Open this link on your iPhone to accept.</p>
 
     <!-- Shown immediately; redirects to app if installed -->
     <a id="openBtn" href="{deep_link}">Open in CartaraIQ</a>
@@ -765,7 +765,7 @@ def share_landing(token: str):
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <div class="step-text"><strong>Come back here</strong> and tap the button below to accept</div>
+          <div class="step-text"><strong>Open this link on your iPhone</strong> and tap the button to accept</div>
         </div>
       </div>
 
