@@ -7,6 +7,14 @@ export interface ListItem {
   sort_order: number | null;
   times_added: number;
   added_by_name?: string | null;
+  group_id?: string | null;
+}
+
+export interface ItemGroup {
+  id: string;
+  list_id: string;
+  name: string;
+  sort_order: number | null;
 }
 
 export interface Suggestion {

@@ -1,5 +1,11 @@
 import React, { useRef, useEffect } from "react";
-import { View, Text, TouchableOpacity, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Dimensions,
+  Animated,
+} from "react-native";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Reanimated, {
   useSharedValue,
@@ -43,6 +49,7 @@ function ItemRowInner({
   onLongPress,
   drag,
   isActive,
+  isHoverTarget = false,
 }: {
   item: ListItem;
   onToggle: () => void;
@@ -50,9 +57,45 @@ function ItemRowInner({
   onLongPress: () => void;
   drag?: () => void;
   isActive?: boolean;
+  isHoverTarget?: boolean;
 }) {
   const { dragDirection, setDragDirection } =
     React.useContext(ScrollInfoContext);
+
+  // Hover target pulse animation
+  const hoverPulse = useRef(new Animated.Value(0)).current;
+  const hoverLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  useEffect(() => {
+    if (isHoverTarget) {
+      hoverLoopRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(hoverPulse, {
+            toValue: 1,
+            duration: 350,
+            useNativeDriver: false,
+          }),
+          Animated.timing(hoverPulse, {
+            toValue: 0.25,
+            duration: 350,
+            useNativeDriver: false,
+          }),
+        ]),
+      );
+      hoverLoopRef.current.start();
+    } else {
+      hoverLoopRef.current?.stop();
+      Animated.timing(hoverPulse, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [isHoverTarget]);
+
+  const hoverBorderColor = hoverPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["transparent", "#4FB8C8"],
+  });
 
   const rotateShared = useSharedValue(0);
   const rowRef = useRef<any>(null);
@@ -119,9 +162,13 @@ function ItemRowInner({
           const isFastFling = e.velocityX < -900;
           if (isFastFling || finalX <= -FULL_SWIPE_THRESHOLD) {
             // Full swipe — animate off screen then delete
-            translateXShared.value = withTiming(-SCREEN_W, { duration: 200 }, (done) => {
-              if (done) runOnJS(onDelete)();
-            });
+            translateXShared.value = withTiming(
+              -SCREEN_W,
+              { duration: 200 },
+              (done) => {
+                if (done) runOnJS(onDelete)();
+              },
+            );
             isOpenedShared.value = false;
           } else if (finalX <= -SWIPE_THRESHOLD) {
             // Partial — snap to peek state
@@ -147,9 +194,13 @@ function ItemRowInner({
 
   const confirmDelete = () => {
     isOpenedShared.value = false;
-    translateXShared.value = withTiming(-SCREEN_W, { duration: 200 }, (finished) => {
-      if (finished) runOnJS(onDelete)();
-    });
+    translateXShared.value = withTiming(
+      -SCREEN_W,
+      { duration: 200 },
+      (finished) => {
+        if (finished) runOnJS(onDelete)();
+      },
+    );
   };
 
   return (
@@ -172,6 +223,24 @@ function ItemRowInner({
         },
       ]}
     >
+      {/* Pulse ring overlay for hover-to-group */}
+      {isHoverTarget && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: 4,
+            borderWidth: 2.5,
+            borderColor: hoverBorderColor,
+            zIndex: 10,
+          }}
+        />
+      )}
+
       <View
         style={{
           borderRadius: 4,
@@ -339,5 +408,6 @@ export const ItemRow = React.memo(
     prev.item.unit === next.item.unit &&
     prev.item.checked === next.item.checked &&
     prev.item.sort_order === next.item.sort_order &&
-    prev.isActive === next.isActive,
+    prev.isActive === next.isActive &&
+    prev.isHoverTarget === next.isHoverTarget,
 );

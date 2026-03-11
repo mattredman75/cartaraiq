@@ -51,6 +51,7 @@ def run() -> None:
         _run_mysql_ar_tables(conn)
         _run_mysql_ar_hearts(conn)
         _run_mysql_avatar_url(conn)
+        _run_mysql_item_groups(conn)
         conn.commit()
 
     print("Migration complete.")
@@ -617,6 +618,31 @@ def _run_mysql_avatar_url(conn) -> None:
     """Add avatar_url column to users table."""
     if not _col_exists(conn, "users", "avatar_url"):
         conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) NULL"))
+
+
+def _run_mysql_item_groups(conn) -> None:
+    """Create item_groups table and add group_id FK to list_items."""
+    if not _table_exists(conn, "item_groups"):
+        conn.execute(text("""
+            CREATE TABLE item_groups (
+                id          VARCHAR(36)   NOT NULL PRIMARY KEY,
+                list_id     VARCHAR(36)   NOT NULL,
+                user_id     VARCHAR(36)   NOT NULL,
+                name        VARCHAR(255)  NOT NULL,
+                sort_order  INT           NULL,
+                created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX ix_item_groups_list_id (list_id),
+                INDEX ix_item_groups_user_id (user_id)
+            )
+        """))
+    if not _col_exists(conn, "list_items", "group_id"):
+        conn.execute(text(
+            "ALTER TABLE list_items ADD COLUMN group_id VARCHAR(36) NULL"
+        ))
+    if not _index_exists(conn, "list_items", "ix_list_items_group_id"):
+        conn.execute(text(
+            "CREATE INDEX ix_list_items_group_id ON list_items(group_id)"
+        ))
 
 
 if __name__ == "__main__":

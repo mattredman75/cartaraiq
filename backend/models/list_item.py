@@ -11,6 +11,7 @@ class ListItem(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     list_id = Column(String(36), ForeignKey("shopping_lists.id"), nullable=True, index=True)
+    group_id = Column(String(36), ForeignKey("item_groups.id"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     quantity = Column(Integer, default=1)
     unit = Column(String(50), nullable=True)
@@ -23,3 +24,4 @@ class ListItem(Base):
 
     user = relationship("User", back_populates="list_items")
     shopping_list = relationship("ShoppingList", back_populates="items")
+    group = relationship("ItemGroup", back_populates="items", foreign_keys=[group_id])

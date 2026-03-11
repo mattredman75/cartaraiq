@@ -120,7 +120,11 @@ export const updateMe = (name: string) => api.patch("/auth/me", { name });
 
 export const uploadAvatar = (uri: string) => {
   const formData = new FormData();
-  formData.append("file", { uri, name: "avatar.jpg", type: "image/jpeg" } as unknown as Blob);
+  formData.append("file", {
+    uri,
+    name: "avatar.jpg",
+    type: "image/jpeg",
+  } as unknown as Blob);
   return api.post("/auth/me/avatar", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -176,8 +180,35 @@ export const updateListItem = (
   }>,
 ) => api.patch(`/lists/items/${id}`, data);
 
-export const reorderListItems = (items: { id: string; sort_order: number }[]) =>
-  api.put("/lists/items/reorder", items);
+export const reorderListItems = (
+  items: { id: string; sort_order: number; group_id?: string | null }[],
+) => api.put("/lists/items/reorder", items);
+
+export const reorderListGrouped = (
+  listId: string,
+  items: { id: string; sort_order: number; group_id?: string | null }[],
+  groups: { id: string; sort_order: number }[],
+) => api.put(`/lists/groups/${listId}/reorder`, { items, groups });
+
+// --- Item Groups ---
+export const fetchItemGroups = (listId: string) =>
+  api.get(`/lists/groups/${listId}/item-groups`);
+
+export const createItemGroup = (
+  listId: string,
+  name: string,
+  itemIds: string[],
+) =>
+  api.post(`/lists/groups/${listId}/item-groups`, { name, item_ids: itemIds });
+
+export const renameItemGroup = (groupId: string, name: string) =>
+  api.patch(`/lists/item-groups/${groupId}`, { name });
+
+export const deleteItemGroup = (groupId: string) =>
+  api.delete(`/lists/item-groups/${groupId}`);
+
+export const assignItemToGroup = (itemId: string, groupId: string | null) =>
+  api.patch(`/lists/items/${itemId}`, { group_id: groupId ?? "" });
 
 export const deleteListItem = (id: string) => api.delete(`/lists/items/${id}`);
 

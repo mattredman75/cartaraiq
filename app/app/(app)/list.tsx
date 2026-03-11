@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -11,19 +17,24 @@ import {
 import DraggableFlatList, {
   RenderItemParams,
 } from "react-native-draggable-flatlist";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getItem } from "../../lib/storage";
 import { useAuthStore, useListStore } from "../../lib/store";
 import {
-  reorderListItems,
+  reorderListGrouped,
   parseItemText,
   hardDeleteItem,
   updateListItem,
   addListItem,
+  fetchItemGroups,
+  createItemGroup,
+  deleteItemGroup,
+  renameItemGroup,
 } from "../../lib/api";
-import type { ListItem, ShoppingList } from "../../lib/types";
+import type { ListItem, ShoppingList, ItemGroup } from "../../lib/types";
 import { ScrollInfoContext } from "../../components/ItemRow";
 import { ItemRow } from "../../components/ItemRow";
+import { GroupHeader } from "../../components/GroupHeader";
 import { DragPlaceholder } from "../../components/DragPlaceholder";
 import { NoListsEmptyState } from "../../components/NoListsEmptyState";
 import { useDismissedSuggestions } from "../../hooks/useDismissedSuggestions";
@@ -36,6 +47,7 @@ import { SuggestionsStrip } from "../../components/SuggestionsStrip";
 import { ListFooter } from "../../components/ListFooter";
 import { ModalStack } from "../../components/ModalStack";
 import { ItemActionDrawer } from "../../components/ItemActionDrawer";
+import { CreateGroupModal } from "../../components/CreateGroupModal";
 import {
   syncListToWidget,
   syncAllListsToWidget,
@@ -43,11 +55,107 @@ import {
 
 const TEAL = "#1B6B7A";
 const BG = "#DDE4E7";
-const MUTED = "#64748B";
 
 const SUGGEST_ITEM_H = 46;
 const PANEL_OVERLAP = 14;
 const MAX_PANEL_H = 5 * SUGGEST_ITEM_H + 8;
+
+// ── Flat list mixed-type entry ────────────────────────────────────────────────
+
+type FlatEntry =
+  | { type: "group-header"; id: string; group: ItemGroup }
+  | { type: "item"; id: string; item: ListItem };
+
+function buildFlatData(
+  unchecked: ListItem[],
+  groups: ItemGroup[],
+): FlatEntry[] {
+  const itemsByGroup = new Map<string, ListItem[]>();
+  const standalone: ListItem[] = [];
+
+  for (const item of unchecked) {
+    if (item.group_id) {
+      const arr = itemsByGroup.get(item.group_id) ?? [];
+      arr.push(item);
+      itemsByGroup.set(item.group_id, arr);
+    } else {
+      standalone.push(item);
+    }
+  }
+
+  for (const items of itemsByGroup.values()) {
+    items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }
+
+  type Block =
+    | { pos: number; type: "item"; item: ListItem }
+    | { pos: number; type: "group"; group: ItemGroup; items: ListItem[] };
+
+  const blocks: Block[] = [];
+  for (const item of standalone) {
+    blocks.push({ pos: item.sort_order ?? 0, type: "item", item });
+  }
+  for (const group of groups) {
+    const items = itemsByGroup.get(group.id) ?? [];
+    if (items.length > 0) {
+      blocks.push({ pos: group.sort_order ?? 0, type: "group", group, items });
+    }
+  }
+  blocks.sort((a, b) => a.pos - b.pos);
+
+  const result: FlatEntry[] = [];
+  for (const block of blocks) {
+    if (block.type === "item") {
+      result.push({ type: "item", id: block.item.id, item: block.item });
+    } else {
+      result.push({
+        type: "group-header",
+        id: `group:${block.group.id}`,
+        group: block.group,
+      });
+      for (const item of block.items) {
+        result.push({ type: "item", id: item.id, item });
+      }
+    }
+  }
+  return result;
+}
+
+function deriveReorderPayload(newFlat: FlatEntry[]) {
+  const items: { id: string; sort_order: number; group_id: string | null }[] =
+    [];
+  const groups: { id: string; sort_order: number }[] = [];
+
+  let currentGroupId: string | null = null;
+  let posWithinGroup = 0;
+  let globalPos = 0;
+
+  for (const entry of newFlat) {
+    if (entry.type === "group-header") {
+      groups.push({ id: entry.group.id, sort_order: globalPos });
+      currentGroupId = entry.group.id;
+      posWithinGroup = 0;
+      globalPos++;
+    } else {
+      if (currentGroupId) {
+        items.push({
+          id: entry.item.id,
+          sort_order: posWithinGroup,
+          group_id: currentGroupId,
+        });
+        posWithinGroup++;
+      } else {
+        items.push({
+          id: entry.item.id,
+          sort_order: globalPos,
+          group_id: null,
+        });
+        globalPos++;
+      }
+    }
+  }
+  return { items, groups };
+}
 
 export default function ListScreen() {
   const { user } = useAuthStore();
@@ -68,6 +176,16 @@ export default function ListScreen() {
   const [actionItem, setActionItem] = useState<ListItem | null>(null);
   const [showActionDrawer, setShowActionDrawer] = useState(false);
   const [isFixingWithAI, setIsFixingWithAI] = useState(false);
+
+  // Group state
+  const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
+  const [createGroupRequest, setCreateGroupRequest] = useState<{
+    item1: ListItem;
+    item2: ListItem;
+  } | null>(null);
+  const draggedEntryRef = useRef<FlatEntry | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flatDataRef = useRef<FlatEntry[]>([]);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -124,6 +242,19 @@ export default function ListScreen() {
     await refetch();
     setIsPullRefreshing(false);
   }, [refetch]);
+
+  const { data: groups = [] } = useQuery<ItemGroup[]>({
+    queryKey: ["itemGroups", listId],
+    queryFn: () => fetchItemGroups(listId!).then((r) => r.data),
+    enabled: !!listId,
+  });
+  const flatData = useMemo(
+    () => buildFlatData(unchecked, groups),
+    [unchecked, groups],
+  );
+  useEffect(() => {
+    flatDataRef.current = flatData;
+  }, [flatData]);
 
   useEffect(() => {
     if (!currentList && shoppingLists.length > 0)
@@ -207,6 +338,47 @@ export default function ListScreen() {
     } else {
       item = itemOrId;
     }
+
+    // Check if deleting this item would leave only 1 item in a group →
+    // offer to dissolve the group
+    if (item?.group_id) {
+      const groupItems = unchecked.filter((i) => i.group_id === item!.group_id);
+      if (groupItems.length === 2) {
+        const survivingItem = groupItems.find((i) => i.id !== item!.id);
+        const groupName =
+          groups.find((g) => g.id === item!.group_id)?.name ?? "Group";
+        Alert.alert(
+          "Remove group?",
+          `"${groupName}" will have only 1 item left. Remove the group?`,
+          [
+            {
+              text: "Keep group",
+              style: "cancel",
+              onPress: () => deleteMutation.mutate(item!.id),
+            },
+            {
+              text: "Remove group",
+              style: "destructive",
+              onPress: () => {
+                deleteMutation.mutate(item!.id);
+                if (survivingItem) {
+                  deleteItemGroup(item!.group_id!).then(() => {
+                    qc.invalidateQueries({
+                      queryKey: ["itemGroups", listId],
+                    });
+                    qc.invalidateQueries({
+                      queryKey: ["listItems", listId],
+                    });
+                  });
+                }
+              },
+            },
+          ],
+        );
+        return;
+      }
+    }
+
     deleteMutation.mutate(
       typeof itemOrId === "string" ? itemOrId : itemOrId.id,
     );
@@ -275,16 +447,126 @@ export default function ListScreen() {
     setEditItem(null);
   };
 
-  const handleReorder = ({ data }: { data: ListItem[] }) => {
-    qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => [
-      ...data,
-      ...old.filter((i) => i.checked),
-    ]);
-    reorderListItems(
-      data.map((item, index) => ({ id: item.id, sort_order: index + 1 })),
-    ).catch(() => {
-      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+  const handleReorder = ({ data }: { data: FlatEntry[] }) => {
+    const { items: itemsPayload, groups: groupsPayload } =
+      deriveReorderPayload(data);
+    // Optimistic update
+    qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
+      const updated = itemsPayload.reduce(
+        (map, p) => {
+          map[p.id] = p;
+          return map;
+        },
+        {} as Record<
+          string,
+          { id: string; sort_order: number; group_id: string | null }
+        >,
+      );
+      return old.map((i) =>
+        updated[i.id]
+          ? {
+              ...i,
+              sort_order: updated[i.id].sort_order,
+              group_id: updated[i.id].group_id,
+            }
+          : i,
+      );
     });
+    reorderListGrouped(listId!, itemsPayload, groupsPayload).catch(() => {
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+    });
+  };
+
+  const handleDragBegin = (index: number) => {
+    draggedEntryRef.current = flatDataRef.current[index] ?? null;
+  };
+
+  const handlePlaceholderIndexChange = (index: number) => {
+    // Clear any pending hover timer
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoverTargetId(null);
+
+    const dragged = draggedEntryRef.current;
+    if (!dragged || dragged.type !== "item") return;
+
+    const target = flatDataRef.current[index];
+    if (!target || target.type !== "item" || target.id === dragged.id) return;
+
+    // Both are items → start 500ms hover timer
+    setHoverTargetId(target.item.id);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoverTargetId(null);
+      setCreateGroupRequest({ item1: dragged.item, item2: target.item });
+    }, 500);
+  };
+
+  const handleDragEnd = (params: { data: FlatEntry[] }) => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoverTargetId(null);
+    // If a group modal was triggered, skip the reorder
+    if (createGroupRequest) return;
+    handleReorder(params);
+  };
+
+  const handleConfirmCreateGroup = async (name: string) => {
+    if (!createGroupRequest || !listId) return;
+    const { item1, item2 } = createGroupRequest;
+    setCreateGroupRequest(null);
+    try {
+      await createItemGroup(listId, name, [item1.id, item2.id]);
+      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Could not create group", msg);
+    }
+  };
+
+  const handleDissolveGroup = (groupId: string) => {
+    Alert.alert("Remove group", "Items will stay on the list.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove group",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteItemGroup(groupId);
+            qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+            qc.invalidateQueries({ queryKey: ["listItems", listId] });
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            Alert.alert("Error", msg);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleRenameGroup = (group: ItemGroup) => {
+    Alert.prompt(
+      "Rename group",
+      undefined,
+      async (newName) => {
+        const trimmed = newName?.trim();
+        if (!trimmed || trimmed === group.name) return;
+        try {
+          await renameItemGroup(group.id, trimmed);
+          qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          Alert.alert("Error", msg);
+        }
+      },
+      "plain-text",
+      group.name,
+    );
   };
 
   const handleCreateList = () => {
@@ -308,23 +590,46 @@ export default function ListScreen() {
     ]);
   };
 
-  const renderDraggableItem = useCallback(({
-    item,
-    drag,
-    isActive,
-  }: RenderItemParams<ListItem>) => (
-    <ItemRow
-      item={item}
-      onToggle={() => {
-        const next = item.checked === 0 ? 1 : 0;
-        toggleMutation.mutate({ id: item.id, checked: next });
-      }}
-      onDelete={() => handleDelete(item)}
-      onLongPress={() => handleLongPress(item)}
-      drag={drag}
-      isActive={isActive}
-    />
-  ), [toggleMutation.mutate, deleteMutation.mutate, handleLongPress]);
+  const renderDraggableItem = useCallback(
+    ({ item: entry, drag, isActive }: RenderItemParams<FlatEntry>) => {
+      if (entry.type === "group-header") {
+        return (
+          <GroupHeader
+            group={entry.group}
+            itemCount={
+              unchecked.filter((i) => i.group_id === entry.group.id).length
+            }
+            drag={drag}
+            isActive={isActive}
+            onRename={() => handleRenameGroup(entry.group)}
+            onDissolve={() => handleDissolveGroup(entry.group.id)}
+          />
+        );
+      }
+      const item = entry.item;
+      return (
+        <ItemRow
+          item={item}
+          onToggle={() => {
+            const next = item.checked === 0 ? 1 : 0;
+            toggleMutation.mutate({ id: item.id, checked: next });
+          }}
+          onDelete={() => handleDelete(item)}
+          onLongPress={() => handleLongPress(item)}
+          drag={drag}
+          isActive={isActive}
+          isHoverTarget={hoverTargetId === item.id}
+        />
+      );
+    },
+    [
+      toggleMutation.mutate,
+      deleteMutation.mutate,
+      handleLongPress,
+      hoverTargetId,
+      unchecked,
+    ],
+  );
 
   const handleSuggestionAdd = (name: string, type: string) =>
     type === "ai" ? handleAddSuggestion(name) : handleAddRecipeSuggestion(name);
@@ -449,10 +754,12 @@ export default function ListScreen() {
           ) : (
             <View style={{ flex: 1 }}>
               <DraggableFlatList
-                data={unchecked}
-                keyExtractor={(item) => item.id}
+                data={flatData}
+                keyExtractor={(entry) => entry.id}
                 renderItem={renderDraggableItem}
-                onDragEnd={handleReorder}
+                onDragBegin={handleDragBegin}
+                onPlaceholderIndexChange={handlePlaceholderIndexChange}
+                onDragEnd={handleDragEnd}
                 renderPlaceholder={() => <DragPlaceholder />}
                 refreshControl={
                   <RefreshControl
@@ -482,6 +789,13 @@ export default function ListScreen() {
           )}
         </ScrollInfoContext.Provider>
       </View>
+      <CreateGroupModal
+        visible={!!createGroupRequest}
+        item1Name={createGroupRequest?.item1.name ?? ""}
+        item2Name={createGroupRequest?.item2.name ?? ""}
+        onConfirm={handleConfirmCreateGroup}
+        onCancel={() => setCreateGroupRequest(null)}
+      />
       <ItemActionDrawer
         visible={showActionDrawer}
         item={actionItem}

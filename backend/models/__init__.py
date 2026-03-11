@@ -1,6 +1,7 @@
 from .user import User
 from .shopping_list import ShoppingList
 from .list_item import ListItem
+from .item_group import ItemGroup
 from .ingredient_pairing import IngredientPairing
 from .app_admin import AppAdmin
 from .push_token import PushToken
