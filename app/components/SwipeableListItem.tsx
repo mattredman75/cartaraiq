@@ -22,7 +22,7 @@ export function SwipeableListItem({
   canDelete: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   const translateXShared = useSharedValue(0);
   const isOpenedShared = useSharedValue(false);
@@ -93,8 +93,8 @@ export function SwipeableListItem({
         }]}>
           <TouchableOpacity
             onPress={onSelect}
-            onLongPress={onEdit}
-            delayLongPress={400}
+            onLongPress={onEdit ?? undefined}
+            delayLongPress={onEdit ? 400 : undefined}
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 }}
           >
             <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: isSelected ? TEAL : TEXT, flex: 1 }}>
