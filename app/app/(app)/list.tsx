@@ -30,6 +30,7 @@ import {
   createItemGroup,
   deleteItemGroup,
   renameItemGroup,
+  assignItemToGroup,
 } from "../../lib/api";
 import type { ListItem, ShoppingList, ItemGroup } from "../../lib/types";
 import { ScrollInfoContext } from "../../components/ItemRow";
@@ -106,7 +107,12 @@ function buildFlatData(
   const result: FlatEntry[] = [];
   for (const block of blocks) {
     if (block.type === "item") {
-      result.push({ type: "item", id: block.item.id, item: block.item, inGroup: false });
+      result.push({
+        type: "item",
+        id: block.item.id,
+        item: block.item,
+        inGroup: false,
+      });
     } else {
       result.push({
         type: "group-header",
@@ -179,14 +185,9 @@ export default function ListScreen() {
   const [isFixingWithAI, setIsFixingWithAI] = useState(false);
 
   // Group state
-  const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
-  const [createGroupRequest, setCreateGroupRequest] = useState<{
-    item1: ListItem;
-    item2: ListItem;
-  } | null>(null);
-  const draggedEntryRef = useRef<FlatEntry | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flatDataRef = useRef<FlatEntry[]>([]);
+  const [pendingGroupItem, setPendingGroupItem] = useState<ListItem | null>(
+    null,
+  );
 
   const inputRef = useRef<TextInput>(null);
 
@@ -253,9 +254,6 @@ export default function ListScreen() {
     () => buildFlatData(unchecked, groups),
     [unchecked, groups],
   );
-  useEffect(() => {
-    flatDataRef.current = flatData;
-  }, [flatData]);
 
   useEffect(() => {
     if (!currentList && shoppingLists.length > 0)
@@ -340,17 +338,16 @@ export default function ListScreen() {
       item = itemOrId;
     }
 
-    // Check if deleting this item would leave only 1 item in a group →
+    // Check if deleting this item is the last one in a group →
     // offer to dissolve the group
     if (item?.group_id) {
       const groupItems = unchecked.filter((i) => i.group_id === item!.group_id);
-      if (groupItems.length === 2) {
-        const survivingItem = groupItems.find((i) => i.id !== item!.id);
+      if (groupItems.length === 1) {
         const groupName =
           groups.find((g) => g.id === item!.group_id)?.name ?? "Group";
         Alert.alert(
           "Remove group?",
-          `"${groupName}" will have only 1 item left. Remove the group?`,
+          `"${groupName}" will be empty. Remove the group too?`,
           [
             {
               text: "Keep group",
@@ -362,16 +359,14 @@ export default function ListScreen() {
               style: "destructive",
               onPress: () => {
                 deleteMutation.mutate(item!.id);
-                if (survivingItem) {
-                  deleteItemGroup(item!.group_id!).then(() => {
-                    qc.invalidateQueries({
-                      queryKey: ["itemGroups", listId],
-                    });
-                    qc.invalidateQueries({
-                      queryKey: ["listItems", listId],
-                    });
+                deleteItemGroup(item!.group_id!).then(() => {
+                  qc.invalidateQueries({
+                    queryKey: ["itemGroups", listId],
                   });
-                }
+                  qc.invalidateQueries({
+                    queryKey: ["listItems", listId],
+                  });
+                });
               },
             },
           ],
@@ -479,54 +474,43 @@ export default function ListScreen() {
     });
   };
 
-  const handleDragBegin = (index: number) => {
-    draggedEntryRef.current = flatDataRef.current[index] ?? null;
-  };
-
-  const handlePlaceholderIndexChange = (index: number) => {
-    // Clear any pending hover timer
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    setHoverTargetId(null);
-
-    const dragged = draggedEntryRef.current;
-    if (!dragged || dragged.type !== "item") return;
-
-    const target = flatDataRef.current[index];
-    if (!target || target.type !== "item" || target.id === dragged.id) return;
-
-    // Both are items → start 500ms hover timer
-    setHoverTargetId(target.item.id);
-    hoverTimerRef.current = setTimeout(() => {
-      setHoverTargetId(null);
-      setCreateGroupRequest({ item1: dragged.item, item2: target.item });
-    }, 500);
-  };
-
   const handleDragEnd = (params: { data: FlatEntry[] }) => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    setHoverTargetId(null);
-    // If a group modal was triggered, skip the reorder
-    if (createGroupRequest) return;
     handleReorder(params);
   };
 
   const handleConfirmCreateGroup = async (name: string) => {
-    if (!createGroupRequest || !listId) return;
-    const { item1, item2 } = createGroupRequest;
-    setCreateGroupRequest(null);
+    if (!pendingGroupItem || !listId) return;
+    const item = pendingGroupItem;
+    setPendingGroupItem(null);
     try {
-      await createItemGroup(listId, name, [item1.id, item2.id]);
+      await createItemGroup(listId, name, [item.id]);
       qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
       qc.invalidateQueries({ queryKey: ["listItems", listId] });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert("Could not create group", msg);
+    }
+  };
+
+  const handleAddToGroup = async (item: ListItem, groupId: string) => {
+    try {
+      await assignItemToGroup(item.id, groupId);
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Could not add to group", msg);
+    }
+  };
+
+  const handleRemoveFromGroup = async (item: ListItem) => {
+    try {
+      await assignItemToGroup(item.id, null);
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Could not remove from group", msg);
     }
   };
 
@@ -617,7 +601,6 @@ export default function ListScreen() {
           onLongPress={() => handleLongPress(item)}
           drag={drag}
           isActive={isActive}
-          isHoverTarget={hoverTargetId === item.id}
         />
       );
       if (!entry.inGroup) return row;
@@ -637,7 +620,6 @@ export default function ListScreen() {
       toggleMutation.mutate,
       deleteMutation.mutate,
       handleLongPress,
-      hoverTargetId,
     ],
   );
 
@@ -767,8 +749,6 @@ export default function ListScreen() {
                 data={flatData}
                 keyExtractor={(entry) => entry.id}
                 renderItem={renderDraggableItem}
-                onDragBegin={handleDragBegin}
-                onPlaceholderIndexChange={handlePlaceholderIndexChange}
                 onDragEnd={handleDragEnd}
                 renderPlaceholder={() => <DragPlaceholder />}
                 refreshControl={
@@ -800,16 +780,16 @@ export default function ListScreen() {
         </ScrollInfoContext.Provider>
       </View>
       <CreateGroupModal
-        visible={!!createGroupRequest}
-        item1Name={createGroupRequest?.item1.name ?? ""}
-        item2Name={createGroupRequest?.item2.name ?? ""}
+        visible={!!pendingGroupItem}
+        item1Name={pendingGroupItem?.name ?? ""}
         onConfirm={handleConfirmCreateGroup}
-        onCancel={() => setCreateGroupRequest(null)}
+        onCancel={() => setPendingGroupItem(null)}
       />
       <ItemActionDrawer
         visible={showActionDrawer}
         item={actionItem}
         isFixing={isFixingWithAI}
+        groups={groups.filter((g) => g.id !== actionItem?.group_id)}
         onClose={() => {
           setShowActionDrawer(false);
           setActionItem(null);
@@ -824,6 +804,18 @@ export default function ListScreen() {
           }
         }}
         onFixWithAI={handleFixWithAI}
+        onCreateGroup={() => {
+          if (actionItem) setPendingGroupItem(actionItem);
+          setActionItem(null);
+        }}
+        onAddToGroup={(groupId) => {
+          if (actionItem) handleAddToGroup(actionItem, groupId);
+          setActionItem(null);
+        }}
+        onRemoveFromGroup={() => {
+          if (actionItem) handleRemoveFromGroup(actionItem);
+          setActionItem(null);
+        }}
       />
       <ModalStack
         editItem={editItem}

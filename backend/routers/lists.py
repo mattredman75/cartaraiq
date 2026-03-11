@@ -698,8 +698,8 @@ def create_item_group(
     db: Session = Depends(get_db),
 ):
     _has_list_access(db, list_id, current_user.id)
-    if len(payload.item_ids) < 2:
-        raise HTTPException(status_code=422, detail="A group requires at least 2 items.")
+    if len(payload.item_ids) < 1:
+        raise HTTPException(status_code=422, detail="A group requires at least 1 item.")
 
     # Compute sort_order: place group at the min sort_order of the seeding items
     seeding_items = (
@@ -707,8 +707,8 @@ def create_item_group(
         .filter(ListItem.id.in_(payload.item_ids), ListItem.list_id == list_id)
         .all()
     )
-    if len(seeding_items) < 2:
-        raise HTTPException(status_code=404, detail="One or more items not found.")
+    if len(seeding_items) < 1:
+        raise HTTPException(status_code=404, detail="Item not found.")
 
     min_order = min((i.sort_order or 0) for i in seeding_items)
     group = ItemGroup(

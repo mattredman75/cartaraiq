@@ -18,7 +18,7 @@ const TEAL_LIGHT = "#4FB8C8";
 interface Props {
   visible: boolean;
   item1Name: string;
-  item2Name: string;
+  item2Name?: string;
   onConfirm: (groupName: string) => void;
   onCancel: () => void;
 }
@@ -89,9 +89,18 @@ export function CreateGroupModal({
 
           <Text style={styles.title}>Create new group?</Text>
           <Text style={styles.subtitle}>
-            Grouping <Text style={styles.itemName}>{item1Name}</Text>
-            {" & "}
-            <Text style={styles.itemName}>{item2Name}</Text>
+            {item2Name ? (
+              <>
+                Grouping <Text style={styles.itemName}>{item1Name}</Text>
+                {" & "}
+                <Text style={styles.itemName}>{item2Name}</Text>
+              </>
+            ) : (
+              <>
+                Creating a group for{" "}
+                <Text style={styles.itemName}>{item1Name}</Text>
+              </>
+            )}
           </Text>
 
           <TextInput

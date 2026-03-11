@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ListItem } from "../lib/types";
+import { Ionicons } from "@expo/vector-icons";
+import type { ListItem, ItemGroup } from "../lib/types";
 
 const TEAL = "#1B6B7A";
 const CARD = "#FFFFFF";
@@ -20,18 +22,26 @@ interface ItemActionDrawerProps {
   visible: boolean;
   item: ListItem | null;
   isFixing: boolean;
+  groups?: ItemGroup[];
   onClose: () => void;
   onEditItem: () => void;
   onFixWithAI: () => void;
+  onCreateGroup?: () => void;
+  onAddToGroup?: (groupId: string, groupName: string) => void;
+  onRemoveFromGroup?: () => void;
 }
 
 export function ItemActionDrawer({
   visible,
   item,
   isFixing,
+  groups = [],
   onClose,
   onEditItem,
   onFixWithAI,
+  onCreateGroup,
+  onAddToGroup,
+  onRemoveFromGroup,
 }: ItemActionDrawerProps) {
   const insets = useSafeAreaInsets();
 
@@ -102,6 +112,99 @@ export function ItemActionDrawer({
               Edit item
             </Text>
           </TouchableOpacity>
+
+          {/* Group actions */}
+          {item?.group_id ? (
+            // Item is already in a group → offer to remove
+            onRemoveFromGroup && (
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  onRemoveFromGroup();
+                }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: BORDER,
+                  borderRadius: 14,
+                  paddingVertical: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="folder-open-outline" size={16} color={MUTED} />
+                <Text style={{ fontSize: 16, fontWeight: "600", color: MUTED }}>
+                  Remove from group
+                </Text>
+              </TouchableOpacity>
+            )
+          ) : (
+            <>
+              {/* Add to existing group */}
+              {groups.length > 0 && onAddToGroup && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    Alert.alert("Add to group", "Choose a group", [
+                      ...groups.map((g) => ({
+                        text: g.name,
+                        onPress: () => onAddToGroup(g.id, g.name),
+                      })),
+                      { text: "Cancel", style: "cancel" as const },
+                    ]);
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: BORDER,
+                    borderRadius: 14,
+                    paddingVertical: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 12,
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons name="folder-open-outline" size={16} color={TEAL} />
+                  <Text
+                    style={{ fontSize: 16, fontWeight: "600", color: TEAL }}
+                  >
+                    Add to group
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Create new group */}
+              {onCreateGroup && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onCreateGroup();
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: BORDER,
+                    borderRadius: 14,
+                    paddingVertical: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 12,
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons name="folder-outline" size={16} color={TEAL} />
+                  <Text
+                    style={{ fontSize: 16, fontWeight: "600", color: TEAL }}
+                  >
+                    New group
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
           {/* Fix with AI */}
           <TouchableOpacity
