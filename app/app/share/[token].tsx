@@ -7,9 +7,14 @@ import {
   Image,
   StyleSheet,
   useWindowDimensions,
-  Animated,
-  Easing,
 } from "react-native";
+import Reanimated, {
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  useAnimatedStyle,
+  Easing as ReanimatedEasing,
+} from "react-native-reanimated";
 import Svg, { Path, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,37 +38,36 @@ const SUN_SIZE = 1200; // 15× avatar diameter
 const SUN_FADE_RADIUS = SUN_SIZE / 4; // fade to 0 at 50% of ray length (SUN_SIZE/2 * 0.5)
 
 const SunRays = ({ screenWidth }: { screenWidth: number }) => {
-  const rotation = useRef(new Animated.Value(0)).current;
+  const rotation = useSharedValue(0);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
-        duration: 20000, // one full rotation every 20 seconds
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 20000, easing: ReanimatedEasing.linear }),
+      -1,
+      false,
+    );
   }, []);
 
-  const rotate = rotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
 
   const cx = SUN_SIZE / 2;
   const cy = SUN_SIZE / 2;
   const R = SUN_SIZE / 2;
   const angleStep = (2 * Math.PI) / RAY_COUNT;
   return (
-    <Animated.View
-      style={{
-        position: "absolute",
-        top: -(SUN_SIZE / 2),
-        left: (screenWidth - SUN_SIZE) / 2,
-        zIndex: 0,
-        transform: [{ rotate }],
-      }}
+    <Reanimated.View
+      pointerEvents="none"
+      style={[
+        animStyle,
+        {
+          position: "absolute",
+          top: -(SUN_SIZE / 2),
+          left: (screenWidth - SUN_SIZE) / 2,
+          zIndex: 0,
+        },
+      ]}
     >
       <Svg width={SUN_SIZE} height={SUN_SIZE}>
         <Defs>
@@ -74,7 +78,7 @@ const SunRays = ({ screenWidth }: { screenWidth: number }) => {
             r={SUN_FADE_RADIUS}
             gradientUnits="userSpaceOnUse"
           >
-            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.2" />
+            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.1" />
             <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
           </RadialGradient>
         </Defs>
@@ -94,7 +98,7 @@ const SunRays = ({ screenWidth }: { screenWidth: number }) => {
           );
         })}
       </Svg>
-    </Animated.View>
+    </Reanimated.View>
   );
 };
 
@@ -234,16 +238,18 @@ export default function ShareAcceptScreen() {
           <View style={[styles.stateIcon, { backgroundColor: TEAL }]}>
             <Ionicons name="checkmark" size={32} color="#fff" />
           </View>
-          <Text style={styles.stateTitle}>You're in!</Text>
-          <Text style={styles.stateSubtext}>
-            You now have access to{" "}
-            <Text style={{ fontWeight: "700", color: TEXT }}>
-              {successListName}
-            </Text>
-            .
+          <Text style={styles.stateTitle}>
+            Awesome! You're sharing{" "}
+            <Text style={{ color: TEAL }}>{successListName}</Text>
+            {" with "}
+            <Text style={{ color: TEAL }}>{ownerLabel}</Text>
+            {" now."}
           </Text>
-          <TouchableOpacity style={styles.acceptBtn} onPress={goToList}>
-            <Text style={styles.acceptBtnText}>GO TO LIST</Text>
+          <Text style={styles.stateSubtext}>
+            You can leave this list anytime you want in settings.
+          </Text>
+          <TouchableOpacity style={styles.acceptBtn} onPress={dismiss}>
+            <Text style={styles.acceptBtnText}>GOT IT</Text>
           </TouchableOpacity>
         </View>
       );
@@ -306,7 +312,7 @@ export default function ShareAcceptScreen() {
       <>
         <Text style={styles.inviteLabel}>
           <Text style={{ fontWeight: "700" }}>{ownerLabel}</Text>
-          {" invites you to the list:"}
+          {" has invited you to share the list"}
         </Text>
         <Text style={styles.listNameLabel}>{listName.toUpperCase()}</Text>
         <Text style={styles.subtext}>

@@ -510,7 +510,7 @@ def preview_list_invite(
         list_id=share.list_id,
         list_name=lst.name if lst else "Shared list",
         owner_name=owner.name if owner else None,
-        owner_avatar_url=owner.avatar_url if owner else None,  # raw — frontend sanitizes
+        owner_avatar_url=avatar_url,
     )
 
 
