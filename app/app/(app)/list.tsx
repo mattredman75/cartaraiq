@@ -71,15 +71,18 @@ function buildFlatData(
   unchecked: ListItem[],
   groups: ItemGroup[],
 ): FlatEntry[] {
+  const groupIds = new Set(groups.map((g) => g.id));
   const itemsByGroup = new Map<string, ListItem[]>();
   const standalone: ListItem[] = [];
 
   for (const item of unchecked) {
-    if (item.group_id) {
+    if (item.group_id && groupIds.has(item.group_id)) {
+      // Only group items whose group is actually in the groups array
       const arr = itemsByGroup.get(item.group_id) ?? [];
       arr.push(item);
       itemsByGroup.set(item.group_id, arr);
     } else {
+      // Standalone, or group not yet synced (race) → show as standalone
       standalone.push(item);
     }
   }
@@ -488,8 +491,10 @@ export default function ListScreen() {
     setPendingGroupItem(null);
     try {
       await createItemGroup(listId, name, [item.id]);
-      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
-      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+        qc.refetchQueries({ queryKey: ["listItems", listId] }),
+      ]);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert("Could not create group", msg);
@@ -499,8 +504,10 @@ export default function ListScreen() {
   const handleAddToGroup = async (item: ListItem, groupId: string) => {
     try {
       await assignItemToGroup(item.id, groupId);
-      qc.invalidateQueries({ queryKey: ["listItems", listId] });
-      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["listItems", listId] }),
+        qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+      ]);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert("Could not add to group", msg);
@@ -510,8 +517,10 @@ export default function ListScreen() {
   const handleRemoveFromGroup = async (item: ListItem) => {
     try {
       await assignItemToGroup(item.id, null);
-      qc.invalidateQueries({ queryKey: ["listItems", listId] });
-      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["listItems", listId] }),
+        qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+      ]);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert("Could not remove from group", msg);
@@ -527,8 +536,10 @@ export default function ListScreen() {
         onPress: async () => {
           try {
             await deleteItemGroup(groupId);
-            qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
-            qc.invalidateQueries({ queryKey: ["listItems", listId] });
+            await Promise.all([
+              qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+              qc.refetchQueries({ queryKey: ["listItems", listId] }),
+            ]);
           } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : String(e);
             Alert.alert("Error", msg);
