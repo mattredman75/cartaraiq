@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,16 @@ import {
   ActivityIndicator,
   Image,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
+import Reanimated, {
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  useAnimatedStyle,
+  Easing as ReanimatedEasing,
+} from "react-native-reanimated";
+import Svg, { Path, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +33,74 @@ const RED = "#C0392B";
 const TEXT = "#1A1A2E";
 const MUTED = "#94A3B8";
 const AVATAR_SIZE = 80;
+const RAY_COUNT = 16;
+const SUN_SIZE = 1200; // 15× avatar diameter
+const SUN_FADE_RADIUS = SUN_SIZE / 4; // fade to 0 at 50% of ray length (SUN_SIZE/2 * 0.5)
+
+const SunRays = ({ screenWidth }: { screenWidth: number }) => {
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 20000, easing: ReanimatedEasing.linear }),
+      -1,
+      false,
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  const cx = SUN_SIZE / 2;
+  const cy = SUN_SIZE / 2;
+  const R = SUN_SIZE / 2;
+  const angleStep = (2 * Math.PI) / RAY_COUNT;
+  return (
+    <Reanimated.View
+      pointerEvents="none"
+      style={[
+        animStyle,
+        {
+          position: "absolute",
+          top: -(SUN_SIZE / 2),
+          left: (screenWidth - SUN_SIZE) / 2,
+          zIndex: 0,
+        },
+      ]}
+    >
+      <Svg width={SUN_SIZE} height={SUN_SIZE}>
+        <Defs>
+          <RadialGradient
+            id="sunFade"
+            cx={cx}
+            cy={cy}
+            r={SUN_FADE_RADIUS}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.1" />
+            <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        {Array.from({ length: RAY_COUNT }).map((_, i) => {
+          const a0 = i * angleStep - Math.PI / 2;
+          const a1 = (i + 1) * angleStep - Math.PI / 2;
+          const x1 = cx + R * Math.cos(a0);
+          const y1 = cy + R * Math.sin(a0);
+          const x2 = cx + R * Math.cos(a1);
+          const y2 = cy + R * Math.sin(a1);
+          return (
+            <Path
+              key={i}
+              d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
+              fill={i % 2 === 0 ? "url(#sunFade)" : "none"}
+            />
+          );
+        })}
+      </Svg>
+    </Reanimated.View>
+  );
+};
 
 type Preview = {
   list_id: string;
@@ -161,16 +238,18 @@ export default function ShareAcceptScreen() {
           <View style={[styles.stateIcon, { backgroundColor: TEAL }]}>
             <Ionicons name="checkmark" size={32} color="#fff" />
           </View>
-          <Text style={styles.stateTitle}>You're in!</Text>
-          <Text style={styles.stateSubtext}>
-            You now have access to{" "}
-            <Text style={{ fontWeight: "700", color: TEXT }}>
-              {successListName}
-            </Text>
-            .
+          <Text style={styles.stateTitle}>
+            Awesome! You're sharing{" "}
+            <Text style={{ color: TEAL }}>{successListName}</Text>
+            {" with "}
+            <Text style={{ color: TEAL }}>{ownerLabel}</Text>
+            {" now."}
           </Text>
-          <TouchableOpacity style={styles.acceptBtn} onPress={goToList}>
-            <Text style={styles.acceptBtnText}>GO TO LIST</Text>
+          <Text style={styles.stateSubtext}>
+            You can leave this list anytime you want in settings.
+          </Text>
+          <TouchableOpacity style={styles.acceptBtn} onPress={dismiss}>
+            <Text style={styles.acceptBtnText}>GOT IT</Text>
           </TouchableOpacity>
         </View>
       );
@@ -233,7 +312,7 @@ export default function ShareAcceptScreen() {
       <>
         <Text style={styles.inviteLabel}>
           <Text style={{ fontWeight: "700" }}>{ownerLabel}</Text>
-          {" invites you to the list:"}
+          {" has invited you to share the list"}
         </Text>
         <Text style={styles.listNameLabel}>{listName.toUpperCase()}</Text>
         <Text style={styles.subtext}>
@@ -269,6 +348,7 @@ export default function ShareAcceptScreen() {
   };
 
   const showAvatar = phase === "preview" || phase === "busy";
+  const { width: screenWidth } = useWindowDimensions();
 
   return (
     <View style={styles.overlay}>
@@ -279,24 +359,34 @@ export default function ShareAcceptScreen() {
         activeOpacity={1}
       />
 
-      {/* Bottom sheet panel */}
-      <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
-        {showAvatar && (
-          <View style={styles.avatarOverlap}>
-            <OwnerAvatar />
-          </View>
-        )}
+      {/* Wrapper holds sun rays behind the panel */}
+      <View style={{ position: "relative" }}>
+        {showAvatar && <SunRays screenWidth={screenWidth} />}
 
-        {/* Drag handle */}
-        <View style={styles.handle} />
-
+        {/* Bottom sheet panel */}
         <View
           style={[
-            styles.panelContent,
-            showAvatar && { paddingTop: AVATAR_SIZE / 2 + 8 },
+            styles.panel,
+            { paddingBottom: insets.bottom + 16, zIndex: 1 },
           ]}
         >
-          {renderPanelContent()}
+          {showAvatar && (
+            <View style={styles.avatarOverlap}>
+              <OwnerAvatar />
+            </View>
+          )}
+
+          {/* Drag handle */}
+          <View style={styles.handle} />
+
+          <View
+            style={[
+              styles.panelContent,
+              showAvatar && { paddingTop: AVATAR_SIZE / 2 + 8 },
+            ]}
+          >
+            {renderPanelContent()}
+          </View>
         </View>
       </View>
     </View>
@@ -325,6 +415,7 @@ const styles = StyleSheet.create({
     top: -(AVATAR_SIZE / 2),
     alignSelf: "center",
     zIndex: 10,
+    overflow: "visible",
   },
   avatarRing: {
     width: AVATAR_SIZE,

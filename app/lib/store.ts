@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { create } from "zustand";
+import { setItem } from "./storage";
 
 interface User {
   id: string;
@@ -29,7 +30,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
   setAuth: (token, user) => set({ token, user }),
-  updateUser: (partial) => set((state) => ({ user: state.user ? { ...state.user, ...partial } : null })),
+  updateUser: (partial) =>
+    set((state) => {
+      const updated = state.user ? { ...state.user, ...partial } : null;
+      if (updated) setItem("auth_user", JSON.stringify(updated));
+      return { user: updated };
+    }),
   clearAuth: () => set({ token: null, user: null }),
 }));
 

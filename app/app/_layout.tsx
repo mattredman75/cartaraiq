@@ -69,10 +69,13 @@ function AuthGate() {
     cleanup,
   } = useAppStatus();
   const [statusChecked, setStatusChecked] = useState(false);
+  const [pendingShare, setPendingShare] = useState<string | null>(null);
   const pendingInviteProcessed = useRef(false);
   const handledShareUrl = useRef<string | null>(null);
   // Stable ref so the deep-link effect never re-runs due to router identity change
-  const handleShareUrlRef = useRef<(url: string | null) => Promise<void>>(() => Promise.resolve());
+  const handleShareUrlRef = useRef<(url: string | null) => Promise<void>>(() =>
+    Promise.resolve(),
+  );
 
   // Handle maintenance updates from silent push
   const onMaintenanceUpdate = useCallback(
@@ -128,43 +131,42 @@ function AuthGate() {
     const pendingToken = await getItem("pending_invite_token");
     if (!pendingToken) return;
     pendingInviteProcessed.current = true;
-    await deleteItem("pending_invite_token"); // clear so it won't replay on next app launch
-    router.push(`/share/${pendingToken}`);
-  }, [router]);
+    await deleteItem("pending_invite_token");
+    // Queue via state — the pendingShare effect pushes once on the app screen
+    setPendingShare(pendingToken);
+  }, []);
 
   /** Handle an incoming share URL (deep link or initial URL). */
-  const handleShareUrl = useCallback(
-    async (url: string | null) => {
-      if (!url) return;
-      const shareToken = extractShareToken(url);
-      if (!shareToken) return;
-      // Prevent double-fire: getInitialURL + addEventListener both fire on cold-start
-      if (handledShareUrl.current === shareToken) return;
-      handledShareUrl.current = shareToken;
-      const currentToken = useAuthStore.getState().token;
-      if (currentToken) {
-        // Already authenticated — navigate to the invite screen to Accept/Decline
-        router.push(`/share/${shareToken}`);
-      } else {
-        // Not authenticated — stash for after login
-        await setItem("pending_invite_token", shareToken);
-      }
-    },
-    [router],
-  );
+  const handleShareUrl = useCallback(async (url: string | null) => {
+    if (!url) return;
+    const shareToken = extractShareToken(url);
+    if (!shareToken) return;
+    // Prevent double-fire: getInitialURL + addEventListener both fire on cold-start
+    if (handledShareUrl.current === shareToken) return;
+    handledShareUrl.current = shareToken;
+    const currentToken = useAuthStore.getState().token;
+    if (!currentToken) {
+      // Not authenticated — stash for after login
+      await setItem("pending_invite_token", shareToken);
+    } else {
+      // Authenticated — queue via state; the pendingShare effect pushes once
+      // the app is on the list screen, avoiding races with router.replace
+      setPendingShare(shareToken);
+    }
+  }, []);
 
   // Keep the ref in sync with the latest version of the callback
   handleShareUrlRef.current = handleShareUrl;
 
-  // Capture cold-start deep links — runs ONCE on mount only (no deps)
-  // Uses ref so it always calls the latest handleShareUrl without re-registering
+  // Capture cold-start deep links ONLY — Expo Router handles foreground/background
+  // taps automatically via file-based routing. We only need getInitialURL for the
+  // case where the nav guard (router.replace "/(app)/list") wipes the initial route.
   useEffect(() => {
     Linking.getInitialURL().then((url) => {
       if (url) handleShareUrlRef.current(url);
     });
-
-    const sub = Linking.addEventListener("url", (e) => handleShareUrlRef.current(e.url));
-    return () => sub.remove();
+    // No addEventListener — that would double-fire: Expo Router already navigates
+    // to share/[token] for foreground/background deep links.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -183,14 +185,25 @@ function AuthGate() {
     }
   }, [token, processPendingInvite]);
 
+  // Push queued share invite once the app is on the main list screen.
+  // This prevents the race where router.replace("/(app)/list") wipes a
+  // router.push("/share/token") that fired during cold-start.
+  useEffect(() => {
+    if (!pendingShare) return;
+    const onAppScreen = segments[0] === "(app)";
+    if (!onAppScreen) return;
+    const shareToken = pendingShare;
+    setPendingShare(null);
+    handledShareUrl.current = null; // allow future taps of the same link
+    router.push(`/share/${shareToken}`);
+  }, [pendingShare, segments, router]);
+
   // Navigation effect — must be declared before any conditional returns
   useEffect(() => {
     if (statusChecked && maintenance) return; // skip navigation when in maintenance
     const inAuthGroup = segments[0] === "(auth)";
-    // Allow the share accept screen to handle its own auth logic
-    const inShareRoute = segments[0] === "share";
 
-    if (!token && !inAuthGroup && !inShareRoute) {
+    if (!token && !inAuthGroup) {
       router.replace("/(auth)/welcome");
     } else if (token && inAuthGroup) {
       router.replace("/(app)/list");

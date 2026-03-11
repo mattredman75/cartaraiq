@@ -485,6 +485,63 @@ def landing():
     return HTMLResponse(content=html)
 
 
+@app.get("/.well-known/apple-app-site-association")
+def apple_app_site_association():
+    """
+    iOS Universal Links support.
+    Served at https://cartaraiq.app/.well-known/apple-app-site-association
+    iOS fetches this during app install to register which URL paths open the app.
+    Team ID: Q3Q2X7UJGT  Bundle ID: com.cartaraiq.app
+    """
+    return JSONResponse(
+        content={
+            "applinks": {
+                "apps": [],
+                "details": [
+                    {
+                        "appIDs": ["Q3Q2X7UJGT.com.cartaraiq.app"],
+                        "components": [
+                            {"/": "/share/*", "comment": "Share invite links"},
+                        ],
+                        # Legacy format for older iOS:
+                        "paths": ["/share/*"],
+                    }
+                ],
+            }
+        },
+        headers={"Content-Type": "application/json"},
+    )
+
+
+@app.get("/.well-known/assetlinks.json")
+def android_assetlinks():
+    """
+    Android App Links support.
+    Served at https://cartaraiq.app/.well-known/assetlinks.json
+    Android fetches this during install to verify that https://cartaraiq.app/share/* opens the app.
+
+    TODO: Replace REPLACE_WITH_SHA256_FROM_EAS with the actual SHA-256 fingerprint.
+    To get it: run `eas credentials --platform android` and look for
+    "SHA-256 certificate fingerprint" in the output (or check the EAS dashboard at
+    https://expo.dev/accounts/cartaraiq/projects/cartaraiq/credentials).
+    """
+    return JSONResponse(
+        content=[
+            {
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {
+                    "namespace": "android_app",
+                    "package_name": "com.cartaraiq.app",
+                    "sha256_cert_fingerprints": [
+                        "REPLACE_WITH_SHA256_FROM_EAS"
+                    ],
+                },
+            }
+        ],
+        headers={"Content-Type": "application/json"},
+    )
+
+
 @app.get("/share/{token}", response_class=HTMLResponse)
 def share_landing(token: str):
     """Web landing page for invite links. Opens the app if installed, otherwise shows download instructions."""

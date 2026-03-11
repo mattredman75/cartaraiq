@@ -23,10 +23,19 @@ export const API_URL =
  * URL scheme (cartaraiq://uploads/...) instead of an http URL. This happened
  * when APP_BASE_URL was set to the deep-link scheme in local dev.
  */
-export function sanitizeAvatarUrl(url: string | null | undefined): string | undefined {
+export function sanitizeAvatarUrl(
+  url: string | null | undefined,
+): string | undefined {
   if (!url) return undefined;
+  // Fix URLs stored with the deep-link scheme instead of http
   if (url.startsWith("cartaraiq://uploads/")) {
     return url.replace("cartaraiq:/", API_URL);
+  }
+  // Fix URLs stored with localhost — replace with the app's configured API base
+  // so the URL works on physical devices / simulators where localhost is the device
+  if (url.startsWith("http://localhost:")) {
+    const withoutOrigin = url.replace(/^http:\/\/localhost:\d+/, "");
+    return `${API_URL}${withoutOrigin}`;
   }
   return url;
 }
