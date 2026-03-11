@@ -36,7 +36,6 @@ import type { ListItem, ShoppingList, ItemGroup } from "../../lib/types";
 import { ScrollInfoContext } from "../../components/ItemRow";
 import { ItemRow } from "../../components/ItemRow";
 import { GroupHeader } from "../../components/GroupHeader";
-import { DragPlaceholder } from "../../components/DragPlaceholder";
 import { NoListsEmptyState } from "../../components/NoListsEmptyState";
 import { useDismissedSuggestions } from "../../hooks/useDismissedSuggestions";
 import { useListQueries } from "../../hooks/useListQueries";
@@ -682,20 +681,10 @@ export default function ListScreen() {
           // snaps back, causing a jarring visual glitch.
           drag={entry.inGroup ? undefined : drag}
           isActive={isActive}
+          inGroup={entry.inGroup}
         />
       );
-      if (!entry.inGroup) return row;
-      return (
-        <View
-          style={{
-            marginLeft: 14,
-            borderLeftWidth: 2,
-            borderLeftColor: "#4FB8C8",
-          }}
-        >
-          {row}
-        </View>
-      );
+      return row;
     },
     [toggleMutation.mutate, deleteMutation.mutate, handleLongPress],
   );
@@ -828,7 +817,6 @@ export default function ListScreen() {
                 extraData={flatData}
                 renderItem={renderDraggableItem}
                 onDragEnd={handleDragEnd}
-                renderPlaceholder={() => <DragPlaceholder />}
                 refreshControl={
                   <RefreshControl
                     refreshing={isPullRefreshing}

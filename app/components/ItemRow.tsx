@@ -42,6 +42,17 @@ export const ScrollInfoContext = React.createContext<ScrollInfo>({
 
 // ── ItemRow ───────────────────────────────────────────────────────────────────
 
+interface ItemRowProps {
+  item: ListItem;
+  onToggle: () => void;
+  onDelete: () => void;
+  onLongPress: () => void;
+  drag?: () => void;
+  isActive?: boolean;
+  inGroup?: boolean;
+  isHoverTarget?: boolean;
+}
+
 function ItemRowInner({
   item,
   onToggle,
@@ -49,16 +60,9 @@ function ItemRowInner({
   onLongPress,
   drag,
   isActive,
+  inGroup = false,
   isHoverTarget = false,
-}: {
-  item: ListItem;
-  onToggle: () => void;
-  onDelete: () => void;
-  onLongPress: () => void;
-  drag?: () => void;
-  isActive?: boolean;
-  isHoverTarget?: boolean;
-}) {
+}: ItemRowProps) {
   const { dragDirection, setDragDirection } =
     React.useContext(ScrollInfoContext);
 
@@ -218,6 +222,9 @@ function ItemRowInner({
           shadowRadius: isActive ? 12 : 4,
           elevation: isActive ? 10 : 4,
           marginBottom: 6,
+          marginLeft: inGroup ? 14 : 0,
+          borderLeftWidth: inGroup ? 2 : 0,
+          borderLeftColor: inGroup ? "#4FB8C8" : "transparent",
           marginHorizontal: 20,
           zIndex: isActive ? 999 : 0,
         },
@@ -401,13 +408,16 @@ function ItemRowInner({
 
 export const ItemRow = React.memo(
   ItemRowInner,
-  (prev, next) =>
+  (prev: Readonly<ItemRowProps>, next: Readonly<ItemRowProps>) =>
     prev.item.id === next.item.id &&
     prev.item.name === next.item.name &&
     prev.item.quantity === next.item.quantity &&
     prev.item.unit === next.item.unit &&
     prev.item.checked === next.item.checked &&
+    prev.item.group_id === next.item.group_id &&
     prev.item.sort_order === next.item.sort_order &&
+    prev.inGroup === next.inGroup &&
+    Boolean(prev.drag) === Boolean(next.drag) &&
     prev.isActive === next.isActive &&
     prev.isHoverTarget === next.isHoverTarget,
 );
