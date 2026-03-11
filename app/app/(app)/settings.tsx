@@ -43,7 +43,7 @@ interface ShareEntry {
   shared_with_name: string | null;
   shared_with_email: string | null;
   shared_with_avatar_url: string | null;
-  status: "pending" | "accepted";
+  status: "pending" | "accepted" | "declined";
   created_at: string;
 }
 
@@ -308,7 +308,11 @@ export default function SettingsScreen() {
                 setAvatarUri(null);
                 await deleteItem("profile_avatar_uri");
                 updateUser({ avatar_url: null });
-                try { await clearAvatar(); } catch { /* best-effort */ }
+                try {
+                  await clearAvatar();
+                } catch {
+                  /* best-effort */
+                }
               },
             },
           ]
@@ -1005,11 +1009,25 @@ export default function SettingsScreen() {
                             {share.shared_with_avatar_url ? (
                               <Image
                                 source={{ uri: share.shared_with_avatar_url }}
-                                style={{ width: 34, height: 34, borderRadius: 17 }}
+                                style={{
+                                  width: 34,
+                                  height: 34,
+                                  borderRadius: 17,
+                                }}
                               />
                             ) : (
-                              <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>
-                                {(share.shared_with_name ?? share.shared_with_email ?? "?")
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 14,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {(
+                                  share.shared_with_name ??
+                                  share.shared_with_email ??
+                                  "?"
+                                )
                                   .charAt(0)
                                   .toUpperCase()}
                               </Text>
@@ -1025,7 +1043,9 @@ export default function SettingsScreen() {
                             >
                               {share.shared_with_name ??
                                 share.shared_with_email ??
-                                "Pending invite"}
+                                (share.status === "declined"
+                                  ? "Declined invite"
+                                  : "Pending invite")}
                             </Text>
                             {share.status === "pending" && (
                               <Text style={{ fontSize: 12, color: MUTED }}>
@@ -1034,16 +1054,44 @@ export default function SettingsScreen() {
                                   : "Invite pending"}
                               </Text>
                             )}
+                            {share.status === "declined" && (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  marginTop: 2,
+                                  gap: 4,
+                                }}
+                              >
+                                <View
+                                  style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: 3,
+                                    backgroundColor: "#EF4444",
+                                  }}
+                                />
+                                <Text
+                                  style={{ fontSize: 12, color: "#EF4444" }}
+                                >
+                                  Invite declined
+                                </Text>
+                              </View>
+                            )}
                           </View>
                           <TouchableOpacity
                             onPress={() =>
                               Alert.alert(
                                 share.status === "pending"
                                   ? "Revoke Invite"
-                                  : "Remove Collaborator",
+                                  : share.status === "declined"
+                                    ? "Remove Declined Invite"
+                                    : "Remove Collaborator",
                                 share.status === "pending"
                                   ? "This will invalidate the invite link."
-                                  : `Remove ${share.shared_with_name ?? "this person"} from this list?`,
+                                  : share.status === "declined"
+                                    ? `${share.shared_with_name ?? "This person"} declined the invite. Remove it from your list?`
+                                    : `Remove ${share.shared_with_name ?? "this person"} from this list?`,
                                 [
                                   { text: "Cancel", style: "cancel" },
                                   {

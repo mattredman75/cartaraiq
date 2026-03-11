@@ -13,7 +13,7 @@ class ListShare(Base):
     owner_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     shared_with_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     invite_token = Column(String(36), nullable=False, unique=True, default=lambda: str(uuid.uuid4()))
-    # status: "pending" | "accepted"
+    # status: "pending" | "accepted" | "declined"
     status = Column(String(16), nullable=False, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

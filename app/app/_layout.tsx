@@ -24,7 +24,6 @@ import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useLoyaltyPrograms } from "../hooks/useLoyaltyPrograms";
 import { LoyaltyProgramsProvider } from "../contexts/LoyaltyProgramsContext";
 import { MaintenanceScreen } from "../components/MaintenanceScreen";
-import { acceptListInvite } from "../lib/api";
 
 /** Extract a share token from deep-link URLs.
  *  Handles both:
@@ -120,38 +119,33 @@ function AuthGate() {
     })();
   }, []);
 
-  /** Accept a pending invite token after authentication. */
+  /** After login, navigate to the share screen so the user can Accept/Decline. */
   const processPendingInvite = useCallback(async () => {
     if (pendingInviteProcessed.current) return;
     const pendingToken = await getItem("pending_invite_token");
     if (!pendingToken) return;
     pendingInviteProcessed.current = true;
-    await deleteItem("pending_invite_token");
-    try {
-      await acceptListInvite(pendingToken);
-    } catch {
-      // silently ignore — user may already be a member or token may be stale
-    }
-  }, []);
+    await deleteItem("pending_invite_token"); // clear so it won't replay on next app launch
+    router.push(`/share/${pendingToken}`);
+  }, [router]);
 
   /** Handle an incoming share URL (deep link or initial URL). */
-  const handleShareUrl = useCallback(async (url: string | null) => {
-    if (!url) return;
-    const shareToken = extractShareToken(url);
-    if (!shareToken) return;
-    const currentToken = useAuthStore.getState().token;
-    if (currentToken) {
-      // Already authenticated — accept inline
-      try {
-        await acceptListInvite(shareToken);
-      } catch {
-        // ignore — already a member or token stale
+  const handleShareUrl = useCallback(
+    async (url: string | null) => {
+      if (!url) return;
+      const shareToken = extractShareToken(url);
+      if (!shareToken) return;
+      const currentToken = useAuthStore.getState().token;
+      if (currentToken) {
+        // Already authenticated — navigate to the invite screen to Accept/Decline
+        router.push(`/share/${shareToken}`);
+      } else {
+        // Not authenticated — stash for after login
+        await setItem("pending_invite_token", shareToken);
       }
-    } else {
-      // Not authenticated — stash for after login
-      await setItem("pending_invite_token", shareToken);
-    }
-  }, []);
+    },
+    [router],
+  );
 
   // Capture cold-start deep links
   useEffect(() => {
