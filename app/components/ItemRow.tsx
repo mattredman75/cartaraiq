@@ -222,9 +222,6 @@ function ItemRowInner({
           shadowRadius: isActive ? 12 : 4,
           elevation: isActive ? 10 : 4,
           marginBottom: 6,
-          marginLeft: inGroup ? 14 : 0,
-          borderLeftWidth: inGroup ? 2 : 0,
-          borderLeftColor: inGroup ? "#4FB8C8" : "transparent",
           marginHorizontal: 20,
           zIndex: isActive ? 999 : 0,
         },
@@ -249,13 +246,24 @@ function ItemRowInner({
       )}
 
       <View
-        style={{
-          borderRadius: 4,
-          overflow: "hidden",
-          borderWidth: 1,
-          borderColor: "#C5D5D9",
-        }}
+        style={
+          inGroup
+            ? {
+                marginLeft: 14,
+                borderLeftWidth: 2,
+                borderLeftColor: "#4FB8C8",
+              }
+            : undefined
+        }
       >
+        <View
+          style={{
+            borderRadius: 4,
+            overflow: "hidden",
+            borderWidth: 1,
+            borderColor: "#C5D5D9",
+          }}
+        >
         {/* Red delete zone — full width, label pinned to right */}
         <TouchableOpacity
           onPress={confirmDelete}
@@ -401,6 +409,7 @@ function ItemRowInner({
             )}
           </Reanimated.View>
         </GestureDetector>
+        </View>
       </View>
     </Reanimated.View>
   );

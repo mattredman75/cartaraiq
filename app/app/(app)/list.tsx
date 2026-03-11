@@ -784,7 +784,7 @@ export default function ListScreen() {
                 ListFooterComponentStyle={
                   items.length === 0 && !isLoading ? { flex: 1 } : undefined
                 }
-                removeClippedSubviews={true}
+                removeClippedSubviews={false}
                 initialNumToRender={15}
                 maxToRenderPerBatch={10}
                 windowSize={5}

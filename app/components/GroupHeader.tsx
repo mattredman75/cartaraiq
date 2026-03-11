@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: BG_HEADER,
-    marginHorizontal: 12,
+    marginHorizontal: 20,
     marginTop: 10,
     marginBottom: 0,
     borderRadius: 10,
