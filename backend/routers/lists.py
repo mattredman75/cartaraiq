@@ -99,9 +99,16 @@ class ShareOut(BaseModel):
     shared_with_name: Optional[str]
     shared_with_email: Optional[str]
     shared_with_avatar_url: Optional[str] = None
-    status: str  # "pending" | "accepted"
+    status: str  # "pending" | "accepted" | "declined"
     invite_url: str
     created_at: Optional[datetime] = None
+
+
+class InvitePreviewOut(BaseModel):
+    list_id: str
+    list_name: str
+    owner_name: Optional[str] = None
+    owner_avatar_url: Optional[str] = None
 
 
 class InviteOut(BaseModel):
@@ -477,6 +484,36 @@ def leave_list(
               detail={"list_id": list_id})
 
 
+@router.get("/share/preview/{token}", response_model=InvitePreviewOut)
+def preview_list_invite(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """Return list + owner info for an invite token. No authentication required."""
+    share = db.query(ListShare).filter(ListShare.invite_token == token).first()
+    if not share:
+        raise HTTPException(status_code=404, detail="Invite not found or already used.")
+    if share.status == "accepted":
+        raise HTTPException(status_code=409, detail="Invite already accepted.")
+
+    lst = db.query(ShoppingList).filter(ShoppingList.id == share.list_id).first()
+    owner = db.query(User).filter(User.id == share.owner_id).first()
+
+    avatar_url = None
+    if owner and owner.avatar_url:
+        if not owner.avatar_url.startswith("http"):
+            avatar_url = f"{settings.server_url}/{owner.avatar_url.lstrip('/')}"
+        else:
+            avatar_url = owner.avatar_url
+
+    return InvitePreviewOut(
+        list_id=share.list_id,
+        list_name=lst.name if lst else "Shared list",
+        owner_name=owner.name if owner else None,
+        owner_avatar_url=owner.avatar_url if owner else None,  # raw — frontend sanitizes
+    )
+
+
 @router.post("/share/accept/{token}", status_code=200)
 def accept_list_invite(
     token: str,
@@ -526,6 +563,26 @@ def accept_list_invite(
     return {"list_id": share.list_id, "list_name": lst.name if lst else None}
 
 
+@router.post("/share/decline/{token}", status_code=200)
+def decline_list_invite(
+    token: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Decline a list invite via token."""
+    share = db.query(ListShare).filter(ListShare.invite_token == token).first()
+    if not share:
+        raise HTTPException(status_code=404, detail="Invite not found.")
+    if share.status == "accepted":
+        raise HTTPException(status_code=409, detail="Invite already accepted.")
+
+    share.shared_with_id = current_user.id
+    share.status = "declined"
+    db.commit()
+    log_audit(db, action="list_invite_declined", request=request, user_id=current_user.id,
+              detail={"list_id": share.list_id, "share_id": share.id})
+    return {"detail": "Invite declined."}
 
 
 @router.get("", response_model=list[ListItemOut])
