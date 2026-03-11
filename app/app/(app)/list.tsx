@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -11,20 +17,25 @@ import {
 import DraggableFlatList, {
   RenderItemParams,
 } from "react-native-draggable-flatlist";
-import { useQueryClient } from "@tanstack/react-query";
-import { getItem } from "../../lib/storage";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getItem, setItem } from "../../lib/storage";
 import { useAuthStore, useListStore } from "../../lib/store";
 import {
-  reorderListItems,
+  reorderListGrouped,
   parseItemText,
   hardDeleteItem,
   updateListItem,
   addListItem,
+  fetchItemGroups,
+  createItemGroup,
+  deleteItemGroup,
+  renameItemGroup,
+  assignItemToGroup,
 } from "../../lib/api";
-import type { ListItem, ShoppingList } from "../../lib/types";
+import type { ListItem, ShoppingList, ItemGroup } from "../../lib/types";
 import { ScrollInfoContext } from "../../components/ItemRow";
 import { ItemRow } from "../../components/ItemRow";
-import { DragPlaceholder } from "../../components/DragPlaceholder";
+import { GroupHeader } from "../../components/GroupHeader";
 import { NoListsEmptyState } from "../../components/NoListsEmptyState";
 import { useDismissedSuggestions } from "../../hooks/useDismissedSuggestions";
 import { useListQueries } from "../../hooks/useListQueries";
@@ -36,6 +47,7 @@ import { SuggestionsStrip } from "../../components/SuggestionsStrip";
 import { ListFooter } from "../../components/ListFooter";
 import { ModalStack } from "../../components/ModalStack";
 import { ItemActionDrawer } from "../../components/ItemActionDrawer";
+import { CreateGroupModal } from "../../components/CreateGroupModal";
 import {
   syncListToWidget,
   syncAllListsToWidget,
@@ -43,11 +55,91 @@ import {
 
 const TEAL = "#1B6B7A";
 const BG = "#DDE4E7";
-const MUTED = "#64748B";
 
 const SUGGEST_ITEM_H = 46;
 const PANEL_OVERLAP = 14;
 const MAX_PANEL_H = 5 * SUGGEST_ITEM_H + 8;
+
+// ── Flat list mixed-type entry ────────────────────────────────────────────────
+
+type FlatEntry =
+  | { type: "group"; id: string; group: ItemGroup; items: ListItem[] }
+  | { type: "item"; id: string; item: ListItem };
+
+function buildFlatData(
+  unchecked: ListItem[],
+  groups: ItemGroup[],
+): FlatEntry[] {
+  const groupIds = new Set(groups.map((g) => g.id));
+  const itemsByGroup = new Map<string, ListItem[]>();
+  const standalone: ListItem[] = [];
+
+  for (const item of unchecked) {
+    if (item.group_id && groupIds.has(item.group_id)) {
+      // Only group items whose group is actually in the groups array
+      const arr = itemsByGroup.get(item.group_id) ?? [];
+      arr.push(item);
+      itemsByGroup.set(item.group_id, arr);
+    } else {
+      // Standalone, or group not yet synced (race) → show as standalone
+      standalone.push(item);
+    }
+  }
+
+  for (const items of itemsByGroup.values()) {
+    items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }
+
+  const blocks: { pos: number; entry: FlatEntry }[] = [];
+  for (const item of standalone) {
+    blocks.push({
+      pos: item.sort_order ?? 0,
+      entry: { type: "item", id: item.id, item },
+    });
+  }
+  for (const group of groups) {
+    const items = itemsByGroup.get(group.id) ?? [];
+    if (items.length > 0) {
+      blocks.push({
+        pos: group.sort_order ?? 0,
+        entry: { type: "group", id: `group:${group.id}`, group, items },
+      });
+    }
+  }
+  blocks.sort((a, b) => a.pos - b.pos);
+
+  return blocks.map((b) => b.entry);
+}
+
+function deriveReorderPayload(newFlat: FlatEntry[]) {
+  const items: { id: string; sort_order: number; group_id: string | null }[] =
+    [];
+  const groups: { id: string; sort_order: number }[] = [];
+
+  let globalPos = 0;
+
+  for (const entry of newFlat) {
+    if (entry.type === "group") {
+      groups.push({ id: entry.group.id, sort_order: globalPos });
+      entry.items.forEach((item, index) => {
+        items.push({
+          id: item.id,
+          sort_order: index,
+          group_id: entry.group.id,
+        });
+      });
+      globalPos++;
+    } else {
+      items.push({
+        id: entry.item.id,
+        sort_order: globalPos,
+        group_id: null,
+      });
+      globalPos++;
+    }
+  }
+  return { items, groups };
+}
 
 export default function ListScreen() {
   const { user } = useAuthStore();
@@ -69,7 +161,13 @@ export default function ListScreen() {
   const [showActionDrawer, setShowActionDrawer] = useState(false);
   const [isFixingWithAI, setIsFixingWithAI] = useState(false);
 
+  // Group state
+  const [pendingGroupItem, setPendingGroupItem] = useState<ListItem | null>(
+    null,
+  );
+
   const inputRef = useRef<TextInput>(null);
+  const outerListRef = useRef<any>(null);
 
   const [dragDirection, setDragDirection] = useState<"up" | "down">("down");
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -94,6 +192,14 @@ export default function ListScreen() {
   const { dismissedUntil, dismissSuggestion } = useDismissedSuggestions(
     user?.id,
   );
+  const safeUserStorageSuffix = (user?.id ?? "").replace(
+    /[^0-9A-Za-z._-]/g,
+    "_",
+  );
+  const lastListStorageKey =
+    safeUserStorageSuffix.length > 0
+      ? `last_list_id_${safeUserStorageSuffix}`
+      : "last_list_id";
   const listId = currentList?.id;
 
   const {
@@ -125,10 +231,66 @@ export default function ListScreen() {
     setIsPullRefreshing(false);
   }, [refetch]);
 
+  const { data: groups = [] } = useQuery<ItemGroup[]>({
+    queryKey: ["itemGroups", listId],
+    queryFn: () => fetchItemGroups(listId!).then((r) => r.data),
+    enabled: !!listId,
+    // Keep previous group data while refetching to prevent grouped items
+    // from briefly flashing as standalone during the listItems/itemGroups
+    // dual-refetch race.
+    placeholderData: (prev) => prev,
+  });
+  const flatData = useMemo(
+    () => buildFlatData(unchecked, groups),
+    [unchecked, groups],
+  );
+
   useEffect(() => {
-    if (!currentList && shoppingLists.length > 0)
-      setCurrentList(shoppingLists[0]);
-  }, [shoppingLists, currentList]);
+    if (!currentList || shoppingLists.length === 0) return;
+    const stillExists = shoppingLists.some(
+      (list) => list.id === currentList.id,
+    );
+    if (!stillExists) {
+      setCurrentList(shoppingLists[0] ?? null);
+    }
+  }, [shoppingLists, currentList, setCurrentList]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreCurrentList = async () => {
+      if (currentList || shoppingLists.length === 0) return;
+
+      const savedListId = await getItem(lastListStorageKey);
+      if (cancelled) return;
+      if (useListStore.getState().currentList) return;
+
+      const savedList = savedListId
+        ? shoppingLists.find((list) => list.id === savedListId)
+        : null;
+      const fallbackList = shoppingLists[0] ?? null;
+      const nextList = savedList ?? fallbackList;
+
+      if (nextList) {
+        setCurrentList(nextList);
+      }
+
+      if (!savedList && fallbackList) {
+        setItem(lastListStorageKey, fallbackList.id).catch(() => {});
+      }
+    };
+
+    restoreCurrentList();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shoppingLists, currentList, setCurrentList, lastListStorageKey]);
+
+  useEffect(() => {
+    if (!currentList?.id) return;
+    setItem(lastListStorageKey, currentList.id).catch(() => {});
+  }, [currentList?.id, lastListStorageKey]);
 
   // Keep the iOS home-screen widget in sync with the current list
   useEffect(() => {
@@ -207,6 +369,44 @@ export default function ListScreen() {
     } else {
       item = itemOrId;
     }
+
+    // Check if deleting this item is the last one in a group →
+    // offer to dissolve the group
+    if (item?.group_id) {
+      const groupItems = unchecked.filter((i) => i.group_id === item!.group_id);
+      if (groupItems.length === 1) {
+        const groupName =
+          groups.find((g) => g.id === item!.group_id)?.name ?? "Group";
+        Alert.alert(
+          "Remove group?",
+          `"${groupName}" will be empty. Remove the group too?`,
+          [
+            {
+              text: "Keep group",
+              style: "cancel",
+              onPress: () => deleteMutation.mutate(item!.id),
+            },
+            {
+              text: "Remove group",
+              style: "destructive",
+              onPress: () => {
+                deleteMutation.mutate(item!.id);
+                deleteItemGroup(item!.group_id!).then(() => {
+                  qc.invalidateQueries({
+                    queryKey: ["itemGroups", listId],
+                  });
+                  qc.invalidateQueries({
+                    queryKey: ["listItems", listId],
+                  });
+                });
+              },
+            },
+          ],
+        );
+        return;
+      }
+    }
+
     deleteMutation.mutate(
       typeof itemOrId === "string" ? itemOrId : itemOrId.id,
     );
@@ -275,16 +475,182 @@ export default function ListScreen() {
     setEditItem(null);
   };
 
-  const handleReorder = ({ data }: { data: ListItem[] }) => {
-    qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => [
-      ...data,
-      ...old.filter((i) => i.checked),
-    ]);
-    reorderListItems(
-      data.map((item, index) => ({ id: item.id, sort_order: index + 1 })),
-    ).catch(() => {
-      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+  const handleReorder = ({ data }: { data: FlatEntry[] }) => {
+    const { items: itemsPayload, groups: groupsPayload } =
+      deriveReorderPayload(data);
+    // Optimistic update — items
+    qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
+      const updated = itemsPayload.reduce(
+        (map, p) => {
+          map[p.id] = p;
+          return map;
+        },
+        {} as Record<
+          string,
+          { id: string; sort_order: number; group_id: string | null }
+        >,
+      );
+      return old.map((i) =>
+        updated[i.id]
+          ? {
+              ...i,
+              sort_order: updated[i.id].sort_order,
+              group_id: updated[i.id].group_id,
+            }
+          : i,
+      );
     });
+    // Optimistic update — group sort_orders (so group position snaps
+    // immediately rather than reverting until the network round-trip)
+    if (groupsPayload.length > 0) {
+      qc.setQueryData<ItemGroup[]>(["itemGroups", listId], (old = []) => {
+        const updatedGroups = groupsPayload.reduce(
+          (map, g) => {
+            map[g.id] = g.sort_order;
+            return map;
+          },
+          {} as Record<string, number>,
+        );
+        return old.map((g) =>
+          updatedGroups[g.id] !== undefined
+            ? { ...g, sort_order: updatedGroups[g.id] }
+            : g,
+        );
+      });
+    }
+    reorderListGrouped(listId!, itemsPayload, groupsPayload).catch(() => {
+      qc.invalidateQueries({ queryKey: ["listItems", listId] });
+      qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+    });
+  };
+
+  const handleDragEnd = (params: { data: FlatEntry[] }) => {
+    handleReorder(params);
+  };
+
+  const handleGroupItemsReorder = useCallback(
+    (groupId: string, orderedItems: ListItem[]) => {
+      if (!listId) return;
+
+      const itemsPayload = orderedItems.map((item, index) => ({
+        id: item.id,
+        sort_order: index,
+        group_id: groupId,
+      }));
+
+      qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
+        const updated = itemsPayload.reduce(
+          (map, payload) => {
+            map[payload.id] = payload;
+            return map;
+          },
+          {} as Record<
+            string,
+            { id: string; sort_order: number; group_id: string }
+          >,
+        );
+
+        return old.map((item) =>
+          updated[item.id]
+            ? {
+                ...item,
+                sort_order: updated[item.id].sort_order,
+                group_id: updated[item.id].group_id,
+              }
+            : item,
+        );
+      });
+
+      reorderListGrouped(listId, itemsPayload, []).catch(() => {
+        qc.invalidateQueries({ queryKey: ["listItems", listId] });
+        qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+      });
+    },
+    [listId, qc],
+  );
+
+  const handleConfirmCreateGroup = async (name: string) => {
+    if (!pendingGroupItem || !listId) return;
+    const item = pendingGroupItem;
+    setPendingGroupItem(null);
+    try {
+      await createItemGroup(listId, name, [item.id]);
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+        qc.refetchQueries({ queryKey: ["listItems", listId] }),
+      ]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Could not create group", msg);
+    }
+  };
+
+  const handleAddToGroup = async (item: ListItem, groupId: string) => {
+    try {
+      await assignItemToGroup(item.id, groupId);
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["listItems", listId] }),
+        qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+      ]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Could not add to group", msg);
+    }
+  };
+
+  const handleRemoveFromGroup = async (item: ListItem) => {
+    try {
+      await assignItemToGroup(item.id, null);
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["listItems", listId] }),
+        qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+      ]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert("Could not remove from group", msg);
+    }
+  };
+
+  const handleDissolveGroup = (groupId: string) => {
+    Alert.alert("Remove group", "Items will stay on the list.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove group",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteItemGroup(groupId);
+            await Promise.all([
+              qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+              qc.refetchQueries({ queryKey: ["listItems", listId] }),
+            ]);
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            Alert.alert("Error", msg);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleRenameGroup = (group: ItemGroup) => {
+    Alert.prompt(
+      "Rename group",
+      undefined,
+      async (newName) => {
+        const trimmed = newName?.trim();
+        if (!trimmed || trimmed === group.name) return;
+        try {
+          await renameItemGroup(group.id, trimmed);
+          qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          Alert.alert("Error", msg);
+        }
+      },
+      "plain-text",
+      group.name,
+    );
   };
 
   const handleCreateList = () => {
@@ -308,23 +674,80 @@ export default function ListScreen() {
     ]);
   };
 
-  const renderDraggableItem = useCallback(({
-    item,
-    drag,
-    isActive,
-  }: RenderItemParams<ListItem>) => (
-    <ItemRow
-      item={item}
-      onToggle={() => {
-        const next = item.checked === 0 ? 1 : 0;
-        toggleMutation.mutate({ id: item.id, checked: next });
-      }}
-      onDelete={() => handleDelete(item)}
-      onLongPress={() => handleLongPress(item)}
-      drag={drag}
-      isActive={isActive}
-    />
-  ), [toggleMutation.mutate, deleteMutation.mutate, handleLongPress]);
+  const renderDraggableItem = useCallback(
+    ({ item: entry, drag, isActive }: RenderItemParams<FlatEntry>) => {
+      if (entry.type === "group") {
+        return (
+          <View>
+            <GroupHeader
+              group={entry.group}
+              itemCount={entry.items.length}
+              drag={drag}
+              isActive={isActive}
+              onRename={() => handleRenameGroup(entry.group)}
+              onDissolve={() => handleDissolveGroup(entry.group.id)}
+            />
+            <DraggableFlatList
+              data={entry.items}
+              keyExtractor={(groupItem) => groupItem.id}
+              scrollEnabled={false}
+              simultaneousHandlers={outerListRef}
+              onDragEnd={({ data }) =>
+                handleGroupItemsReorder(entry.group.id, data)
+              }
+              activationDistance={24}
+              autoscrollThreshold={10}
+              autoscrollSpeed={75}
+              renderItem={({
+                item: groupItem,
+                drag: groupDrag,
+                isActive,
+                getIndex,
+              }) => (
+                <ItemRow
+                  item={groupItem}
+                  onToggle={() => {
+                    const next = groupItem.checked === 0 ? 1 : 0;
+                    toggleMutation.mutate({ id: groupItem.id, checked: next });
+                  }}
+                  onDelete={() => handleDelete(groupItem)}
+                  onLongPress={() => handleLongPress(groupItem)}
+                  drag={groupDrag}
+                  isActive={isActive}
+                  inGroup
+                  squareTopCorners={(getIndex?.() ?? 0) === 0}
+                />
+              )}
+            />
+          </View>
+        );
+      }
+      const item = entry.item;
+      const row = (
+        <ItemRow
+          item={item}
+          onToggle={() => {
+            const next = item.checked === 0 ? 1 : 0;
+            toggleMutation.mutate({ id: item.id, checked: next });
+          }}
+          onDelete={() => handleDelete(item)}
+          onLongPress={() => handleLongPress(item)}
+          drag={drag}
+          isActive={isActive}
+        />
+      );
+      return row;
+    },
+    [
+      toggleMutation.mutate,
+      deleteMutation.mutate,
+      handleLongPress,
+      handleDelete,
+      handleRenameGroup,
+      handleDissolveGroup,
+      handleGroupItemsReorder,
+    ],
+  );
 
   const handleSuggestionAdd = (name: string, type: string) =>
     type === "ai" ? handleAddSuggestion(name) : handleAddRecipeSuggestion(name);
@@ -449,11 +872,15 @@ export default function ListScreen() {
           ) : (
             <View style={{ flex: 1 }}>
               <DraggableFlatList
-                data={unchecked}
-                keyExtractor={(item) => item.id}
+                ref={outerListRef}
+                data={flatData}
+                keyExtractor={(entry) => entry.id}
+                extraData={flatData}
                 renderItem={renderDraggableItem}
-                onDragEnd={handleReorder}
-                renderPlaceholder={() => <DragPlaceholder />}
+                onDragEnd={handleDragEnd}
+                activationDistance={24}
+                autoscrollThreshold={10}
+                autoscrollSpeed={85}
                 refreshControl={
                   <RefreshControl
                     refreshing={isPullRefreshing}
@@ -472,7 +899,7 @@ export default function ListScreen() {
                 ListFooterComponentStyle={
                   items.length === 0 && !isLoading ? { flex: 1 } : undefined
                 }
-                removeClippedSubviews={true}
+                removeClippedSubviews={false}
                 initialNumToRender={15}
                 maxToRenderPerBatch={10}
                 windowSize={5}
@@ -482,10 +909,17 @@ export default function ListScreen() {
           )}
         </ScrollInfoContext.Provider>
       </View>
+      <CreateGroupModal
+        visible={!!pendingGroupItem}
+        item1Name={pendingGroupItem?.name ?? ""}
+        onConfirm={handleConfirmCreateGroup}
+        onCancel={() => setPendingGroupItem(null)}
+      />
       <ItemActionDrawer
         visible={showActionDrawer}
         item={actionItem}
         isFixing={isFixingWithAI}
+        groups={groups.filter((g) => g.id !== actionItem?.group_id)}
         onClose={() => {
           setShowActionDrawer(false);
           setActionItem(null);
@@ -500,6 +934,21 @@ export default function ListScreen() {
           }
         }}
         onFixWithAI={handleFixWithAI}
+        onCreateGroup={() => {
+          setShowActionDrawer(false);
+          if (actionItem) setPendingGroupItem(actionItem);
+          setActionItem(null);
+        }}
+        onAddToGroup={(groupId) => {
+          setShowActionDrawer(false);
+          if (actionItem) handleAddToGroup(actionItem, groupId);
+          setActionItem(null);
+        }}
+        onRemoveFromGroup={() => {
+          setShowActionDrawer(false);
+          if (actionItem) handleRemoveFromGroup(actionItem);
+          setActionItem(null);
+        }}
       />
       <ModalStack
         editItem={editItem}

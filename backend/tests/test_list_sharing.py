@@ -290,6 +290,22 @@ class TestCollaboratorAccess:
         data = resp.json()
         assert data["name"] == "Bread"
 
+    def test_collaborator_can_update_owner_item(self, client, db):
+        owner = make_user(db, email="owner@example.com")
+        collab = make_user(db, email="collab@example.com")
+        lst = make_list(db, owner.id)
+        item = make_item(db, owner.id, lst.id, name="Milk", checked=0)
+        make_list_share(db, lst.id, owner.id, status="accepted", shared_with_id=collab.id)
+
+        # Collaborator can perform shared-list item operations on owner-added items
+        resp = client.patch(
+            f"/lists/items/{item.id}",
+            json={"checked": 1},
+            headers=auth_headers(collab),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["checked"] == 1
+
     def test_collaborator_cannot_add_to_unshared_list(self, client, db):
         owner = make_user(db, email="owner@example.com")
         collab = make_user(db, email="collab@example.com")
@@ -323,6 +339,28 @@ class TestCollaboratorAccess:
         egg_item = next((i for i in items if i["name"] == "Eggs"), None)
         assert egg_item is not None
         assert egg_item["added_by_name"] == "Collab"
+
+    def test_item_added_by_name_shown_as_you_for_current_user(self, client, db):
+        """On shared lists, a user's own items should display as 'Added by you'."""
+        owner = make_user(db, email="owner@example.com", name="Owner")
+        collab = make_user(db, email="collab@example.com", name="Collab")
+        lst = make_list(db, owner.id)
+        make_list_share(db, lst.id, owner.id, status="accepted", shared_with_id=collab.id)
+
+        # Collaborator adds item
+        add_resp = client.post(
+            "/lists/items",
+            json={"name": "Yogurt", "list_id": lst.id},
+            headers=auth_headers(collab),
+        )
+        assert add_resp.status_code == 201
+
+        # Collaborator fetches items — own item should show as "you"
+        items_resp = client.get(f"/lists?list_id={lst.id}", headers=auth_headers(collab))
+        items = items_resp.json()
+        yogurt_item = next((i for i in items if i["name"] == "Yogurt"), None)
+        assert yogurt_item is not None
+        assert yogurt_item["added_by_name"] == "you"
 
     def test_share_count_reflects_accepted_collabs(self, client, db):
         owner = make_user(db, email="owner@example.com")

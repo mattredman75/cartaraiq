@@ -382,13 +382,9 @@ struct CartaraIQWidgetEntryView: View {
     // Lock screen families get dedicated compact views
     if family == .accessoryRectangular {
       AccessoryRectangularView(entry: entry)
-      return
-    }
-    if family == .accessoryCircular {
+    } else if family == .accessoryCircular {
       AccessoryCircularView(entry: entry)
-      return
-    }
-
+    } else {
     VStack(alignment: .leading, spacing: 0) {
 
       // Header row: app name top-left, count top-right
@@ -488,6 +484,7 @@ struct CartaraIQWidgetEntryView: View {
     }
     .padding(.vertical, 12)
     .padding(.horizontal, family == .systemSmall ? 16 : 20)
+    } // end else (home screen families)
   }
 }
 
