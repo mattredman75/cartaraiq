@@ -355,9 +355,9 @@ export default function ShareAcceptScreen() {
         >
           {renderPanelContent()}
         </View>
-        </View>{/* end panel */}
-      </View>{/* end relative wrapper */}
-    </View>{/* end overlay */}
+        </View>
+      </View>
+    </View>
   );
 }
 
