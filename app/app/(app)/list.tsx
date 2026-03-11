@@ -144,7 +144,8 @@ function deriveReorderPayload(newFlat: FlatEntry[]) {
       posWithinGroup = 0;
       globalPos++;
     } else {
-      if (currentGroupId) {
+      if (entry.inGroup && currentGroupId) {
+        // Item is within the current group block
         items.push({
           id: entry.item.id,
           sort_order: posWithinGroup,
@@ -152,6 +153,9 @@ function deriveReorderPayload(newFlat: FlatEntry[]) {
         });
         posWithinGroup++;
       } else {
+        // Standalone item — reset group context so subsequent items
+        // don't accidentally inherit the previous group's ID
+        currentGroupId = null;
         items.push({
           id: entry.item.id,
           sort_order: globalPos,
@@ -616,11 +620,7 @@ export default function ListScreen() {
         </View>
       );
     },
-    [
-      toggleMutation.mutate,
-      deleteMutation.mutate,
-      handleLongPress,
-    ],
+    [toggleMutation.mutate, deleteMutation.mutate, handleLongPress],
   );
 
   const handleSuggestionAdd = (name: string, type: string) =>
@@ -805,14 +805,17 @@ export default function ListScreen() {
         }}
         onFixWithAI={handleFixWithAI}
         onCreateGroup={() => {
+          setShowActionDrawer(false);
           if (actionItem) setPendingGroupItem(actionItem);
           setActionItem(null);
         }}
         onAddToGroup={(groupId) => {
+          setShowActionDrawer(false);
           if (actionItem) handleAddToGroup(actionItem, groupId);
           setActionItem(null);
         }}
         onRemoveFromGroup={() => {
+          setShowActionDrawer(false);
           if (actionItem) handleRemoveFromGroup(actionItem);
           setActionItem(null);
         }}

@@ -146,11 +146,13 @@ export function ItemActionDrawer({
               {groups.length > 0 && onAddToGroup && (
                 <TouchableOpacity
                   onPress={() => {
-                    onClose();
                     Alert.alert("Add to group", "Choose a group", [
                       ...groups.map((g) => ({
                         text: g.name,
-                        onPress: () => onAddToGroup(g.id, g.name),
+                        onPress: () => {
+                          onClose();
+                          onAddToGroup(g.id, g.name);
+                        },
                       })),
                       { text: "Cancel", style: "cancel" as const },
                     ]);
