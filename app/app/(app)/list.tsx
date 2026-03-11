@@ -63,8 +63,8 @@ const MAX_PANEL_H = 5 * SUGGEST_ITEM_H + 8;
 // ── Flat list mixed-type entry ────────────────────────────────────────────────
 
 type FlatEntry =
-  | { type: "group-header"; id: string; group: ItemGroup }
-  | { type: "item"; id: string; item: ListItem };
+  | { type: "group-header"; id: string; group: ItemGroup; itemCount: number }
+  | { type: "item"; id: string; item: ListItem; inGroup: boolean };
 
 function buildFlatData(
   unchecked: ListItem[],
@@ -106,15 +106,16 @@ function buildFlatData(
   const result: FlatEntry[] = [];
   for (const block of blocks) {
     if (block.type === "item") {
-      result.push({ type: "item", id: block.item.id, item: block.item });
+      result.push({ type: "item", id: block.item.id, item: block.item, inGroup: false });
     } else {
       result.push({
         type: "group-header",
         id: `group:${block.group.id}`,
         group: block.group,
+        itemCount: block.items.length,
       });
       for (const item of block.items) {
-        result.push({ type: "item", id: item.id, item });
+        result.push({ type: "item", id: item.id, item, inGroup: true });
       }
     }
   }
@@ -596,9 +597,7 @@ export default function ListScreen() {
         return (
           <GroupHeader
             group={entry.group}
-            itemCount={
-              unchecked.filter((i) => i.group_id === entry.group.id).length
-            }
+            itemCount={entry.itemCount}
             drag={drag}
             isActive={isActive}
             onRename={() => handleRenameGroup(entry.group)}
@@ -607,7 +606,7 @@ export default function ListScreen() {
         );
       }
       const item = entry.item;
-      return (
+      const row = (
         <ItemRow
           item={item}
           onToggle={() => {
@@ -621,13 +620,24 @@ export default function ListScreen() {
           isHoverTarget={hoverTargetId === item.id}
         />
       );
+      if (!entry.inGroup) return row;
+      return (
+        <View
+          style={{
+            marginLeft: 14,
+            borderLeftWidth: 2,
+            borderLeftColor: "#4FB8C8",
+          }}
+        >
+          {row}
+        </View>
+      );
     },
     [
       toggleMutation.mutate,
       deleteMutation.mutate,
       handleLongPress,
       hoverTargetId,
-      unchecked,
     ],
   );
 
