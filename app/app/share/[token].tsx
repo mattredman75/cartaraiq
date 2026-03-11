@@ -7,6 +7,7 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +25,40 @@ const RED = "#C0392B";
 const TEXT = "#1A1A2E";
 const MUTED = "#94A3B8";
 const AVATAR_SIZE = 80;
+const RAY_COUNT = 16;
+const SUN_SIZE = 190; // total canvas for the ray burst
+const SUN_OFFSET = -(SUN_SIZE - AVATAR_SIZE) / 2;
+
+const SunRays = () => {
+  const cx = SUN_SIZE / 2;
+  const cy = SUN_SIZE / 2;
+  const R = SUN_SIZE / 2;
+  const angleStep = (2 * Math.PI) / RAY_COUNT;
+  return (
+    <Svg
+      width={SUN_SIZE}
+      height={SUN_SIZE}
+      style={{ position: "absolute", left: SUN_OFFSET, top: SUN_OFFSET }}
+    >
+      {Array.from({ length: RAY_COUNT }).map((_, i) => {
+        const a0 = i * angleStep - Math.PI / 2;
+        const a1 = (i + 1) * angleStep - Math.PI / 2;
+        const x1 = cx + R * Math.cos(a0);
+        const y1 = cy + R * Math.sin(a0);
+        const x2 = cx + R * Math.cos(a1);
+        const y2 = cy + R * Math.sin(a1);
+        const fill = i % 2 === 0 ? "#1B6B7A" : "rgba(27,107,122,0.15)";
+        return (
+          <Path
+            key={i}
+            d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
+            fill={fill}
+          />
+        );
+      })}
+    </Svg>
+  );
+};
 
 type Preview = {
   list_id: string;
@@ -283,6 +318,7 @@ export default function ShareAcceptScreen() {
       <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
         {showAvatar && (
           <View style={styles.avatarOverlap}>
+            <SunRays />
             <OwnerAvatar />
           </View>
         )}
@@ -325,6 +361,7 @@ const styles = StyleSheet.create({
     top: -(AVATAR_SIZE / 2),
     alignSelf: "center",
     zIndex: 10,
+    overflow: "visible",
   },
   avatarRing: {
     width: AVATAR_SIZE,
