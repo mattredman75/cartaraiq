@@ -120,7 +120,9 @@ class InviteOut(BaseModel):
 
 def _build_invite_url(token: str) -> str:
     from backend.config import settings
-    return f"{settings.app_base_url}/share/{token}"
+    # Must always be an https Universal Link so it works in browsers and for
+    # users who don't yet have the app installed. Never use a custom URL scheme.
+    return f"{settings.web_base_url}/share/{token}"
 
 
 def _has_list_access(db: Session, list_id: str, user_id: str):
