@@ -290,6 +290,22 @@ class TestCollaboratorAccess:
         data = resp.json()
         assert data["name"] == "Bread"
 
+    def test_collaborator_can_update_owner_item(self, client, db):
+        owner = make_user(db, email="owner@example.com")
+        collab = make_user(db, email="collab@example.com")
+        lst = make_list(db, owner.id)
+        item = make_item(db, owner.id, lst.id, name="Milk", checked=0)
+        make_list_share(db, lst.id, owner.id, status="accepted", shared_with_id=collab.id)
+
+        # Collaborator can perform shared-list item operations on owner-added items
+        resp = client.patch(
+            f"/lists/items/{item.id}",
+            json={"checked": 1},
+            headers=auth_headers(collab),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["checked"] == 1
+
     def test_collaborator_cannot_add_to_unshared_list(self, client, db):
         owner = make_user(db, email="owner@example.com")
         collab = make_user(db, email="collab@example.com")

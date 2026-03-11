@@ -966,10 +966,8 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found.")
 
-    lst, is_owner = _has_list_access(db, item.list_id, current_user.id)
-    # Collaborators can only update their own items
-    if not is_owner and item.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Cannot edit items added by others.")
+    # Shared lists are collaborative: any accepted member can update items.
+    _has_list_access(db, item.list_id, current_user.id)
 
     if payload.name is not None:
         item.name = payload.name
