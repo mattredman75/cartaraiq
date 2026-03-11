@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Image,
   StyleSheet,
   useWindowDimensions,
+  Animated,
+  Easing,
 } from "react-native";
 import Svg, { Path, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -31,49 +33,68 @@ const SUN_SIZE = 800; // 10× avatar diameter
 const SUN_FADE_RADIUS = SUN_SIZE / 4; // fade to 0 at 50% of ray length (SUN_SIZE/2 * 0.5)
 
 const SunRays = ({ screenWidth }: { screenWidth: number }) => {
+  const rotation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: 20000, // one full rotation every 20 seconds
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const rotate = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
   const cx = SUN_SIZE / 2;
   const cy = SUN_SIZE / 2;
   const R = SUN_SIZE / 2;
   const angleStep = (2 * Math.PI) / RAY_COUNT;
   return (
-    <Svg
-      width={SUN_SIZE}
-      height={SUN_SIZE}
+    <Animated.View
       style={{
         position: "absolute",
         top: -(SUN_SIZE / 2),
         left: (screenWidth - SUN_SIZE) / 2,
         zIndex: 0,
+        transform: [{ rotate }],
       }}
     >
-      <Defs>
-        <RadialGradient
-          id="sunFade"
-          cx={cx}
-          cy={cy}
-          r={SUN_FADE_RADIUS}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset="0%" stopColor="black" stopOpacity="0.3" />
-          <Stop offset="100%" stopColor="black" stopOpacity="0" />
-        </RadialGradient>
-      </Defs>
-      {Array.from({ length: RAY_COUNT }).map((_, i) => {
-        const a0 = i * angleStep - Math.PI / 2;
-        const a1 = (i + 1) * angleStep - Math.PI / 2;
-        const x1 = cx + R * Math.cos(a0);
-        const y1 = cy + R * Math.sin(a0);
-        const x2 = cx + R * Math.cos(a1);
-        const y2 = cy + R * Math.sin(a1);
-        return (
-          <Path
-            key={i}
-            d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
-            fill={i % 2 === 0 ? "url(#sunFade)" : "none"}
-          />
-        );
-      })}
-    </Svg>
+      <Svg width={SUN_SIZE} height={SUN_SIZE}>
+        <Defs>
+          <RadialGradient
+            id="sunFade"
+            cx={cx}
+            cy={cy}
+            r={SUN_FADE_RADIUS}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor="#FFD700" stopOpacity="0.5" />
+            <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        {Array.from({ length: RAY_COUNT }).map((_, i) => {
+          const a0 = i * angleStep - Math.PI / 2;
+          const a1 = (i + 1) * angleStep - Math.PI / 2;
+          const x1 = cx + R * Math.cos(a0);
+          const y1 = cy + R * Math.sin(a0);
+          const x2 = cx + R * Math.cos(a1);
+          const y2 = cy + R * Math.sin(a1);
+          return (
+            <Path
+              key={i}
+              d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
+              fill={i % 2 === 0 ? "url(#sunFade)" : "none"}
+            />
+          );
+        })}
+      </Svg>
+    </Animated.View>
   );
 };
 
@@ -337,24 +358,29 @@ export default function ShareAcceptScreen() {
         {showAvatar && <SunRays screenWidth={screenWidth} />}
 
         {/* Bottom sheet panel */}
-        <View style={[styles.panel, { paddingBottom: insets.bottom + 16, zIndex: 1 }]}>
+        <View
+          style={[
+            styles.panel,
+            { paddingBottom: insets.bottom + 16, zIndex: 1 },
+          ]}
+        >
           {showAvatar && (
             <View style={styles.avatarOverlap}>
               <OwnerAvatar />
             </View>
           )}
 
-        {/* Drag handle */}
-        <View style={styles.handle} />
+          {/* Drag handle */}
+          <View style={styles.handle} />
 
-        <View
-          style={[
-            styles.panelContent,
-            showAvatar && { paddingTop: AVATAR_SIZE / 2 + 8 },
-          ]}
-        >
-          {renderPanelContent()}
-        </View>
+          <View
+            style={[
+              styles.panelContent,
+              showAvatar && { paddingTop: AVATAR_SIZE / 2 + 8 },
+            ]}
+          >
+            {renderPanelContent()}
+          </View>
         </View>
       </View>
     </View>
