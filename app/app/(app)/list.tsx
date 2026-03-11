@@ -147,18 +147,18 @@ function deriveReorderPayload(newFlat: FlatEntry[]) {
       posWithinGroup = 0;
       globalPos++;
     } else {
-      if (entry.inGroup && currentGroupId) {
-        // Item is within the current group block
+      // Use the item's actual stored group_id — NOT the stale inGroup flag.
+      // Drag reorders items; it does not change group membership.
+      // Group membership changes only via the action drawer.
+      const origGroupId = entry.item.group_id ?? null;
+      if (origGroupId) {
         items.push({
           id: entry.item.id,
           sort_order: posWithinGroup,
-          group_id: currentGroupId,
+          group_id: origGroupId,
         });
         posWithinGroup++;
       } else {
-        // Standalone item — reset group context so subsequent items
-        // don't accidentally inherit the previous group's ID
-        currentGroupId = null;
         items.push({
           id: entry.item.id,
           sort_order: globalPos,
