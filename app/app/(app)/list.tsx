@@ -167,6 +167,7 @@ export default function ListScreen() {
   );
 
   const inputRef = useRef<TextInput>(null);
+  const outerListRef = useRef<any>(null);
 
   const [dragDirection, setDragDirection] = useState<"up" | "down">("down");
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -640,10 +641,11 @@ export default function ListScreen() {
               data={entry.items}
               keyExtractor={(groupItem) => groupItem.id}
               scrollEnabled={false}
+              simultaneousHandlers={outerListRef}
               onDragEnd={({ data }) =>
                 handleGroupItemsReorder(entry.group.id, data)
               }
-              activationDistance={6}
+              activationDistance={24}
               renderItem={({
                 item: groupItem,
                 drag: groupDrag,
@@ -818,6 +820,7 @@ export default function ListScreen() {
           ) : (
             <View style={{ flex: 1 }}>
               <DraggableFlatList
+                ref={outerListRef}
                 data={flatData}
                 keyExtractor={(entry) => entry.id}
                 extraData={flatData}
