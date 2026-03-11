@@ -21,12 +21,15 @@ import { setItem } from "../../lib/storage";
 import { sanitizeAvatarUrl } from "../../lib/constants";
 
 const TEAL_DARK = "#0D4F5C";
-const LIST_GREEN = "#2ECC71";
-const CANVAS_BG = "#C8E6C9"; // warm sage green matching reference
+const TEAL_BTN = "#0D4F5C";
+const RED_BTN = "#C0392B";
 const TEXT = "#1A1A2E";
-const MUTED = "#64748B";
-const SCREEN_H = Dimensions.get("window").height;
-const AVATAR_SIZE = 88;
+const MUTED = "#94A3B8";
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const AVATAR_SIZE = 80;
+const NUM_RAYS = 18;
+const RAY_LENGTH = SCREEN_W * 1.6;
+const RAY_THICKNESS = 40;
 
 type Preview = {
   list_id: string;
@@ -143,8 +146,25 @@ export default function ShareAcceptScreen() {
   if (phase === "preview" || phase === "busy") {
     return (
       <View style={styles.root}>
-        {/* ── Green top section ── */}
+        {/* ── Dark overlay with sunray top section ── */}
         <SafeAreaView style={styles.topSection} edges={["top"]}>
+          {/* Sunrays radiating from center */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {Array.from({ length: NUM_RAYS }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.ray,
+                  {
+                    transform: [
+                      { rotate: `${(i * 360) / NUM_RAYS}deg` },
+                    ],
+                  },
+                ]}
+              />
+            ))}
+          </View>
+
           {/* Dismiss X */}
           <TouchableOpacity
             style={styles.closeBtn}
@@ -166,35 +186,25 @@ export default function ShareAcceptScreen() {
 
           {/* List preview card */}
           <View style={styles.listCard}>
-            {/* Card header */}
             <View style={styles.cardHeader}>
               <Ionicons name="chevron-back" size={18} color="#555" />
               <Text style={styles.cardHeaderTitle} numberOfLines={1}>
                 {listName}
               </Text>
               <View style={styles.cardHeaderRight}>
-                <View
-                  style={[styles.miniAvatar, { backgroundColor: TEAL_DARK }]}
-                >
+                <View style={[styles.miniAvatar, { backgroundColor: TEAL_DARK }]}>
                   <Text style={styles.miniAvatarText}>{ownerInitial}</Text>
                 </View>
-                <Ionicons
-                  name="ellipsis-vertical"
-                  size={16}
-                  color="#888"
-                  style={{ marginLeft: 8 }}
-                />
+                <Ionicons name="ellipsis-vertical" size={16} color="#888" style={{ marginLeft: 8 }} />
               </View>
             </View>
-            {/* Progress bar */}
             <View style={styles.progressBg}>
               <View style={[styles.progressFill, { width: "0%" }]} />
             </View>
-            {/* Skeleton item rows */}
             {[
-              { label: "item 1", w: 0.55 },
-              { label: "item 2", w: 0.38 },
-              { label: "item 3", w: 0.45 },
+              { w: 0.55 },
+              { w: 0.38 },
+              { w: 0.45 },
             ].map((item, i) => (
               <View key={i} style={styles.itemRow}>
                 <View style={styles.checkbox} />
@@ -211,27 +221,23 @@ export default function ShareAcceptScreen() {
             <OwnerAvatar />
           </View>
 
-          {/* Content */}
           <Text style={styles.inviteLabel}>
             <Text style={{ fontWeight: "700" }}>{ownerLabel}</Text>
             {" invites you to the list:"}
           </Text>
 
           <Text style={styles.listNameLabel}>
-            {"• "}
             {listName.toUpperCase()}
-            {" •"}
           </Text>
 
           <Text style={styles.subtext}>
-            When the list is shared, any changes are{"\n"}instantly visible to
-            everyone.
+            When the list is shared, any changes are instantly visible to everyone.
           </Text>
 
           {phase === "busy" ? (
             <ActivityIndicator
               size="large"
-              color={LIST_GREEN}
+              color={TEAL_BTN}
               style={{ marginVertical: 20 }}
             />
           ) : (
@@ -241,13 +247,13 @@ export default function ShareAcceptScreen() {
                 onPress={handleAccept}
                 activeOpacity={0.85}
               >
-                <Text style={styles.acceptBtnText}>OPEN LIST</Text>
+                <Text style={styles.acceptBtnText}>ACCEPT INVITE</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.declineBtn}
                 onPress={handleDecline}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
               >
                 <Text style={styles.declineBtnText}>DISCARD INVITE</Text>
               </TouchableOpacity>
@@ -360,17 +366,30 @@ export default function ShareAcceptScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: CANVAS_BG,
+    backgroundColor: "#000",
   },
 
-  // ── Green top section
+  // ── Dark top section with sunrays
   topSection: {
-    backgroundColor: CANVAS_BG,
+    backgroundColor: "rgba(0,0,0,0.88)",
     paddingHorizontal: 24,
-    paddingBottom: AVATAR_SIZE / 2 + 8, // leave room for avatar overlap
-    minHeight: SCREEN_H * 0.52,
+    paddingBottom: AVATAR_SIZE / 2 + 8,
+    height: SCREEN_H * 0.58,
     justifyContent: "flex-end",
+    overflow: "hidden",
   },
+
+  // Sunray: tall rectangle positioned at horizontal center, rotated around its left edge
+  ray: {
+    position: "absolute",
+    width: RAY_LENGTH,
+    height: RAY_THICKNESS,
+    left: SCREEN_W / 2,
+    top: SCREEN_H * 0.28 - RAY_THICKNESS / 2,
+    backgroundColor: "rgba(255,255,255,0.028)",
+    transformOrigin: "left center",
+  },
+
   closeBtn: {
     position: "absolute",
     top: 56,
@@ -381,7 +400,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.18)",
+    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -393,38 +412,38 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   redDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#E53935",
   },
   headingText: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "800",
-    color: TEXT,
+    color: "#fff",
     letterSpacing: -0.5,
   },
 
   // ── List preview card
   listCard: {
     backgroundColor: "#fff",
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 10,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
   },
   cardHeaderTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     color: TEXT,
     marginLeft: 2,
@@ -434,64 +453,64 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   miniAvatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   miniAvatarText: {
     color: "#fff",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
   },
   progressBg: {
-    height: 4,
-    backgroundColor: "#E8F5E9",
-    marginHorizontal: 0,
+    height: 3,
+    backgroundColor: "#E0E0E0",
   },
   progressFill: {
-    height: 4,
-    backgroundColor: LIST_GREEN,
+    height: 3,
+    backgroundColor: TEAL_DARK,
   },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#F0F0F0",
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: "#90CAF9",
-    marginRight: 14,
+    marginRight: 12,
   },
   itemBar: {
-    height: 10,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 5,
+    height: 9,
+    backgroundColor: "#E8E8E8",
+    borderRadius: 4,
   },
 
   // ── White bottom panel
   panel: {
     flex: 1,
     backgroundColor: "#fff",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: AVATAR_SIZE / 2 + 16,
-    paddingBottom: 36,
-    paddingHorizontal: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: AVATAR_SIZE / 2 + 12,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
     alignItems: "center",
     marginTop: -(AVATAR_SIZE / 2),
+    // top drop shadow
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 20,
   },
   avatarOverlap: {
     position: "absolute",
@@ -507,13 +526,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: "#fff",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 10,
   },
   avatarImage: {
     width: AVATAR_SIZE,
@@ -522,52 +541,56 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     color: "#fff",
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "800",
   },
   inviteLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: TEXT,
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 4,
     lineHeight: 22,
   },
   listNameLabel: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
-    color: LIST_GREEN,
+    color: TEAL_DARK,
     textAlign: "center",
     letterSpacing: 2,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   subtext: {
-    fontSize: 13,
+    fontSize: 12,
     color: MUTED,
     textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 28,
+    lineHeight: 18,
+    marginBottom: 20,
   },
   acceptBtn: {
-    backgroundColor: LIST_GREEN,
-    borderRadius: 50,
-    paddingVertical: 18,
+    backgroundColor: TEAL_BTN,
+    borderRadius: 10,
+    paddingVertical: 15,
     width: "100%",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   acceptBtnText: {
     color: "#fff",
-    fontWeight: "800",
+    fontWeight: "700",
     fontSize: 15,
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   declineBtn: {
-    paddingVertical: 8,
+    backgroundColor: RED_BTN,
+    borderRadius: 10,
+    paddingVertical: 15,
+    width: "100%",
+    alignItems: "center",
   },
   declineBtnText: {
-    color: MUTED,
-    fontSize: 13,
-    fontWeight: "600",
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
     letterSpacing: 0.5,
   },
 
