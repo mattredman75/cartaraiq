@@ -253,8 +253,14 @@ export const fetchListShares = (listId: string) =>
 export const removeListShare = (listId: string, shareId: string) =>
   api.delete(`/lists/groups/${listId}/shares/${shareId}`);
 
+export const previewListInvite = (token: string) =>
+  apiNoAuth.get(`/lists/share/preview/${token}`);
+
 export const acceptListInvite = (token: string) =>
   api.post(`/lists/share/accept/${token}`);
+
+export const declineListInvite = (token: string) =>
+  api.post(`/lists/share/decline/${token}`);
 
 export const leaveList = (listId: string) =>
   api.post(`/lists/groups/${listId}/leave`);
