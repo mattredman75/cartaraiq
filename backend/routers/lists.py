@@ -98,6 +98,7 @@ class ShareOut(BaseModel):
     shared_with_id: Optional[str]
     shared_with_name: Optional[str]
     shared_with_email: Optional[str]
+    shared_with_avatar_url: Optional[str] = None
     status: str  # "pending" | "accepted"
     invite_url: str
     created_at: Optional[datetime] = None
@@ -209,6 +210,9 @@ def _add_single_item(
         ListItem.checked == 0,
     ).scalar()
     top_order = (min_order - 1) if min_order is not None else 0
+
+    # Clamp quantity to minimum 1 (fractional values from parser, e.g. 0.25, become 0 as int)
+    quantity = max(1, quantity or 1)
 
     if existing:
         days_since = 0
@@ -415,6 +419,7 @@ def get_list_shares(
             shared_with_id=s.shared_with_id,
             shared_with_name=collaborator.name if collaborator else None,
             shared_with_email=collaborator.email if collaborator else None,
+            shared_with_avatar_url=collaborator.avatar_url if collaborator else None,
             status=s.status,
             invite_url=_build_invite_url(s.invite_token),
             created_at=s.created_at,

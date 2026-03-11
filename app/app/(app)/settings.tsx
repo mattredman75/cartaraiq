@@ -11,7 +11,9 @@ import {
   Modal,
   Share,
   ActivityIndicator,
+  Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -27,6 +29,8 @@ import {
   fetchListShares,
   removeListShare,
   leaveList,
+  uploadAvatar,
+  clearAvatar,
 } from "../../lib/api";
 import { setItem, deleteItem, getItem } from "../../lib/storage";
 import { useBiometricAuth } from "../../hooks/useBiometricAuth";
@@ -38,6 +42,7 @@ interface ShareEntry {
   shared_with_id: number | null;
   shared_with_name: string | null;
   shared_with_email: string | null;
+  shared_with_avatar_url: string | null;
   status: "pending" | "accepted";
   created_at: string;
 }
@@ -70,6 +75,7 @@ export default function SettingsScreen() {
 
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameText, setDisplayNameText] = useState("");
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [pinEnabled, setPinEnabledState] = useState(false);
   const [showResetPINModal, setShowResetPINModal] = useState(false);
@@ -197,6 +203,16 @@ export default function SettingsScreen() {
     isBiometricEnabled().then(setBiometricEnabled);
     isPinEnabled().then(setPinEnabledState);
 
+    // Load avatar — prefer server URL stored on the user object, fall back to local cache
+    const serverAvatar = user?.avatar_url;
+    if (serverAvatar) {
+      setAvatarUri(serverAvatar);
+    } else {
+      getItem("profile_avatar_uri").then((v) => {
+        if (v) setAvatarUri(v);
+      });
+    }
+
     // Load feature flags — explicitly set both true and false so toggle renders correctly
     getItem("ai_suggestions_enabled").then((v) => setAiEnabled(v !== "0"));
     getItem("pairing_suggestions_enabled").then((v) =>
@@ -213,6 +229,93 @@ export default function SettingsScreen() {
       loadSharingData();
     }, []),
   );
+
+  const handlePickPhoto = () => {
+    Alert.alert("Profile Photo", "Choose an option", [
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert(
+              "Permission required",
+              "Camera access is needed to take a photo.",
+            );
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
+          if (!result.canceled && result.assets[0]?.uri) {
+            const uri = result.assets[0].uri;
+            setAvatarUri(uri);
+            await setItem("profile_avatar_uri", uri);
+            try {
+              const res = await uploadAvatar(uri);
+              if (res.data?.avatar_url) {
+                updateUser({ avatar_url: res.data.avatar_url });
+                setAvatarUri(res.data.avatar_url);
+              }
+            } catch {
+              // Upload failed — local preview still shown
+            }
+          }
+        },
+      },
+      {
+        text: "Choose from Library",
+        onPress: async () => {
+          const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert(
+              "Permission required",
+              "Photo library access is needed to choose a photo.",
+            );
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
+          if (!result.canceled && result.assets[0]?.uri) {
+            const uri = result.assets[0].uri;
+            setAvatarUri(uri);
+            await setItem("profile_avatar_uri", uri);
+            try {
+              const res = await uploadAvatar(uri);
+              if (res.data?.avatar_url) {
+                updateUser({ avatar_url: res.data.avatar_url });
+                setAvatarUri(res.data.avatar_url);
+              }
+            } catch {
+              // Upload failed — local preview still shown
+            }
+          }
+        },
+      },
+      ...(avatarUri
+        ? [
+            {
+              text: "Clear Photo",
+              style: "destructive" as const,
+              onPress: async () => {
+                setAvatarUri(null);
+                await deleteItem("profile_avatar_uri");
+                updateUser({ avatar_url: null });
+                try { await clearAvatar(); } catch { /* best-effort */ }
+              },
+            },
+          ]
+        : []),
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
 
   const handleFirstResetPIN = async (pin: string) => {
     setFirstResetPIN(pin);
@@ -296,91 +399,134 @@ export default function SettingsScreen() {
             backgroundColor: "#fff",
           }}
         >
-          <View style={{ marginBottom: 12 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: TEAL_DARK,
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 8,
-              }}
-            >
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-                {user?.name?.charAt(0).toUpperCase() ?? "?"}
-              </Text>
-            </View>
-            {editingDisplayName ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+              gap: 16,
+            }}
+          >
+            {/* Avatar */}
+            <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.8}>
               <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: 44,
+                  backgroundColor: TEAL_DARK,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
               >
-                <TextInput
-                  value={displayNameText}
-                  onChangeText={setDisplayNameText}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={async () => {
-                    const name = displayNameText.trim();
-                    if (name && name !== user?.name) {
-                      await updateMe(name);
-                      updateUser({ name });
-                      await setItem(
-                        "auth_user",
-                        JSON.stringify({ ...user, name }),
-                      );
-                    }
-                    setEditingDisplayName(false);
-                  }}
-                  style={{
-                    flex: 1,
-                    fontSize: 15,
-                    fontWeight: "700",
-                    color: TEXT,
-                    borderBottomWidth: 1.5,
-                    borderBottomColor: TEAL,
-                    paddingVertical: 2,
-                  }}
-                />
+                {avatarUri ? (
+                  <Image
+                    source={{ uri: avatarUri }}
+                    style={{ width: 88, height: 88, borderRadius: 44 }}
+                  />
+                ) : (
+                  <Text
+                    style={{ color: "#fff", fontSize: 34, fontWeight: "700" }}
+                  >
+                    {user?.name?.charAt(0).toUpperCase() ?? "?"}
+                  </Text>
+                )}
+              </View>
+              {/* Pencil overlay */}
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  backgroundColor: TEAL,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                }}
+              >
+                <Ionicons name="pencil" size={13} color="#fff" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Name & email */}
+            <View style={{ flex: 1 }}>
+              {editingDisplayName ? (
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <TextInput
+                    value={displayNameText}
+                    onChangeText={setDisplayNameText}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={async () => {
+                      const name = displayNameText.trim();
+                      if (name && name !== user?.name) {
+                        await updateMe(name);
+                        updateUser({ name });
+                        await setItem(
+                          "auth_user",
+                          JSON.stringify({ ...user, name }),
+                        );
+                      }
+                      setEditingDisplayName(false);
+                    }}
+                    style={{
+                      flex: 1,
+                      fontSize: 15,
+                      fontWeight: "700",
+                      color: TEXT,
+                      borderBottomWidth: 1.5,
+                      borderBottomColor: TEAL,
+                      paddingVertical: 2,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const name = displayNameText.trim();
+                      if (name && name !== user?.name) {
+                        await updateMe(name);
+                        updateUser({ name });
+                        await setItem(
+                          "auth_user",
+                          JSON.stringify({ ...user, name }),
+                        );
+                      }
+                      setEditingDisplayName(false);
+                    }}
+                  >
+                    <Text
+                      style={{ color: TEAL, fontWeight: "700", fontSize: 13 }}
+                    >
+                      Save
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
                 <TouchableOpacity
-                  onPress={async () => {
-                    const name = displayNameText.trim();
-                    if (name && name !== user?.name) {
-                      await updateMe(name);
-                      updateUser({ name });
-                      await setItem(
-                        "auth_user",
-                        JSON.stringify({ ...user, name }),
-                      );
-                    }
-                    setEditingDisplayName(false);
+                  onPress={() => {
+                    setDisplayNameText(user?.name ?? "");
+                    setEditingDisplayName(true);
                   }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
                 >
                   <Text
-                    style={{ color: TEAL, fontWeight: "700", fontSize: 13 }}
+                    style={{ fontSize: 15, fontWeight: "700", color: TEXT }}
                   >
-                    Save
+                    {user?.name ?? "User"}
                   </Text>
+                  <Text style={{ fontSize: 11, color: MUTED }}>✎</Text>
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={() => {
-                  setDisplayNameText(user?.name ?? "");
-                  setEditingDisplayName(true);
-                }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: "700", color: TEXT }}>
-                  {user?.name ?? "User"}
-                </Text>
-                <Text style={{ fontSize: 11, color: MUTED }}>✎</Text>
-              </TouchableOpacity>
-            )}
-            <Text style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>
-              {user?.email ?? ""}
-            </Text>
+              )}
+              <Text style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>
+                {user?.email ?? ""}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -444,7 +590,10 @@ export default function SettingsScreen() {
             onPress={() => {
               if (!user?.id) return;
               deleteItem(`dismissed_${user.id}`);
-              Alert.alert("Done", "Dismissed suggestions have been reset. They'll reappear on the list screen.");
+              Alert.alert(
+                "Done",
+                "Dismissed suggestions have been reset. They'll reappear on the list screen.",
+              );
             }}
             style={{
               paddingHorizontal: 16,
@@ -559,7 +708,7 @@ export default function SettingsScreen() {
             {/* PIN Toggle */}
             <View
               style={{
-                borderBottomWidth: 1,
+                borderBottomWidth: pinEnabled ? 0 : 1,
                 borderBottomColor: BORDER,
               }}
             >
@@ -603,6 +752,39 @@ export default function SettingsScreen() {
                 />
               </View>
             </View>
+            {pinEnabled && (
+              <View
+                style={{
+                  borderBottomWidth: 1,
+                  borderBottomColor: BORDER,
+                  paddingVertical: 16,
+                  paddingHorizontal: 16,
+                  alignItems: "center",
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowResetPINModal(true);
+                    setResetPINStep("first");
+                    setFirstResetPIN("");
+                    setResetPINError("");
+                  }}
+                  style={{
+                    width: "80%",
+                    backgroundColor: TEAL,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text
+                    style={{ fontSize: 16, color: "#fff", fontWeight: "600" }}
+                  >
+                    Reset PIN
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -807,6 +989,32 @@ export default function SettingsScreen() {
                             borderTopColor: BORDER,
                           }}
                         >
+                          {/* Avatar circle */}
+                          <View
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 17,
+                              backgroundColor: TEAL_DARK,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              overflow: "hidden",
+                              marginRight: 10,
+                            }}
+                          >
+                            {share.shared_with_avatar_url ? (
+                              <Image
+                                source={{ uri: share.shared_with_avatar_url }}
+                                style={{ width: 34, height: 34, borderRadius: 17 }}
+                              />
+                            ) : (
+                              <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>
+                                {(share.shared_with_name ?? share.shared_with_email ?? "?")
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </Text>
+                            )}
+                          </View>
                           <View style={{ flex: 1 }}>
                             <Text
                               style={{
@@ -870,39 +1078,6 @@ export default function SettingsScreen() {
 
         {/* Utility Section */}
         <View style={{ marginTop: 12 }}>
-          {/* Reset PIN Button */}
-          {pinEnabled && (
-            <View
-              style={{
-                paddingVertical: 16,
-                paddingHorizontal: 16,
-                alignItems: "center",
-              }}
-            >
-              <TouchableOpacity
-                onPress={() => {
-                  setShowResetPINModal(true);
-                  setResetPINStep("first");
-                  setFirstResetPIN("");
-                  setResetPINError("");
-                }}
-                style={{
-                  width: "80%",
-                  backgroundColor: TEAL,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{ fontSize: 16, color: "#fff", fontWeight: "600" }}
-                >
-                  Reset PIN
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           {/* Logout Button - Red, 80% width, centered */}
           <View
             style={{

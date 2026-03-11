@@ -114,13 +114,13 @@ export function ListHeader({
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}
+              style={{ color: "rgba(255,255,255,0.75)", fontSize: 17 }}
             >
               {checked.length}/{checked.length + unchecked.length} items in{" "}
               {currentList?.name ?? "My List"}
             </Text>
           ) : (
-            <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+            <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 17 }}>
               All done!
             </Text>
           )}
@@ -165,7 +165,7 @@ export function ListHeader({
             accessibilityLabel="Switch list"
             testID="list-icon-button"
           >
-            <Ionicons name="list" size={22} color="rgba(255,255,255,0.85)" />
+            <Ionicons name="list" size={29} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
         </View>
       </View>
@@ -175,7 +175,7 @@ export function ListHeader({
         style={{
           flexDirection: "row",
           backgroundColor: "#fff",
-          borderRadius: 14,
+          borderRadius: 4,
           alignItems: "center",
         }}
       >

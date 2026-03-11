@@ -1,5 +1,12 @@
 import React from "react";
-import { View, Text, Image, ActivityIndicator, Pressable, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  ActivityIndicator,
+  Pressable,
+  Alert,
+} from "react-native";
 import type { ListItem } from "../lib/types";
 import { ItemRow } from "./ItemRow";
 
@@ -95,10 +102,18 @@ export const ListFooter = React.memo(function ListFooter({
       )}
 
       {items.length === 0 && !isLoading && (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
           <Image
             source={require("../assets/cartara_empty_fancy.png")}
-            style={{ width: 300, height: 300, marginBottom: -30, marginTop: -75 , opacity: 0.75 }}
+            style={{
+              width: 300,
+              height: 300,
+              marginBottom: -30,
+              marginTop: -75,
+              opacity: 0.75,
+            }}
             resizeMode="contain"
           />
           <Text
@@ -114,4 +129,4 @@ export const ListFooter = React.memo(function ListFooter({
       )}
     </>
   );
-}
+});

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -321,13 +321,12 @@ function RecipeCard({
       style={{
         width: CARD_W,
         backgroundColor: "#fff",
-        borderRadius: 20,
+        borderRadius: 4,
         marginBottom: 20,
-        overflow: "hidden",
         shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.16,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 3 },
         elevation: 4,
       }}
     >
@@ -337,7 +336,15 @@ function RecipeCard({
           activeOpacity={0.9}
           onPress={() => onViewDetail(recipe)}
         >
-          <View style={{ width: CARD_W, height: HERO_H }}>
+          <View
+            style={{
+              width: CARD_W,
+              height: HERO_H,
+              overflow: "hidden",
+              borderTopLeftRadius: 4,
+              borderTopRightRadius: 4,
+            }}
+          >
             <Image
               source={{ uri: recipe.image_url }}
               style={{ width: CARD_W, height: HERO_H }}
@@ -1091,6 +1098,8 @@ function AddToListSheet({
   const [selectedListId, setSelectedListId] = useState<string | undefined>(
     undefined,
   );
+  const listScrollRef = useRef<ScrollView>(null);
+  const chipOffsets = useRef<Record<string, number>>({});
 
   const { data: listsData } = useQuery<ShoppingList[]>({
     queryKey: ["shoppingLists"],
@@ -1109,19 +1118,56 @@ function AddToListSheet({
     }
   }, [visible, currentList]);
 
+  // Scroll selected chip into view whenever selection or lists change
+  React.useEffect(() => {
+    if (!selectedListId) return;
+    // Delay to allow chip onLayout callbacks to fire before scrolling
+    const t = setTimeout(() => {
+      const x = chipOffsets.current[selectedListId];
+      if (x != null) {
+        listScrollRef.current?.scrollTo({
+          x: Math.max(0, x - 16),
+          animated: true,
+        });
+      }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [selectedListId, lists.length]);
+
   const handleAdd = useCallback(async () => {
     if (!recipe) return;
     setAdding(true);
     try {
+      // Snapshot active item names before adding so we can diff afterwards
+      const before =
+        qc.getQueryData<{ name: string; checked: number }[]>([
+          "listItems",
+          selectedListId,
+        ]) ?? [];
+      const activeNamesBefore = new Set(
+        before
+          .filter((i) => i.checked === 0)
+          .map((i) => i.name.toLowerCase().trim()),
+      );
+
       const rawText = recipe.ingredients
         .map((ing) => ing.raw ?? ing.name)
         .join("\n");
-      await parseAndAddItems(rawText, selectedListId);
-      setAddedCount(recipe.ingredients.length);
-      setSkippedCount(0);
+      const res = await parseAndAddItems(rawText, selectedListId);
+      const returned: { name: string }[] = Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      const alreadyActive = returned.filter((i) =>
+        activeNamesBefore.has(i.name.toLowerCase().trim()),
+      ).length;
+      const newlyAdded = returned.length - alreadyActive;
+
+      setAddedCount(newlyAdded);
+      setSkippedCount(alreadyActive);
       setDone(true);
       qc.invalidateQueries({ queryKey: ["listItems", selectedListId] });
-      setTimeout(onClose, 1800);
+      setTimeout(onClose, 2200);
     } catch {
       Alert.alert("Error", "Could not add items. Please try again.");
       setAdding(false);
@@ -1165,29 +1211,16 @@ function AddToListSheet({
               fontSize: 18,
               fontWeight: "800",
               color: COLORS.ink,
-              marginBottom: 4,
+              marginBottom: 16,
             }}
           >
-            Add to shopping list
-          </Text>
-          <Text style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20 }}>
-            {recipe?.ingredients.length ?? 0} ingredients from "
-            {recipe?.name ?? ""}"
+            Choose a list:
           </Text>
 
           {lists.length > 1 && (
             <View style={{ marginBottom: 16 }}>
-              <Text
-                style={{
-                  fontWeight: "600",
-                  color: COLORS.ink,
-                  marginBottom: 10,
-                  fontSize: 13,
-                }}
-              >
-                Choose a list:
-              </Text>
               <ScrollView
+                ref={listScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
@@ -1198,6 +1231,9 @@ function AddToListSheet({
                     <TouchableOpacity
                       key={list.id}
                       onPress={() => setSelectedListId(list.id)}
+                      onLayout={(e) => {
+                        chipOffsets.current[list.id] = e.nativeEvent.layout.x;
+                      }}
                       style={{
                         backgroundColor: active ? COLORS.teal : COLORS.surface,
                         borderRadius: 10,
@@ -1232,7 +1268,10 @@ function AddToListSheet({
               maxHeight: 160,
             }}
           >
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ alignItems: "center" }}
+            >
               {recipe?.ingredients.map((ing, i) => (
                 <Text
                   key={i}
@@ -1240,9 +1279,10 @@ function AddToListSheet({
                     color: COLORS.ink,
                     fontSize: 13,
                     paddingVertical: 2,
+                    textAlign: "center",
                   }}
                 >
-                  · {ing.name}
+                  {ing.name}
                 </Text>
               ))}
             </ScrollView>
@@ -1265,13 +1305,13 @@ function AddToListSheet({
           >
             {adding && !done ? (
               <ActivityIndicator color="#fff" size="small" />
-            ) : (
+            ) : done ? (
               <Ionicons
-                name={done ? "checkmark-circle-outline" : "cart-outline"}
+                name="checkmark-circle-outline"
                 size={20}
                 color="#fff"
               />
-            )}
+            ) : null}
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
               {done
                 ? skippedCount > 0 && addedCount === 0
@@ -1584,7 +1624,7 @@ export default function InspirationScreen() {
                     backgroundColor: active
                       ? "rgba(255,255,255,0.95)"
                       : "rgba(255,255,255,0.2)",
-                    borderRadius: 20,
+                    borderRadius: 4,
                     paddingHorizontal: 16,
                     paddingVertical: 8,
                     flexDirection: "row",

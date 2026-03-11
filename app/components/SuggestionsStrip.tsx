@@ -139,6 +139,7 @@ export function SuggestionsStrip({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 20,
+          paddingBottom: 8,
           gap: 10,
         }}
       >
@@ -147,7 +148,7 @@ export function SuggestionsStrip({
             key={i}
             style={{
               backgroundColor: s._type === "recipe" ? "#E6F4F6" : CARD,
-              borderRadius: 16,
+              borderRadius: 4,
               padding: 14,
               width: 148,
               height: 140,
@@ -155,10 +156,10 @@ export function SuggestionsStrip({
               borderColor: s._type === "recipe" ? "#B8D9DF" : BORDER,
               justifyContent: "space-between",
               shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.07,
-              shadowRadius: 8,
-              elevation: 3,
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.16,
+              shadowRadius: 4,
+              elevation: 4,
             }}
           >
             <TouchableOpacity

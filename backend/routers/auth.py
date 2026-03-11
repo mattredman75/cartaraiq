@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -46,6 +46,7 @@ class UserOut(BaseModel):
     name: str
     role: str = "user"
     auth_provider: Optional[str] = None
+    avatar_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -365,6 +366,52 @@ def update_me(
     db.refresh(current_user)
     log_audit(db, action="user_update", request=request, user_id=current_user.id, detail={"old_name": old_name, "new_name": name})
     return current_user
+
+
+@router.post("/me/avatar", response_model=UserOut)
+async def upload_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a profile avatar image. Stored on disk and served via /uploads/avatars/."""
+    import os, shutil
+
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, WebP or GIF images are accepted.")
+
+    # Derive extension from content-type
+    ext_map = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+    ext = ext_map.get(file.content_type or "", "jpg")
+
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "backend", "uploads", "avatars")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    filename = f"{current_user.id}.{ext}"
+    dest = os.path.join(uploads_dir, filename)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    avatar_url = f"{settings.app_base_url}/uploads/avatars/{filename}"
+    current_user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(current_user)
+    log_audit(db, action="avatar_upload", request=request, user_id=current_user.id)
+    return current_user
+
+
+@router.delete("/me/avatar", status_code=204)
+def delete_avatar(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove the user's avatar."""
+    current_user.avatar_url = None
+    db.commit()
+    log_audit(db, action="avatar_delete", request=request, user_id=current_user.id)
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)

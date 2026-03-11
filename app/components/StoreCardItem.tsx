@@ -37,12 +37,20 @@ export function StoreCardItem({
         onLongPress={onLongPress}
         delayLongPress={500}
         activeOpacity={0.8}
+        style={{
+          borderRadius: 4,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.16,
+          shadowRadius: 4,
+          elevation: 4,
+        }}
       >
         <View
           style={{
             width: cardWidth,
             height: cardHeight,
-            borderRadius: 16,
+            borderRadius: 4,
             overflow: "hidden",
             backgroundColor: program.logo_background || "transparent",
           }}
@@ -63,12 +71,20 @@ export function StoreCardItem({
       onLongPress={onLongPress}
       delayLongPress={500}
       activeOpacity={0.8}
+      style={{
+        borderRadius: 4,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.16,
+        shadowRadius: 4,
+        elevation: 4,
+      }}
     >
       <View
         style={{
           width: cardWidth,
           height: cardHeight,
-          borderRadius: 16,
+          borderRadius: 4,
           overflow: "hidden",
         }}
       >
