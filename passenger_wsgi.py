@@ -2,6 +2,12 @@ import sys
 import os
 import asyncio
 
+# Activate virtualenv so Passenger picks up all installed packages
+_venv = "/home/tradecom/virtualenv/cartaraiq_api/3.11"
+_site = os.path.join(_venv, "lib", "python3.11", "site-packages")
+if _site not in sys.path:
+    sys.path.insert(0, _site)
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from backend.main import app
