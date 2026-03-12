@@ -116,7 +116,6 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingVertical: 10,
     paddingHorizontal: 10,
-
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.18,
