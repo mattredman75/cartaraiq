@@ -258,8 +258,6 @@ function ItemRowInner({
           inGroup
             ? {
                 marginLeft: 14,
-                borderLeftWidth: 2,
-                borderLeftColor: "#4FB8C8",
               }
             : undefined
         }

@@ -71,17 +71,11 @@ export function GroupHeader({
 
       {/* Group name */}
       <View style={styles.nameRow}>
-        <Ionicons
-          name="folder-open-outline"
-          size={14}
-          color={TEAL_LIGHT}
-          style={{ marginRight: 5 }}
-        />
         <Text style={styles.groupName} numberOfLines={1}>
-          {group.name}
-        </Text>
-        <Text style={styles.itemCount}>
-          {itemCount} {itemCount === 1 ? "item" : "items"}
+          {group.name}{" "}
+          <Text style={styles.itemCount}>
+            ({itemCount} {itemCount === 1 ? "item" : "items"})
+          </Text>
         </Text>
       </View>
 
@@ -92,7 +86,7 @@ export function GroupHeader({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionBtn}
         >
-          <Ionicons name="pencil-outline" size={15} color={TEAL} />
+          <Ionicons name="create-outline" size={16} color={TEAL} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -100,7 +94,7 @@ export function GroupHeader({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionBtn}
         >
-          <Ionicons name="trash-outline" size={15} color="#E57373" />
+          <Ionicons name="close-circle-outline" size={17} color={TEAL} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -122,8 +116,6 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingVertical: 10,
     paddingHorizontal: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: TEAL_LIGHT,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.18,
@@ -159,7 +151,9 @@ const styles = StyleSheet.create({
   itemCount: {
     fontSize: 11,
     color: "#64748B",
-    marginLeft: 6,
+    fontWeight: "400",
+    textTransform: "none",
+    letterSpacing: 0,
   },
   actions: {
     flexDirection: "row",

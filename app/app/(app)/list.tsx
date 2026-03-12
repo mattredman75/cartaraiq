@@ -227,7 +227,10 @@ export default function ListScreen() {
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsPullRefreshing(true);
-    await refetch();
+    await Promise.all([
+      refetch(),
+      qc.refetchQueries({ queryKey: ["itemGroups", listId] }),
+    ]);
     setIsPullRefreshing(false);
   }, [refetch]);
 
@@ -695,7 +698,7 @@ export default function ListScreen() {
               onDragEnd={({ data }) =>
                 handleGroupItemsReorder(entry.group.id, data)
               }
-              activationDistance={24}
+              activationDistance={1}
               autoscrollThreshold={10}
               autoscrollSpeed={75}
               renderItem={({

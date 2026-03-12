@@ -11,7 +11,8 @@
     "web": "expo start --web",
     "deploy": "eas workflow:run create-production-builds.yml",
     "local-build": "rm -rf ios  && eas build --platform ios --profile development --local",
-    "local-server": "npx expo start --dev-client --clear",
+    "local-server": "npx expo start --dev-client --clear --host 0.0.0.0",
+    "local-server-tunnel": "npx expo start --dev-client --clear --tunnel",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
@@ -33,7 +34,7 @@
     "expo-document-picker": "~55.0.8",
     "expo-file-system": "~55.0.10",
     "expo-font": "~55.0.4",
-    "expo-image-picker": "~55.0.11",
+    "expo-image-picker": "~55.0.12",
     "expo-linear-gradient": "~55.0.8",
     "expo-linking": "~55.0.7",
     "expo-local-authentication": "^55.0.8",
