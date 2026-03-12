@@ -697,6 +697,7 @@ def get_item_groups(
 def create_item_group(
     list_id: str,
     payload: CreateGroupRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -729,6 +730,14 @@ def create_item_group(
 
     db.commit()
     db.refresh(group)
+    tokens = _get_list_member_tokens(db, list_id, current_user.id)
+    if tokens:
+        background_tasks.add_task(
+            send_push_notifications, tokens,
+            f"{current_user.name} created a group",
+            payload.name,
+            {"type": "list_update", "list_id": list_id},
+        )
     return group
 
 
@@ -736,6 +745,7 @@ def create_item_group(
 def rename_item_group(
     group_id: str,
     payload: RenameGroupRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -743,15 +753,25 @@ def rename_item_group(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found.")
     _has_list_access(db, group.list_id, current_user.id)
+    list_id = group.list_id
     group.name = payload.name.strip()
     db.commit()
     db.refresh(group)
+    tokens = _get_list_member_tokens(db, list_id, current_user.id)
+    if tokens:
+        background_tasks.add_task(
+            send_push_notifications, tokens,
+            f"{current_user.name} renamed a group",
+            group.name,
+            {"type": "list_update", "list_id": list_id},
+        )
     return group
 
 
 @router.delete("/item-groups/{group_id}", status_code=204)
 def delete_item_group(
     group_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -760,6 +780,8 @@ def delete_item_group(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found.")
     _has_list_access(db, group.list_id, current_user.id)
+    list_id = group.list_id
+    group_name = group.name
 
     # Ungrouping items: keep their current sort_order, just clear group_id
     db.query(ListItem).filter(ListItem.group_id == group_id).update(
@@ -767,6 +789,14 @@ def delete_item_group(
     )
     db.delete(group)
     db.commit()
+    tokens = _get_list_member_tokens(db, list_id, current_user.id)
+    if tokens:
+        background_tasks.add_task(
+            send_push_notifications, tokens,
+            f"{current_user.name} removed a group",
+            group_name,
+            {"type": "list_update", "list_id": list_id},
+        )
 
 
 @router.put("/groups/{list_id}/reorder", status_code=204)

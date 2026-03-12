@@ -92,6 +92,13 @@ function AuthGate() {
     usePushNotifications({
       onMaintenanceUpdate,
       onLoyaltyProgramsUpdated: refreshLoyaltyPrograms,
+      onListUpdate: useCallback(
+        (listId: string) => {
+          qc.invalidateQueries({ queryKey: ["listItems", listId] });
+          qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
+        },
+        [qc],
+      ),
     });
 
   // Initial status check (single request, no polling)

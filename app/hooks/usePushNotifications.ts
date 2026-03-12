@@ -32,11 +32,14 @@ interface UsePushNotificationsOptions {
   onMaintenanceUpdate?: (maintenance: boolean, message: string) => void;
   /** Called when a loyalty_programs_updated silent push arrives */
   onLoyaltyProgramsUpdated?: () => void;
+  /** Called when a list_update push arrives — invalidate that list's queries */
+  onListUpdate?: (listId: string) => void;
 }
 
 export function usePushNotifications({
   onMaintenanceUpdate,
   onLoyaltyProgramsUpdated,
+  onListUpdate,
 }: UsePushNotificationsOptions = {}) {
   const tokenRef = useRef<string | null>(null);
   const notificationListener = useRef<any>(null);
@@ -109,8 +112,14 @@ export function usePushNotifications({
           String(data.message ?? ""),
         );
       }
-      if (data?.type === "loyalty_programs_updated" && onLoyaltyProgramsUpdated) {
+      if (
+        data?.type === "loyalty_programs_updated" &&
+        onLoyaltyProgramsUpdated
+      ) {
         onLoyaltyProgramsUpdated();
+      }
+      if (data?.type === "list_update" && data?.list_id && onListUpdate) {
+        onListUpdate(String(data.list_id));
       }
     };
 

@@ -32,6 +32,7 @@ git checkout -b <feature-branch-name>
 **Branch naming convention:** use a short, kebab-case name that describes the task.
 
 Examples:
+
 - `feature/add-user-auth`
 - `fix/login-redirect-bug`
 - `chore/update-dependencies`
@@ -65,6 +66,7 @@ git commit -m "<sensible commit message describing what changed and why>"
 ```
 
 Commit message guidelines:
+
 - Use imperative mood: "Add user auth", not "Added user auth"
 - Keep the subject line under 72 characters
 - Reference the task or issue number if applicable (e.g. `Fix login redirect (#42)`)
@@ -78,6 +80,7 @@ git push origin <feature-branch-name>
 ### 4c. Raise a Pull Request
 
 Create a PR from `<feature-branch-name>` → `main` with:
+
 - A clear **title** that summarizes the change
 - A **description** that explains what was changed and why
 - Link any related issues
@@ -88,16 +91,34 @@ Create a PR from `<feature-branch-name>` → `main` with:
 - Once approved, merge the PR into `main` via the GitHub UI or CLI.
 - Delete the feature branch after a successful merge.
 
+### 4e. Deploy to Production (if backend changes are included)
+
+After merging, deploy to the production server:
+
+```bash
+# On the server (SSH or cPanel terminal):
+cd /home/tradecom/cartaraiq_api
+git pull origin main
+
+# ALWAYS run migrations after any backend deploy — missing this causes 500s on every request
+python3 -m backend.migrate
+
+# Restart Passenger to pick up code changes
+touch tmp/restart.txt
+```
+
+> ⚠️ **Never skip the migration step.** Any PR that adds a model column, new table, or index must be migrated on production immediately after deploy.
+
 ---
 
 ## Edge Cases
 
-| Situation | Action |
-|---|---|
-| User says "no" to new branch | Confirm the target branch, then proceed from Step 3 |
-| Merge conflict detected | Stop, notify the user, and ask them to resolve the conflict before continuing |
-| Tests / build fails after changes | Do not proceed to Step 4; fix the issue first and re-validate |
-| PR is rejected during review | Address the review comments, push updated commits, then request re-review |
+| Situation                         | Action                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------- |
+| User says "no" to new branch      | Confirm the target branch, then proceed from Step 3                           |
+| Merge conflict detected           | Stop, notify the user, and ask them to resolve the conflict before continuing |
+| Tests / build fails after changes | Do not proceed to Step 4; fix the issue first and re-validate                 |
+| PR is rejected during review      | Address the review comments, push updated commits, then request re-review     |
 
 ---
 
@@ -113,3 +134,4 @@ Create a PR from `<feature-branch-name>` → `main` with:
 - [ ] Raised a PR with a clear title and description
 - [ ] PR approved and merged into `main`
 - [ ] Feature branch deleted
+- [ ] Production: `git pull`, `python3 -m backend.migrate`, `touch tmp/restart.txt`
