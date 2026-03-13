@@ -52,6 +52,7 @@ interface ItemRowProps {
   inGroup?: boolean;
   squareTopCorners?: boolean;
   isHoverTarget?: boolean;
+  disableSwipe?: boolean;
 }
 
 function ItemRowInner({
@@ -64,6 +65,7 @@ function ItemRowInner({
   inGroup = false,
   squareTopCorners = false,
   isHoverTarget = false,
+  disableSwipe = false,
 }: ItemRowProps) {
   const { dragDirection, setDragDirection } =
     React.useContext(ScrollInfoContext);
@@ -153,6 +155,7 @@ function ItemRowInner({
   const swipeGesture = React.useMemo(
     () =>
       Gesture.Pan()
+        .enabled(!disableSwipe)
         .activeOffsetX([-8, 8])
         .failOffsetY([-10, 10])
         .onUpdate((e) => {
@@ -191,11 +194,11 @@ function ItemRowInner({
             });
           }
         }),
-    [onDelete],
+    [onDelete, disableSwipe],
   );
 
   const swipeableAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateXShared.value }],
+    transform: [{ translateX: Math.min(0, translateXShared.value) }],
   }));
 
   const confirmDelete = () => {
@@ -310,11 +313,7 @@ function ItemRowInner({
               ]}
             >
               {/* Left zone: checkbox + name */}
-              <TouchableOpacity
-                onPress={onToggle}
-                onLongPress={onLongPress}
-                delayLongPress={400}
-                activeOpacity={0.7}
+              <View
                 style={{
                   flex: 1,
                   flexDirection: "row",
@@ -322,69 +321,92 @@ function ItemRowInner({
                   gap: 12,
                 }}
               >
-                <View
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 13,
-                    borderWidth: 2,
-                    borderColor: item.checked === 1 ? TEAL : BORDER,
-                    backgroundColor: item.checked === 1 ? TEAL : "transparent",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                {/* Checkbox dot — only this toggles checked state */}
+                <TouchableOpacity
+                  onPress={onToggle}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  {item.checked === 1 && (
-                    <Text
-                      style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}
-                    >
-                      ✓
-                    </Text>
-                  )}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text
+                  <View
                     style={{
-                      fontSize: 15,
-                      fontWeight: "600",
-                      color: item.checked === 1 ? MUTED : TEXT,
-                      textDecorationLine:
-                        item.checked === 1 ? "line-through" : "none",
-                      flexShrink: 1,
+                      width: 26,
+                      height: 26,
+                      borderRadius: 13,
+                      borderWidth: 2,
+                      borderColor: item.checked === 1 ? TEAL : BORDER,
+                      backgroundColor:
+                        item.checked === 1 ? TEAL : "transparent",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {item.unit
-                      ? item.name
-                      : item.quantity > 1
-                        ? `${item.quantity} ${item.name}`
-                        : item.name}
-                  </Text>
-                  {!!item.unit && (
+                    {item.checked === 1 && (
+                      <Text
+                        style={{
+                          color: "#fff",
+                          fontSize: 13,
+                          fontWeight: "700",
+                        }}
+                      >
+                        ✓
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {/* Name area — long press to group */}
+                <TouchableOpacity
+                  onLongPress={onLongPress}
+                  delayLongPress={400}
+                  activeOpacity={1}
+                  style={{ flex: 1 }}
+                >
+                  <View style={{ flex: 1 }}>
                     <Text
-                      style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "600",
+                        color: item.checked === 1 ? MUTED : TEXT,
+                        textDecorationLine:
+                          item.checked === 1 ? "line-through" : "none",
+                        flexShrink: 1,
+                      }}
                     >
-                      {`${Math.max(1, item.quantity)} ${item.unit}`}
+                      {item.unit
+                        ? item.name
+                        : item.quantity > 1
+                          ? `${item.quantity} ${item.name}`
+                          : item.name}
                     </Text>
-                  )}
-                  {false && item.times_added > 3 && (
-                    <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                      Added {item.times_added}× before
-                    </Text>
-                  )}
-                  {item.added_by_name && (
-                    <Text style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>
-                      Added by {item.added_by_name}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
+                    {!!item.unit && (
+                      <Text
+                        style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}
+                      >
+                        {`${Math.max(1, item.quantity)} ${item.unit}`}
+                      </Text>
+                    )}
+                    {false && item.times_added > 3 && (
+                      <Text
+                        style={{ fontSize: 11, color: MUTED, marginTop: 1 }}
+                      >
+                        Added {item.times_added}× before
+                      </Text>
+                    )}
+                    {item.added_by_name && (
+                      <Text
+                        style={{ fontSize: 11, color: MUTED, marginTop: 1 }}
+                      >
+                        Added by {item.added_by_name}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
 
               {/* Drag handle — only for unchecked items */}
               {drag && (
                 <TouchableOpacity
-                  onLongPress={drag}
-                  delayLongPress={100}
+                  onPressIn={drag}
                   hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                   style={{ paddingLeft: 4 }}
                 >
