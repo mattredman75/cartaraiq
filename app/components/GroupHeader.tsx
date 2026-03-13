@@ -11,7 +11,7 @@ import type { ItemGroup } from "../lib/types";
 
 const TEAL = "#1B6B7A";
 const TEAL_LIGHT = "#4FB8C8";
-const BG_HEADER = "#C8D4D8";
+const BG_HEADER = TEAL;
 
 interface Props {
   group: ItemGroup;
@@ -66,7 +66,7 @@ export function GroupHeader({
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={styles.dragHandle}
       >
-        <Ionicons name="reorder-three-outline" size={20} color={TEAL} />
+        <Ionicons name="reorder-three-outline" size={20} color={TEAL_LIGHT} />
       </TouchableOpacity>
 
       {/* Group name */}
@@ -86,7 +86,7 @@ export function GroupHeader({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionBtn}
         >
-          <Ionicons name="create-outline" size={16} color={TEAL} />
+          <Ionicons name="create-outline" size={16} color={TEAL_LIGHT} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -94,7 +94,7 @@ export function GroupHeader({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionBtn}
         >
-          <Ionicons name="close-circle-outline" size={17} color={TEAL} />
+          <Ionicons name="close-circle-outline" size={17} color={TEAL_LIGHT} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -143,14 +143,14 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 13,
     fontWeight: "700",
-    color: TEAL,
+    color: "#E0F4F7",
     textTransform: "uppercase",
     letterSpacing: 0.6,
     flex: 1,
   },
   itemCount: {
     fontSize: 11,
-    color: "#64748B",
+    color: "#A8D8E0",
     fontWeight: "400",
     textTransform: "none",
     letterSpacing: 0,

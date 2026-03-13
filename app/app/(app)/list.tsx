@@ -76,18 +76,15 @@ function buildFlatData(
 
   for (const item of unchecked) {
     if (item.group_id && groupIds.has(item.group_id)) {
-      // Only group items whose group is actually in the groups array
       const arr = itemsByGroup.get(item.group_id) ?? [];
       arr.push(item);
       itemsByGroup.set(item.group_id, arr);
     } else {
-      // Standalone, or group not yet synced (race) → show as standalone
       standalone.push(item);
     }
   }
-
-  for (const items of itemsByGroup.values()) {
-    items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  for (const arr of itemsByGroup.values()) {
+    arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }
 
   const blocks: { pos: number; entry: FlatEntry }[] = [];
@@ -99,15 +96,13 @@ function buildFlatData(
   }
   for (const group of groups) {
     const items = itemsByGroup.get(group.id) ?? [];
-    if (items.length > 0) {
-      blocks.push({
-        pos: group.sort_order ?? 0,
-        entry: { type: "group", id: `group:${group.id}`, group, items },
-      });
-    }
+    if (items.length === 0) continue;
+    blocks.push({
+      pos: group.sort_order ?? 0,
+      entry: { type: "group", id: `group:${group.id}`, group, items },
+    });
   }
   blocks.sort((a, b) => a.pos - b.pos);
-
   return blocks.map((b) => b.entry);
 }
 
@@ -115,27 +110,20 @@ function deriveReorderPayload(newFlat: FlatEntry[]) {
   const items: { id: string; sort_order: number; group_id: string | null }[] =
     [];
   const groups: { id: string; sort_order: number }[] = [];
-
   let globalPos = 0;
-
   for (const entry of newFlat) {
     if (entry.type === "group") {
       groups.push({ id: entry.group.id, sort_order: globalPos });
-      entry.items.forEach((item, index) => {
-        items.push({
-          id: item.id,
-          sort_order: index,
-          group_id: entry.group.id,
-        });
-      });
+      entry.items.forEach((item, idx) =>
+        items.push({ id: item.id, sort_order: idx, group_id: entry.group.id }),
+      );
       globalPos++;
     } else {
       items.push({
         id: entry.item.id,
-        sort_order: globalPos,
+        sort_order: globalPos++,
         group_id: null,
       });
-      globalPos++;
     }
   }
   return { items, groups };
@@ -167,7 +155,6 @@ export default function ListScreen() {
   );
 
   const inputRef = useRef<TextInput>(null);
-  const outerListRef = useRef<any>(null);
 
   const [dragDirection, setDragDirection] = useState<"up" | "down">("down");
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -242,6 +229,7 @@ export default function ListScreen() {
     // from briefly flashing as standalone during the listItems/itemGroups
     // dual-refetch race.
     placeholderData: (prev) => prev,
+    staleTime: 30_000,
   });
   const flatData = useMemo(
     () => buildFlatData(unchecked, groups),
@@ -531,47 +519,6 @@ export default function ListScreen() {
     handleReorder(params);
   };
 
-  const handleGroupItemsReorder = useCallback(
-    (groupId: string, orderedItems: ListItem[]) => {
-      if (!listId) return;
-
-      const itemsPayload = orderedItems.map((item, index) => ({
-        id: item.id,
-        sort_order: index,
-        group_id: groupId,
-      }));
-
-      qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) => {
-        const updated = itemsPayload.reduce(
-          (map, payload) => {
-            map[payload.id] = payload;
-            return map;
-          },
-          {} as Record<
-            string,
-            { id: string; sort_order: number; group_id: string }
-          >,
-        );
-
-        return old.map((item) =>
-          updated[item.id]
-            ? {
-                ...item,
-                sort_order: updated[item.id].sort_order,
-                group_id: updated[item.id].group_id,
-              }
-            : item,
-        );
-      });
-
-      reorderListGrouped(listId, itemsPayload, []).catch(() => {
-        qc.invalidateQueries({ queryKey: ["listItems", listId] });
-        qc.invalidateQueries({ queryKey: ["itemGroups", listId] });
-      });
-    },
-    [listId, qc],
-  );
-
   const handleConfirmCreateGroup = async (name: string) => {
     if (!pendingGroupItem || !listId) return;
     const item = pendingGroupItem;
@@ -690,43 +637,26 @@ export default function ListScreen() {
               onRename={() => handleRenameGroup(entry.group)}
               onDissolve={() => handleDissolveGroup(entry.group.id)}
             />
-            <DraggableFlatList
-              data={entry.items}
-              keyExtractor={(groupItem) => groupItem.id}
-              scrollEnabled={false}
-              simultaneousHandlers={outerListRef}
-              onDragEnd={({ data }) =>
-                handleGroupItemsReorder(entry.group.id, data)
-              }
-              activationDistance={1}
-              autoscrollThreshold={10}
-              autoscrollSpeed={75}
-              renderItem={({
-                item: groupItem,
-                drag: groupDrag,
-                isActive,
-                getIndex,
-              }) => (
-                <ItemRow
-                  item={groupItem}
-                  onToggle={() => {
-                    const next = groupItem.checked === 0 ? 1 : 0;
-                    toggleMutation.mutate({ id: groupItem.id, checked: next });
-                  }}
-                  onDelete={() => handleDelete(groupItem)}
-                  onLongPress={() => handleLongPress(groupItem)}
-                  drag={groupDrag}
-                  isActive={isActive}
-                  inGroup
-                  squareTopCorners={(getIndex?.() ?? 0) === 0}
-                />
-              )}
-            />
+            {entry.items.map((groupItem, idx) => (
+              <ItemRow
+                key={groupItem.id}
+                item={groupItem}
+                onToggle={() => {
+                  const next = groupItem.checked === 0 ? 1 : 0;
+                  toggleMutation.mutate({ id: groupItem.id, checked: next });
+                }}
+                onDelete={() => handleDelete(groupItem)}
+                onLongPress={() => handleLongPress(groupItem)}
+                inGroup
+                squareTopCorners={idx === 0}
+                disableSwipe
+              />
+            ))}
           </View>
         );
       }
       const item = entry.item;
-      const row = (
+      return (
         <ItemRow
           item={item}
           onToggle={() => {
@@ -739,7 +669,6 @@ export default function ListScreen() {
           isActive={isActive}
         />
       );
-      return row;
     },
     [
       toggleMutation.mutate,
@@ -748,7 +677,6 @@ export default function ListScreen() {
       handleDelete,
       handleRenameGroup,
       handleDissolveGroup,
-      handleGroupItemsReorder,
     ],
   );
 
@@ -873,42 +801,39 @@ export default function ListScreen() {
               onChangeName={setNewListName}
             />
           ) : (
-            <View style={{ flex: 1 }}>
-              <DraggableFlatList
-                ref={outerListRef}
-                data={flatData}
-                keyExtractor={(entry) => entry.id}
-                extraData={flatData}
-                renderItem={renderDraggableItem}
-                onDragEnd={handleDragEnd}
-                activationDistance={24}
-                autoscrollThreshold={10}
-                autoscrollSpeed={85}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={isPullRefreshing}
-                    onRefresh={handleRefresh}
-                    tintColor={TEAL}
-                  />
-                }
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingBottom: 32,
-                  ...(items.length === 0 && !isLoading ? { flexGrow: 1 } : {}),
-                }}
-                containerStyle={{ flex: 1 }}
-                ListHeaderComponent={ListHeaderComponent}
-                ListFooterComponent={ListFooterComponent}
-                ListFooterComponentStyle={
-                  items.length === 0 && !isLoading ? { flex: 1 } : undefined
-                }
-                removeClippedSubviews={false}
-                initialNumToRender={15}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                updateCellsBatchingPeriod={50}
-              />
-            </View>
+            <DraggableFlatList
+              data={flatData}
+              keyExtractor={(entry) => entry.id}
+              extraData={flatData}
+              renderItem={renderDraggableItem}
+              onDragEnd={handleDragEnd}
+              activationDistance={24}
+              autoscrollThreshold={10}
+              autoscrollSpeed={85}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingBottom: 32,
+                ...(items.length === 0 && !isLoading ? { flexGrow: 1 } : {}),
+              }}
+              containerStyle={{ flex: 1 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isPullRefreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={TEAL}
+                />
+              }
+              ListHeaderComponent={ListHeaderComponent}
+              ListFooterComponent={ListFooterComponent}
+              ListFooterComponentStyle={
+                items.length === 0 && !isLoading ? { flex: 1 } : undefined
+              }
+              removeClippedSubviews={false}
+              initialNumToRender={15}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              updateCellsBatchingPeriod={50}
+            />
           )}
         </ScrollInfoContext.Provider>
       </View>
