@@ -22,7 +22,7 @@ interface Props {
   onDissolve: (group: ItemGroup) => void;
 }
 
-export function GroupHeader({
+function GroupHeaderInner({
   group,
   itemCount,
   drag,
@@ -100,6 +100,15 @@ export function GroupHeader({
     </Animated.View>
   );
 }
+
+export const GroupHeader = React.memo(
+  GroupHeaderInner,
+  (prev, next) =>
+    prev.group.id === next.group.id &&
+    prev.group.name === next.group.name &&
+    prev.itemCount === next.itemCount &&
+    prev.isActive === next.isActive,
+);
 
 const styles = StyleSheet.create({
   container: {

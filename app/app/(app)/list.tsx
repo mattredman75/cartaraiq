@@ -63,7 +63,14 @@ const MAX_PANEL_H = 5 * SUGGEST_ITEM_H + 8;
 // ── Flat list mixed-type entry ────────────────────────────────────────────────
 
 type FlatEntry =
-  | { type: "group"; id: string; group: ItemGroup; items: ListItem[] }
+  | { type: "group-header"; id: string; group: ItemGroup; itemCount: number }
+  | {
+      type: "group-item";
+      id: string;
+      item: ListItem;
+      groupId: string;
+      isFirst: boolean;
+    }
   | { type: "item"; id: string; item: ListItem };
 
 function buildFlatData(
@@ -87,11 +94,13 @@ function buildFlatData(
     arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }
 
-  const blocks: { pos: number; entry: FlatEntry }[] = [];
+  type Block = { pos: number; entries: FlatEntry[] };
+  const blocks: Block[] = [];
+
   for (const item of standalone) {
     blocks.push({
       pos: item.sort_order ?? 0,
-      entry: { type: "item", id: item.id, item },
+      entries: [{ type: "item", id: item.id, item }],
     });
   }
   for (const group of groups) {
@@ -99,34 +108,111 @@ function buildFlatData(
     if (items.length === 0) continue;
     blocks.push({
       pos: group.sort_order ?? 0,
-      entry: { type: "group", id: `group:${group.id}`, group, items },
+      entries: [
+        {
+          type: "group-header",
+          id: `group-header:${group.id}`,
+          group,
+          itemCount: items.length,
+        },
+        ...items.map(
+          (item, idx): FlatEntry => ({
+            type: "group-item",
+            id: item.id,
+            item,
+            groupId: group.id,
+            isFirst: idx === 0,
+          }),
+        ),
+      ],
     });
   }
   blocks.sort((a, b) => a.pos - b.pos);
-  return blocks.map((b) => b.entry);
+  return blocks.flatMap((b) => b.entries);
 }
 
-function deriveReorderPayload(newFlat: FlatEntry[]) {
+function normalizeAfterDrag(flat: FlatEntry[]): FlatEntry[] {
+  // Collect group-items by groupId, preserving their new relative order
+  // (that relative order encodes the within-group reorder intent).
+  const groupItemsMap = new Map<string, FlatEntry[]>();
+  for (const entry of flat) {
+    if (entry.type === "group-item") {
+      const arr = groupItemsMap.get(entry.groupId) ?? [];
+      arr.push(entry);
+      groupItemsMap.set(entry.groupId, arr);
+    }
+  }
+
+  const result: FlatEntry[] = [];
+  for (const entry of flat) {
+    if (entry.type === "group-item") continue; // placed after its header below
+    result.push(entry);
+    if (entry.type === "group-header") {
+      const items = groupItemsMap.get(entry.group.id) ?? [];
+      // Recompute isFirst after reorder and push
+      items.forEach((e, idx) => {
+        result.push(
+          e.type === "group-item" ? { ...e, isFirst: idx === 0 } : e,
+        );
+      });
+    }
+  }
+  return result;
+}
+
+function deriveReorderPayload(flat: FlatEntry[]) {
   const items: { id: string; sort_order: number; group_id: string | null }[] =
     [];
   const groups: { id: string; sort_order: number }[] = [];
   let globalPos = 0;
-  for (const entry of newFlat) {
-    if (entry.type === "group") {
-      groups.push({ id: entry.group.id, sort_order: globalPos });
-      entry.items.forEach((item, idx) =>
-        items.push({ id: item.id, sort_order: idx, group_id: entry.group.id }),
-      );
-      globalPos++;
+  const groupItemCounters = new Map<string, number>();
+  // Track which group-header was most recently seen so we can detect
+  // group-items that escaped their group block during a drag.
+  let currentGroupId: string | null = null;
+
+  for (const entry of flat) {
+    if (entry.type === "group-header") {
+      groups.push({ id: entry.group.id, sort_order: globalPos++ });
+      currentGroupId = entry.group.id;
+    } else if (entry.type === "group-item") {
+      if (entry.groupId === currentGroupId) {
+        // Item is inside its own group block — within-group reorder.
+        const idx = groupItemCounters.get(entry.groupId) ?? 0;
+        items.push({ id: entry.item.id, sort_order: idx, group_id: entry.groupId });
+        groupItemCounters.set(entry.groupId, idx + 1);
+      } else {
+        // Item was dragged outside its group — make it standalone.
+        items.push({ id: entry.item.id, sort_order: globalPos++, group_id: null });
+      }
     } else {
-      items.push({
-        id: entry.item.id,
-        sort_order: globalPos++,
-        group_id: null,
-      });
+      items.push({ id: entry.item.id, sort_order: globalPos++, group_id: null });
     }
   }
   return { items, groups };
+}
+
+// Returns true if the entry with `movedEntryId` ended up positioned between
+// another group's header and its last item — i.e., inside a group's block.
+function isDropInsideGroup(flat: FlatEntry[], movedEntryId: string): boolean {
+  const movedIdx = flat.findIndex((e) => e.id === movedEntryId);
+  if (movedIdx === -1) return false;
+
+  const groupInfo = new Map<string, { headerIdx: number; itemIndices: number[] }>();
+  flat.forEach((entry, idx) => {
+    if (entry.type === "group-header") {
+      groupInfo.set(entry.group.id, { headerIdx: idx, itemIndices: [] });
+    } else if (entry.type === "group-item") {
+      groupInfo.get(entry.groupId)?.itemIndices.push(idx);
+    }
+  });
+
+  for (const { headerIdx, itemIndices } of groupInfo.values()) {
+    if (itemIndices.length === 0) continue;
+    const lastItemIdx = Math.max(...itemIndices);
+    // Strictly between header and last item → inside the group block
+    if (movedIdx > headerIdx && movedIdx < lastItemIdx) return true;
+  }
+  return false;
 }
 
 export default function ListScreen() {
@@ -155,8 +241,37 @@ export default function ListScreen() {
   );
 
   const inputRef = useRef<TextInput>(null);
+  // Tracks which entry started the current drag so handleDragEnd can decide
+  // whether to normalize, spring-back, or allow group escape.
+  // groupId is only populated for group-header entries.
+  const draggedEntryRef = useRef<{
+    id: string;
+    type: FlatEntry["type"];
+    groupId?: string;
+  } | null>(null);
 
   const [dragDirection, setDragDirection] = useState<"up" | "down">("down");
+  // Incrementing this key forces DraggableFlatList to fully remount, which is
+  // the only reliable way to reset its internal Reanimated cell positions after
+  // an invalid drag drop.
+  const [listKey, setListKey] = useState(0);
+  const scrollOffsetRef = useRef(0);
+  // After a remount (key change), scroll back to the position the user was at.
+  // We use scrollToOffset via ref rather than contentOffset prop so DraggableFlatList
+  // never receives a stale non-zero contentOffset that can corrupt its internal
+  // Reanimated scroll-offset shared value and mis-position the drag overlay.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listRef = useRef<any>(null);
+  const pendingScrollOffsetRef = useRef(0);
+  useEffect(() => {
+    const offset = pendingScrollOffsetRef.current;
+    if (offset > 0) {
+      pendingScrollOffsetRef.current = 0;
+      requestAnimationFrame(() =>
+        listRef.current?.scrollToOffset({ offset, animated: false }),
+      );
+    }
+  }, [listKey]);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [dropdownDismissed, setDropdownDismissed] = useState(false);
   const slideAnim = useRef(
@@ -515,8 +630,35 @@ export default function ListScreen() {
     });
   };
 
-  const handleDragEnd = (params: { data: FlatEntry[] }) => {
-    handleReorder(params);
+  const handleDragEnd = ({ data }: { data: FlatEntry[] }) => {
+    const dragged = draggedEntryRef.current;
+    draggedEntryRef.current = null;
+
+    if (!dragged || dragged.type === "group-item") {
+      // Group-item drag: allow escape to standalone via context-tracking.
+      handleReorder({ data });
+      return;
+    }
+
+    if (dragged.type === "group-header") {
+      const normalized = normalizeAfterDrag(data);
+      handleReorder({ data: normalized });
+      // If normalization changed the order, DraggableFlatList's internal cell
+      // positions won't match the new flatData. Remount to resync.
+      if (normalized.some((e, i) => e.id !== data[i]?.id)) {
+        pendingScrollOffsetRef.current = scrollOffsetRef.current;
+        setListKey((k) => k + 1);
+      }
+      return;
+    }
+
+    // Standalone item drag: spring back if it landed inside a group's block.
+    if (isDropInsideGroup(data, dragged.id)) {
+      pendingScrollOffsetRef.current = scrollOffsetRef.current;
+      setListKey((k) => k + 1);
+      return;
+    }
+    handleReorder({ data });
   };
 
   const handleConfirmCreateGroup = async (name: string) => {
@@ -568,6 +710,15 @@ export default function ListScreen() {
         text: "Remove group",
         style: "destructive",
         onPress: async () => {
+          // Immediately clear group_id in cache so the action drawer shows
+          // the correct "New group / Add to group" options without waiting
+          // for the network. Also prevents a pending reorderListGrouped call
+          // (fire-and-forget) from racing and writing group_id back after deletion.
+          qc.setQueryData<ListItem[]>(["listItems", listId], (old = []) =>
+            old.map((i) =>
+              i.group_id === groupId ? { ...i, group_id: null } : i,
+            ),
+          );
           try {
             await deleteItemGroup(groupId);
             await Promise.all([
@@ -626,33 +777,45 @@ export default function ListScreen() {
 
   const renderDraggableItem = useCallback(
     ({ item: entry, drag, isActive }: RenderItemParams<FlatEntry>) => {
-      if (entry.type === "group") {
+      if (entry.type === "group-header") {
         return (
-          <View>
-            <GroupHeader
-              group={entry.group}
-              itemCount={entry.items.length}
-              drag={drag}
-              isActive={isActive}
-              onRename={() => handleRenameGroup(entry.group)}
-              onDissolve={() => handleDissolveGroup(entry.group.id)}
-            />
-            {entry.items.map((groupItem, idx) => (
-              <ItemRow
-                key={groupItem.id}
-                item={groupItem}
-                onToggle={() => {
-                  const next = groupItem.checked === 0 ? 1 : 0;
-                  toggleMutation.mutate({ id: groupItem.id, checked: next });
-                }}
-                onDelete={() => handleDelete(groupItem)}
-                onLongPress={() => handleLongPress(groupItem)}
-                inGroup
-                squareTopCorners={idx === 0}
-                disableSwipe
-              />
-            ))}
-          </View>
+          <GroupHeader
+            group={entry.group}
+            itemCount={entry.itemCount}
+            drag={() => {
+              draggedEntryRef.current = {
+                id: entry.id,
+                type: entry.type,
+                groupId: entry.group.id,
+              };
+              drag();
+            }}
+            isActive={isActive}
+            onRename={() => handleRenameGroup(entry.group)}
+            onDissolve={() => handleDissolveGroup(entry.group.id)}
+          />
+        );
+      }
+      if (entry.type === "group-item") {
+        const item = entry.item;
+        return (
+          <ItemRow
+            item={item}
+            onToggle={() => {
+              const next = item.checked === 0 ? 1 : 0;
+              toggleMutation.mutate({ id: item.id, checked: next });
+            }}
+            onDelete={() => handleDelete(item)}
+            onLongPress={() => handleLongPress(item)}
+            drag={() => {
+              draggedEntryRef.current = { id: entry.id, type: entry.type };
+              drag();
+            }}
+            isActive={isActive}
+            inGroup
+            squareTopCorners
+            disableSwipe
+          />
         );
       }
       const item = entry.item;
@@ -665,7 +828,10 @@ export default function ListScreen() {
           }}
           onDelete={() => handleDelete(item)}
           onLongPress={() => handleLongPress(item)}
-          drag={drag}
+          drag={() => {
+            draggedEntryRef.current = { id: entry.id, type: entry.type };
+            drag();
+          }}
           isActive={isActive}
         />
       );
@@ -802,13 +968,17 @@ export default function ListScreen() {
             />
           ) : (
             <DraggableFlatList
+              key={String(listKey)}
               data={flatData}
               keyExtractor={(entry) => entry.id}
-              extraData={flatData}
+              ref={listRef}
+              onScrollOffsetChange={(offset) => {
+                scrollOffsetRef.current = offset;
+              }}
               renderItem={renderDraggableItem}
               onDragEnd={handleDragEnd}
               activationDistance={24}
-              autoscrollThreshold={10}
+              autoscrollThreshold={50}
               autoscrollSpeed={85}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
