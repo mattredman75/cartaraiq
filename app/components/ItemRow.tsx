@@ -454,8 +454,6 @@ export const ItemRow = React.memo(
     prev.item.quantity === next.item.quantity &&
     prev.item.unit === next.item.unit &&
     prev.item.checked === next.item.checked &&
-    prev.item.group_id === next.item.group_id &&
-    prev.item.sort_order === next.item.sort_order &&
     prev.inGroup === next.inGroup &&
     prev.squareTopCorners === next.squareTopCorners &&
     Boolean(prev.drag) === Boolean(next.drag) &&
